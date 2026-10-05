@@ -1,0 +1,215 @@
+//! quire-eval: the calculation engine behind Quire.
+//!
+//! Phase 0 scope is the sheet line model: what each line of a sheet
+//! *is*. The tokenizer, parser, and evaluator land in Phase 1; their
+//! contract is the Semantics section of spec.md.
+
+use std::fmt;
+
+/// What a line of a sheet is, decided by its leading shape.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineKind {
+    /// Empty or whitespace only.
+    Blank,
+    /// First non-space characters are `//`.
+    Comment,
+    /// ATX-style heading: 1-6 `#` then a space, tab, or end of line.
+    Heading,
+    /// Starts something the engine may evaluate (see `classify`).
+    Expression,
+    /// Anything else: prose the engine leaves alone.
+    Text,
+}
+
+impl fmt::Display for LineKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            LineKind::Blank => "blank",
+            LineKind::Comment => "comment",
+            LineKind::Heading => "heading",
+            LineKind::Expression => "expression",
+            LineKind::Text => "text",
+        };
+        f.write_str(s)
+    }
+}
+
+/// One physical line of a sheet.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Line {
+    /// One-based position in the sheet; blanks count, numbers never skip.
+    pub number: usize,
+    pub raw: String,
+    pub kind: LineKind,
+}
+
+impl Line {
+    pub fn new(number: usize, raw: impl Into<String>) -> Self {
+        let raw = raw.into();
+        let kind = classify(&raw);
+        Line { number, raw, kind }
+    }
+}
+
+/// Split a sheet into classified lines.
+pub fn parse_sheet(text: &str) -> Vec<Line> {
+    text.lines()
+        .enumerate()
+        .map(|(i, raw)| Line::new(i + 1, raw))
+        .collect()
+}
+
+/// Classification rules (spec.md, "Line kinds"):
+///
+/// - blank and comment shapes come first;
+/// - 1-6 `#` then space/tab/end is a heading (`#tag` is not);
+/// - a line is an Expression if it starts with a digit, `.digit`,
+///   `$digit`, or `(`; or with `+`/`-` *glued* to more content
+///   (`-5` is signed, `- 5` is a markdown bullet); or leads with the
+///   keyword `total`; or is a variable statement (`name = ...`,
+///   single `=`, not `==`); or leads with an identifier immediately
+///   followed by `*`, `/`, `^`, or `(` (a reference line, `milk * 2`);
+/// - everything else is Text.
+///
+/// Leading whitespace is insignificant. Classification is shape-only:
+/// an Expression line the Phase 1 parser rejects errors on its own
+/// line and never affects its neighbours. Identifier-led lines keep
+/// `+`/`-` for prose ("War and Peace - part 1" is a sentence): a
+/// missed calculation beats a false error.
+fn classify(raw: &str) -> LineKind {
+    let t = raw.trim_start();
+    if t.is_empty() {
+        return LineKind::Blank;
+    }
+    if t.starts_with("//") {
+        return LineKind::Comment;
+    }
+    if is_heading(t) {
+        return LineKind::Heading;
+    }
+    if is_expression(t) {
+        return LineKind::Expression;
+    }
+    LineKind::Text
+}
+
+fn is_heading(t: &str) -> bool {
+    let hashes = t.bytes().take_while(|&b| b == b'#').count();
+    if hashes == 0 || hashes > 6 {
+        return false;
+    }
+    matches!(t[hashes..].chars().next(), None | Some(' ') | Some('\t'))
+}
+
+fn is_expression(t: &str) -> bool {
+    let b = t.as_bytes();
+    match b[0] {
+        c if c.is_ascii_digit() => true,
+        b'(' => true,
+        b'.' | b'$' => b.get(1).is_some_and(|&c| c.is_ascii_digit()),
+        b'+' | b'-' => b.get(1).is_some_and(|&c| !c.is_ascii_whitespace()),
+        _ => is_word_expression(t),
+    }
+}
+
+/// Word-led lines: the keyword `total`, assignments, and reference
+/// lines. A reference is an identifier immediately followed (spaces
+/// allowed) by a multiplication-family operator or a group; `+`/`-`
+/// and bare identifiers stay prose.
+fn is_word_expression(t: &str) -> bool {
+    if t == "total" || t.starts_with("total ") || t.starts_with("total\t") {
+        return true;
+    }
+    if is_assignment(t) {
+        return true;
+    }
+    let ident_end = t
+        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .unwrap_or(t.len());
+    if ident_end == 0 {
+        return false;
+    }
+    matches!(
+        t[ident_end..].trim_start().chars().next(),
+        Some('*') | Some('/') | Some('^') | Some('(')
+    )
+}
+
+fn is_assignment(t: &str) -> bool {
+    let Some(eq) = t.find('=') else {
+        return false;
+    };
+    if t[eq..].starts_with("==") {
+        return false;
+    }
+    let name = t[..eq].trim_end();
+    let mut chars = name.chars();
+    let first = chars.next();
+    first.is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use LineKind as K;
+
+    #[test]
+    fn classifies_lines() {
+        let cases: &[(&str, LineKind)] = &[
+            ("", K::Blank),
+            ("   ", K::Blank),
+            ("\t\t", K::Blank),
+            ("// a note", K::Comment),
+            ("  // indented note", K::Comment),
+            ("# Title", K::Heading),
+            ("###### deep", K::Heading),
+            ("#", K::Heading),
+            ("  ## indented heading", K::Heading),
+            ("#\tTabbed", K::Heading),
+            ("#tag", K::Text),
+            ("####### seven hashes", K::Text),
+            ("3 + 4", K::Expression),
+            ("  12 * (2 + 1)", K::Expression),
+            (".5 + 1", K::Expression),
+            ("$5.60 * 3", K::Expression),
+            ("(1 + 2) * 3", K::Expression),
+            ("-5", K::Expression),
+            ("+7", K::Expression),
+            ("total", K::Expression),
+            ("total * 2", K::Expression),
+            ("rate = 12", K::Expression),
+            ("  rate  =  12", K::Expression),
+            ("_private = 1", K::Expression),
+            ("milk * 2", K::Expression),
+            ("milk / price", K::Expression),
+            ("milk(2)", K::Expression),
+            // `- ` and `+ ` with a space read as markdown bullets.
+            ("- 5", K::Text),
+            ("+ 7", K::Text),
+            ("- buy milk", K::Text),
+            // `==` is not assignment; prose stays prose.
+            ("rate == 12", K::Text),
+            ("a sentence = not an assignment", K::Text),
+            ("$ rate", K::Text),
+            // `+`/`-` after a name, and bare names, are prose: a missed
+            // calculation beats a false error cell.
+            ("milk + 2", K::Text),
+            ("War and Peace - part 1", K::Text),
+            ("A note (important)", K::Text),
+            ("Notes on the renovation", K::Text),
+        ];
+        for (raw, want) in cases {
+            assert_eq!(Line::new(1, *raw).kind, *want, "line {raw:?}");
+        }
+    }
+
+    #[test]
+    fn sheet_lines_are_numbered_without_skipping_blanks() {
+        let sheet = parse_sheet("milk = 3.50\n\nmilk * 2\n");
+        let numbers: Vec<_> = sheet.iter().map(|l| l.number).collect();
+        assert_eq!(numbers, vec![1, 2, 3]);
+        let kinds: Vec<_> = sheet.iter().map(|l| l.kind).collect();
+        assert_eq!(kinds, vec![K::Expression, K::Blank, K::Expression]);
+    }
+}

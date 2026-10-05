@@ -1,0 +1,10 @@
+[package]
+name = "quire"
+description = "Soulver-style notepad calculator for Linux (GTK4)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+quire-eval = { path = "../quire-eval" }

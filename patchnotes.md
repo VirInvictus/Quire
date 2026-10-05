@@ -19,3 +19,9 @@ release.
   formatting). Table tests, file-driven `.quire` script sheets with
   golden answers and error assertions, an adversarial corpus, and
   house-shaped CI.
+- Markdown-surface research applied to the roadmap: a custom `quire`
+  GtkSourceView language spec and scheme pair for Phase 3, contextual
+  list continuation and a heading-jump popover for Phase 4, a gated
+  Phase 8 preview decision with researched options, and a recorded
+  deliberately-skipped list. Apostrophe and Marker cloned as
+  references.

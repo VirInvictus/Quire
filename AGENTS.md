@@ -44,3 +44,21 @@ verbatim, via `--cleanup=verbatim`.
 - Documents are plain UTF-8 files; no sidecars, no lock-in.
 - Sheets are user data: the app never writes a sheet the user did not
   ask to save.
+
+## Reference shelf (read-only, not ours)
+
+Cloned into `~/.gitrepos/` for Quire's benefit; never edit them, never
+commit anything into them:
+
+- `notecalc3` (AGPL-3.0): the closest Soulver-like. Learn semantics
+  and behavior ONLY; AGPL code must never be copied or translated
+  into MIT-licensed Quire.
+- `kalker` (MIT): parser ladder, span discipline, file-driven engine
+  tests; embeddable alternative engine.
+- `numbat` (MIT OR Apache-2.0): the Phase 6 embed candidate
+  (`Context::new_without_importer()`, `set_exchange_rates`).
+- `gnome-text-editor` (GPL-3.0): the GTK4 + sourceview5 app shape.
+- `gtksourceview` (LGPL-2.1+, linked): the right-gutter renderer API
+  behind the answers column; style scheme XML format.
+- `gnome-calculator` (GPL-3.0): currency-provider caching pattern
+  (ECB XML under `~/.cache`, stale works offline).

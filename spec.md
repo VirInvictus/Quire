@@ -42,6 +42,10 @@ Leading whitespace is insignificant for classification.
 | Expression | shape rule below | text + result |
 | Text | everything else | text |
 
+`//` starts a comment that runs to the end of the line: on its own
+line the line is a Comment; trailing an expression, the tokenizer
+strips it and nothing changes.
+
 ### Expression shape
 
 A line is an Expression if any of these holds:
@@ -92,8 +96,12 @@ errors on its own line.
 - **`answer`** refers to the most recent Expression result above the
   reading line.
 - **`total`** on a line by itself sums every Expression result since
-  the previous `total` line (or the top of the sheet). Consecutive
-  totals therefore act as subtotals.
+  the previous `total` line or the most recent heading, whichever is
+  later (or from the top of the sheet). Consecutive totals therefore
+  act as subtotals, and a heading sections the math as well as the
+  page. A total reports the sum and starts a new one; it does not add
+  itself. A line that merely uses `total` (such as `total * 2`) is an
+  ordinary expression line: its result joins the sum like any other.
 - **Errors.** Division by zero, unknown names, malformed expressions.
   An error belongs to its line only.
 
@@ -130,10 +138,19 @@ without a decimal part.
 
 ## Testing
 
-- `quire-eval`: table-driven unit tests (classification, tokenizer,
+- Table-driven unit tests in-module: classification, tokenizer,
   parser, the four percent forms, variables, `answer`, `total`,
-  errors) plus golden sheet tests: a whole sheet of text against its
-  expected results column.
+  errors, formatting.
+- File-driven script tests: every
+  `crates/quire-eval/tests/scripts/*.quire` file is a sheet carrying
+  its own expectations. `//= N` trailing a line pins that line's
+  answer (the golden-sheet layer, including every example in this
+  spec); `# expect: N` after an expression line asserts its result;
+  `# err: text` asserts a failure whose message contains `text`. One
+  runner walks the directory; dropping in a new `.quire` file is
+  enough.
+- An adversarial corpus: malformed, hostile, and pathological sheets
+  must evaluate without panicking, errors contained to their lines.
 - `quire`: the model layer is tested headlessly. Visual acceptance is
   a human display pass, not CI.
 

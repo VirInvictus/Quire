@@ -1,0 +1,15 @@
+// Totals reset at a previous total or a heading (the Phase 1 gate:
+// both act as boundaries). Assignments contribute; a total reads the
+// live running sum and starts a new one when it reports; and a line
+// that merely uses `total` (like `total * 2`) contributes its own
+// result like any expression.
+milk = 3.50
+milk * 2 //= 7
+eggs = 4.50
+total //= 15
+total //= 0
+# Dairy
+milk * 2 //= 7
+total * 2 //= 14
+total //= 21
+total //= 0

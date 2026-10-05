@@ -1,0 +1,10 @@
+// The examples written into spec.md, as a golden sheet.
+milk = 3.50
+milk * 2 //= 7
+rate = 12
+rate == 12
+-5 //= -5
+- buy milk
+200 + 15% //= 230
+rate * 4 //= 48
+total //= 295.5

@@ -15,54 +15,56 @@ work lands, with the current recommendation recorded here.
     numbat, gnome-text-editor, gtksourceview, gnome-calculator.
     (2026-10-05)
 
-- [ ] **Phase 1: `quire-eval` core.** Goal: the whole Semantics section
-  of spec.md, green.
+- [x] **Phase 1: `quire-eval` core.** Goal: the whole Semantics section
+  of spec.md, green. (2026-10-05)
   - Tokenizer
-    - [ ] Tokens with byte spans on every token. Kalker's missing
+    - [x] Tokens with byte spans on every token. Kalker's missing
       error spans are the cautionary tale; we never ship an error
       without a position.
-    - [ ] Number literals, identifiers, keywords (`total`, `answer`,
+    - [x] Number literals, identifiers, keywords (`total`, `answer`,
       `of`), operators, parentheses; `//` comment stripping.
-    - [ ] `in`-style unit conversion stays out until Phase 6; reserve
+    - [x] `in`-style unit conversion stays out until Phase 6; reserve
       nothing in the grammar that would collide with prose.
   - Parser
-    - [ ] Recursive descent, one function per precedence level
+    - [x] Recursive descent, one function per precedence level
       (kalker's shape): `+ -` over `* /` over right-associative `^`
       over unary minus over postfix `%` over primary.
-    - [ ] The four percent forms land in the term/primary positions
+    - [x] The four percent forms land in the term/primary positions
       per spec; `%` on the left of `+`/`-` is an error (NoteCalc
       behavior).
-    - [ ] Assignment as a statement form (`name = expr`), not
+    - [x] Assignment as a statement form (`name = expr`), not
       smuggled through the expression parser (kalker's `WasStmt`
       sentinel is the anti-pattern).
-    - [ ] AST nodes carry spans.
+    - [x] AST nodes carry spans.
   - Evaluator
-    - [ ] `Context` struct: ordered bindings, nearest-binding-above
+    - [x] `Context` struct: ordered bindings, nearest-binding-above
       wins; `answer`; totals state.
-    - [ ] **[D]** `total` reset boundary. NoteCalc resets its sum at
-      each heading; our spec says previous `total`. Recommendation:
-      both act as boundaries (a heading sections a sheet).
-    - [ ] Per-line `LineResult`: value or error with span and message;
+    - [x] **[D]** `total` reset boundary: both a heading and a
+      previous `total` act as boundaries (Brandon's pick, 2026-10-05).
+    - [x] Per-line `LineResult`: value or error with span and message;
       referencing a failed line poisons the referencing line with a
       clear message (NoteCalc behavior).
-    - [ ] Error enum with Display strings, span-carrying throughout.
-    - [ ] Result formatting per spec: thousands grouping, 12
+    - [x] Error enum with Display strings, span-carrying throughout.
+    - [x] Result formatting per spec: thousands grouping, 12
       significant digits, trimmed zeros.
   - Tests
-    - [ ] Table unit tests per feature: classification, parser,
+    - [x] Table unit tests per feature: classification, parser,
       percent forms, variables, `answer`, `total`, errors.
-    - [ ] File-driven engine tests: `tests/*.quire` scripts whose last
-      line must hold true, auto-registered as cases (kalker's
-      integration-testing pattern).
-    - [ ] Golden sheet tests: whole sheet text against its expected
-      results column, including every example in spec.md.
-    - [ ] Evaluator totality: no panic on arbitrary input; a
-      hand-built adversarial corpus first (property testing via
-      `proptest` is a dependency ask, deferred and gated).
-    - [ ] Sign-off gate: test plan and the **[D]** total boundary go
-      to Brandon before implementation.
+    - [x] File-driven engine tests: `tests/*.quire` scripts with
+      `//=` golden answers, `# expect:` result assertions, and
+      `# err:` failure assertions, auto-run by a directory walker
+      (kalker's integration-testing pattern).
+    - [x] Golden sheet tests: whole sheet text against its expected
+      results column, including every example in spec.md
+      (`scripts/spec-examples.quire`).
+    - [x] Evaluator totality: no panic on arbitrary input; an
+      adversarial corpus covers depth bombs, hostile unicode, and
+      pathological literals (property testing via `proptest` stays a
+      gated future ask).
+    - [x] Sign-off gate: test plan and the **[D]** total boundary
+      approved by Brandon before implementation (2026-10-05).
   - CI (tail of the phase)
-    - [ ] GitHub Actions to the house shape: SHA-pinned actions,
+    - [x] GitHub Actions to the house shape: SHA-pinned actions,
       least-privilege permissions, concurrency cancellation, timeouts,
       pinned toolchain; `cargo fmt --check`, `clippy -D warnings`,
       `cargo test`.
@@ -182,7 +184,9 @@ work lands, with the current recommendation recorded here.
     with the interactive chooser.
   - [ ] Mixed-line evaluation (NoteCalc's classify-by-failure):
     `50 apples at 3 EUR` evaluates the math and demotes the words.
-    Gated on golden prose tests.
+    Gated on golden prose tests. (First candidate to pull forward:
+    writing natural sheets keeps hitting the strict-shape rule, three
+    times during Phase 1 alone.)
   - [ ] Reverse percent forms: `41 is 17% on what`, `20 is what
     percent of 60`.
   - [ ] Implicit multiplication (`2pi`, `3(4+5)`) with a dedicated

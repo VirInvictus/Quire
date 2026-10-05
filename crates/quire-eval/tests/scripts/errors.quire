@@ -1,0 +1,14 @@
+// Errors live and die on their own line; the sheet around them is
+// untouched.
+10 / 0
+# err: division by zero
+ghost * 2
+# err: unknown name
+(answer)
+# err: no previous line
+2 +
+# err: expected a value
+total = 5
+# err: cannot assign
+milk + 2
+// `+` after a name is prose per spec; no error, no result.

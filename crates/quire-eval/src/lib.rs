@@ -1,8 +1,22 @@
 //! quire-eval: the calculation engine behind Quire.
 //!
-//! Phase 0 scope is the sheet line model: what each line of a sheet
-//! *is*. The tokenizer, parser, and evaluator land in Phase 1; their
-//! contract is the Semantics section of spec.md.
+//! Phase 0 delivered the sheet line model (what each line of a sheet
+//! *is*). Phase 1 adds the pipeline over it: [`tokenize`] to tokens,
+//! [`parser::parse`] to a statement AST, and [`evaluate_sheet`] to
+//! one outcome per line. The contract for all of it is the Semantics
+//! section of spec.md.
+
+mod error;
+mod eval;
+mod format;
+mod parser;
+mod tokens;
+
+pub use error::{ErrKind, QuireError, Span};
+pub use eval::{LineOutcome, Outcome, evaluate_line, evaluate_sheet};
+pub use format::format_number;
+pub use parser::{Expr, Stmt};
+pub use tokens::{Tok, tokenize};
 
 use std::fmt;
 

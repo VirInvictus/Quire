@@ -19,6 +19,9 @@ write sums (`200 + 15%`, `milk = 3.50`, `total`).
 ## Non-goals
 
 - No cloud, accounts, sync, or telemetry. Local-first, plain files.
+- No live prices and no network-required features, ever: prices and
+  rates enter sheets as manually typed snapshots (Phase 9, budgets
+  and portfolios are built on them).
 - No WYSIWYG markdown rendering in v1 (highlighting only; a rendered
   preview is a separate later decision).
 - No plugin or extension system.

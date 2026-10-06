@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="io.github.virinvictus.Quire" path="/io/github/virinvictus/Quire/">
+    <key name="show-line-numbers" type="b">
+      <default>false</default>
+      <summary>Show line numbers</summary>
+      <description>Show line numbers in the left gutter. Default off:
+        the answers column is the sheet's numbering.</description>
+    </key>
+    <key name="window-width" type="i">
+      <default>940</default>
+      <summary>Window width</summary>
+    </key>
+    <key name="window-height" type="i">
+      <default>680</default>
+      <summary>Window height</summary>
+    </key>
+    <key name="last-folder" type="ms">
+      <default>nothing</default>
+      <summary>Last used folder</summary>
+      <description>Where the open and save dialogs start.</description>
+    </key>
+    <key name="recent-files" type="as">
+      <default>[]</default>
+      <summary>Recent sheets</summary>
+      <description>Most-recently-opened sheet paths, newest first,
+        capped at eight.</description>
+    </key>
+  </schema>
+</schemalist>

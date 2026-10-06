@@ -193,15 +193,23 @@ the work lands, with the current recommendation recorded here.
       screenshot-verified during the phase; the 2x check (GDK_SCALE
       does not apply on Wayland) rides Brandon's display pass.
 
-- [ ] **Phase 4: Documents and editing UX.**
-  - [ ] GSettings schema: window size, last folder, wrap,
-    show-line-numbers, font override, style variant.
-  - [ ] Open/save via FileDialog; plain UTF-8, LF, no BOM.
-  - [ ] Unsaved-changes guard (the gnome-text-editor
-    save-changes-dialog shape).
-  - [ ] File-changed-on-disk monitoring: at minimum detect and warn
-    (gnome-text-editor's buffer-monitor pattern).
-  - [ ] Recent sheets list (ordered, in GSettings).
+- [ ] **Phase 4: Documents and editing UX.** Document backbone
+  shipped 2026-10-06 (GSettings schema compiled at startup into the
+  user data dir; open/save/save-as via FileDialog; dirty tracking
+  with the unsaved-changes guard on vir-gtk's Alert; recents in
+  GSettings driving the header menu; file monitor reloading clean
+  sheets; single-window model per Brandon's [D] pick; line-numbers
+  toggle behind GSettings + Ctrl+L - the GSettings bind needed its
+  BindingBuilder .build(), the silent no-op cost a debug session).
+  Brandon's interactive save-dialog round-trip pending.
+  - [x] GSettings schema: window size, last folder,
+    show-line-numbers, recent files.
+  - [x] Line-numbers toggle (menu + Ctrl+L), default off.
+  - [x] Open/save/save-as via FileDialog; plain UTF-8.
+  - [x] Unsaved-changes guard (vir-gtk Alert shape).
+  - [x] File-changed-on-disk monitoring: reload while clean, stand
+    down while dirty.
+  - [x] Recent sheets list (ordered, in GSettings).
   - [ ] Drag-and-drop a text file onto the window opens it.
   - [ ] Auto list continuation on Enter, contextual: continue `- ` or
     numbering only when the line Enter was pressed on is a list or
@@ -220,7 +228,8 @@ the work lands, with the current recommendation recorded here.
     rule is enough for v1: Tab completes only on a unique match.
   - [ ] Ctrl+C with no selection copies the current line's answer;
     Ctrl+B jumps to a variable's definition (cheap NoteCalc wins).
-  - [ ] **[D]** One window with one sheet for v1 (recommend) vs tabs.
+  - [x] **[D]** One window with one sheet for v1 (Brandon's pick,
+    2026-10-06) vs tabs.
 
 - [ ] **Phase 5: Packaging.**
   - [ ] Real icon replacing the placeholder logo; hicolor sizes.
@@ -283,7 +292,30 @@ the work lands, with the current recommendation recorded here.
   - [ ] Region model: decimal-point-aligned answers per heading region
     (NoteCalc's renderer alignment).
 
-- [ ] **Phase 8 (post-1.0, gated): rendered preview, if ever.**
+- [ ] **Phase 8 (post-0.1.0): functions and tags.** The Soulver
+  parity core that budgets and portfolios stand on.
+  - [ ] **[D]** Tag syntax gate: `@tag` on expression lines, summed
+    by `total @tag` (Soulver 4's tags workflow). Recommendation:
+    `@name` glued to the end of an expression line.
+  - [ ] User functions: `name(params) = ...` with the body on
+    following lines or inline after the equals (choose at the gate).
+  - [ ] Recurrence phrases: `$1200/month` and `/year` normalize to
+    per-day equivalents for budget math.
+  - [ ] Definition-sheet ergonomics: a variable reference section at
+    the top of a sheet (name, value, note) that reads like a table.
+- [ ] **Phase 9: budgets and portfolios (all offline).** Sheet
+  primitives first per Brandon's pick: no structured views until the
+  primitives stabilize.
+  - [ ] Manual price snapshots: `AAPL = 190` with an optional dated
+    form (`AAPL = 190 @ 2026-10-06`); portfolio sheets are variables
+    (shares) times snapshot prices, summed and allocated by percent.
+  - [ ] Budget sheets: category sections with heading-bounded
+    subtotals, recurrence phrases, budget-vs-actual as paired
+    variables. NO live prices, ever (spec Non-goals): prices and
+    rates enter sheets as manually typed snapshots.
+  - [ ] Sheet templates shipped with the app (budget, portfolio,
+    trip - Soulver 4's trip planning is a recipe, not a feature).
+- [ ] **Phase 10 (post-1.0, gated): rendered preview, if ever.**
   - [ ] **[D]** The gate itself. Research read (2026-10-05): Quire's
     answers column IS the preview; the default is to never embed
     WebKit (webkit2gtk-4.1 is ~134 MB installed plus helper
@@ -297,6 +329,31 @@ the work lands, with the current recommendation recorded here.
     html2pango path Fractal uses). Pandoc stays an export path,
     never a bundled engine (it is the heaviest module in Apostrophe's
     flatpak).
+
+## Soulver 4 parity register (Brandon's bar: 1:1 parity, then some)
+
+Soulver 4's shipped surface mapped to Quire phases. Items land as
+their phase gates open; the register is the checklist, not a promise
+of order.
+
+| Soulver 4 | Quire status |
+|---|---|
+| Variables / definition sheets | Shipped (Phase 1); definition-sheet ergonomics in Phase 8 |
+| Percent forms | Shipped (Phase 1) |
+| Totals / subtotals | Shipped (Phase 1, heading-or-total bounded) |
+| Comments / headings / markdown structure | Shipped (Phases 0, 3) |
+| Line highlighting | Partial: reference lines + answers (Phases 2-3); cursor-line highlight queued |
+| Tags workflow | Phase 8 |
+| Functions | Phase 8 |
+| Units | Phase 6 (numbat embed gate) |
+| Currency (manual snapshots) | Phase 6 + Phase 9 (never live) |
+| Calendar / date math | Phase 6 (numbat jiff module) |
+| Trip planning | Phase 9 (a sheet template recipe) |
+| Autocomplete | Phase 4 |
+| Line numbers | Phase 4 (toggle) |
+| Agent-friendly CLI | Post-1.0: `quire-eval` already enables a trivial `quire` bin |
+| Budgets / portfolios | Phase 9 (offline, sheet primitives first) |
+| Rendered preview / sharing | Phase 10 gate (deliberately skipped for now) |
 
 ## Deliberately skipped (markdown-app research, 2026-10-05)
 

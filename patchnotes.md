@@ -61,6 +61,14 @@ release.
   sub-context can see past the line's opening token. README.md and
   AGENTS.md brought current with the shipped reality, and the docs
   flow is now written into AGENTS.md as a checklist.
+- Phase 4 document backbone: single-window model with new / open /
+  save / save-as (FileDialog), dirty tracking with an
+  unsaved-changes guard, recent-sheets menu, window-size and
+  last-folder persistence in GSettings (schema compiled at startup
+  into the user data dir), file monitoring that reloads clean sheets,
+  and a toggle-able line-numbers gutter (menu + Ctrl+L). Live
+  session caught the silent GSettings bind no-op (the BindingBuilder
+  must be .build()-ed).
 - Three user-facing fixes from Brandon's first live session: TextView
   `line-height` clipped glyph ascenders on every line (the property is
   dropped; GTK clips whenever it is set), the caret was invisible on

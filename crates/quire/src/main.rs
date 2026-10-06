@@ -6,6 +6,7 @@ mod answers;
 mod fonts;
 mod page;
 mod renderer;
+mod settings;
 mod styles;
 mod view;
 mod window;
@@ -64,12 +65,13 @@ fn main() -> gtk4::glib::ExitCode {
         portal::connect_dark_changed(app, |_| resplice());
         resplice();
 
-        // language spec + schemes must be in place before the first
-        // buffer asks for them
+        // schema, language spec, and schemes must be in place before
+        // the first window and buffer ask for them
+        settings::install();
         styles::install();
 
-        let win = window::new(app);
-        win.present();
+        let win = window::QuireWindow::new(app);
+        win.window().present();
     });
 
     app.run()

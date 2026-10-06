@@ -8,7 +8,7 @@ authors.workspace = true
 
 [dependencies]
 quire-eval = { path = "../quire-eval" }
-gtk4 = "0.11"
+gtk4 = { version = "0.11", features = ["v4_10"] }
 # no version-gated features: the renderer needs nothing past the
 # base API, and CI's Ubuntu runner ships GtkSourceView 5.12
 sourceview5 = "0.11"

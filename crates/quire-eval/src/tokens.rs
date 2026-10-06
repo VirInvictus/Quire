@@ -27,6 +27,11 @@ pub enum Tok {
     /// `@YYYY-MM-DD` trailing an assignment (spec.md "Dated
     /// snapshots"); documentation metadata, never an expression part.
     DateStamp(String),
+    /// The unit engine's conversion arrow, `->` (spec.md "Unit
+    /// expressions"). No scalar grammar uses it: a line carrying it
+    /// fails the scalar parse and routes to the bridge, which reads
+    /// the raw text.
+    Arrow,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -92,6 +97,10 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, QuireError> {
                 });
             }
             b'+' => push(&mut out, &mut i, Tok::Plus),
+            b'-' if b.get(i + 1) == Some(&b'>') => {
+                push(&mut out, &mut i, Tok::Arrow);
+                i += 2;
+            }
             b'-' => push(&mut out, &mut i, Tok::Minus),
             b'*' => push(&mut out, &mut i, Tok::Star),
             b'^' => push(&mut out, &mut i, Tok::Caret),

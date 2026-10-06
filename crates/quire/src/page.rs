@@ -22,17 +22,51 @@ type ReindexCallback = Box<dyn Fn(&SheetIndex)>;
 
 use crate::{styles, view::QuireView};
 
-/// First-run content: the shortest sheet that shows what Quire is.
+/// First-run content: the tour. Every computational line must
+/// evaluate (pinned by the test below) - a welcome sheet with an
+/// error cell is a broken first impression.
 const WELCOME_SHEET: &str = "\
 # Welcome to Quire
 
-// notes and math share the sheet
-groceries = 42.50
-takeout = 23.75
+// notes, lists, and math share one plain-text sheet, and every
+// expression answers on its own line - live, as you type.
+
+- lists read as markdown; Enter continues them
+- math just calculates
+- edit anything below and the answers follow
+
+## Percents, the way you say them
+200 + 15%
+240 - 10%
+15% of 80
+answer * 2
+
+## Variables, references, and totals
+rent = 950 @fixed
+groceries = 320 @fixed
+fun = 150 @fun
+total @fixed
+total @fun
 total
 
-// edit a line and the answers follow; or try:
-200 + 15%
+## Units come built in
+5 kg + 300 g
+2 hours + 30 minutes
+26.2 miles -> km
+
+## Hand-typed price snapshots
+aapl = 10 * 190 @ 2026-10-06 @stocks
+msft = 4 * 410 @ 2026-10-06 @stocks
+bonds = 5000 @bonds
+total @stocks
+whole = total
+
+## Editing
+// Tab completes a variable name; Ctrl+C copies the answer
+// Ctrl+B jumps to a definition; Ctrl+L toggles line numbers
+// drag any text file onto the window to open it
+
+// this sheet is yours - edit it, or start fresh with Ctrl+N
 ";
 
 pub struct QuirePage {
@@ -444,5 +478,34 @@ impl QuirePage {
         let mut at = ins;
         self.buffer.insert_interactive(&mut at, completion, true);
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::WELCOME_SHEET;
+
+    /// The tour must evaluate clean: an error cell on the starter
+    /// page is a broken first impression, and a silent regression in
+    /// the engine would land exactly here.
+    #[test]
+    fn welcome_sheet_has_no_error_cells() {
+        for (line, cell) in crate::answers::compute(WELCOME_SHEET) {
+            assert!(!cell.is_error, "line {line}: {}", cell.text);
+        }
+    }
+
+    #[test]
+    fn welcome_sheet_carries_the_tour() {
+        let cells = crate::answers::compute(WELCOME_SHEET);
+        let texts: Vec<&str> = cells.values().map(|c| c.text.as_str()).collect();
+        for expected in [
+            "230", "216", "12", "24", "1,420", "1,270", "150", "5300 g", "150 min", "3,540",
+        ] {
+            assert!(
+                texts.contains(&expected),
+                "the tour lost its {expected} line: {texts:?}"
+            );
+        }
     }
 }

@@ -144,6 +144,16 @@ impl QuireWindow {
         save_as_action.connect_activate(move |_, _| win.action_save_as());
         self.window.add_action(&save_as_action);
 
+        // parameterized new-from-template: the template id as payload
+        let win = self.clone();
+        let template_action = gio::SimpleAction::new("template", Some(glib::VariantTy::STRING));
+        template_action.connect_activate(move |_, payload| {
+            if let Some(id) = payload.and_then(|v| v.str()) {
+                win.action_template(id);
+            }
+        });
+        self.window.add_action(&template_action);
+
         // parameterized recent-open: the path as its string payload
         let win = self.clone();
         let recent_action = gio::SimpleAction::new("recent", Some(glib::VariantTy::STRING));
@@ -204,6 +214,13 @@ impl QuireWindow {
         let view_section = gio::Menu::new();
         view_section.append(Some("Line numbers"), Some("win.line-numbers"));
         menu.append_section(None, &view_section);
+
+        let template_section = gio::Menu::new();
+        for (name, _) in crate::templates::TEMPLATES {
+            let escaped = name.to_lowercase().replace('\'', "\\'");
+            template_section.append(Some(name), Some(&format!("win.template('{escaped}')")));
+        }
+        menu.append_section(Some("New from template"), &template_section);
 
         let recent_section = gio::Menu::new();
         for path in settings::get().strv("recent-files") {
@@ -294,6 +311,21 @@ impl QuireWindow {
         } else {
             then();
         }
+    }
+
+    /// New from a shipped template: load its content untitled (a
+    /// save goes through save-as, like a fresh sheet).
+    fn action_template(&self, id: &str) {
+        let page = self.page.clone();
+        let id = id.to_string();
+        self.with_discard_check(move || {
+            if let Some((_, sheet)) = crate::templates::TEMPLATES
+                .iter()
+                .find(|(name, _)| name.to_lowercase() == id)
+            {
+                page.load(sheet, None);
+            }
+        });
     }
 
     fn action_new(&self) {

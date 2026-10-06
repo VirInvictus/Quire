@@ -9,6 +9,7 @@ mod page;
 mod renderer;
 mod settings;
 mod styles;
+mod templates;
 mod view;
 mod window;
 

@@ -1,0 +1,16 @@
+# Portfolio
+
+// prices are hand-typed snapshots - update them and everything follows
+
+## Positions
+aapl = 10 * 190 @ 2026-10-06 @stocks
+msft = 4 * 410 @ 2026-10-06 @stocks
+bonds = 5000 @bonds
+
+whole = total
+total @stocks
+total @bonds
+
+## Allocation
+stocks_pct = (aapl + msft) / whole * 100
+bonds_pct = bonds / whole * 100

@@ -129,8 +129,8 @@ struct Ctx {
     vars: HashMap<String, Num>,
     answer: Option<Num>,
     subtotal: Sum,
-    /// Per-tag sums behind `total @tag` (spec.md "Tags"). Reset by
-    /// headings and plain totals; `total @tag` is a pure view.
+    /// Per-tag sums behind `total @tag` (spec.md "Tags"): sheet-wide,
+    /// reset only by a plain `total`; `total @tag` is a pure view.
     tag_sums: HashMap<String, Sum>,
 }
 
@@ -213,8 +213,9 @@ pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
             LineKind::Expression => Some(eval_line(&line.raw, &mut ctx, &mut bridge)),
             LineKind::Reference => eval_reference(&line.raw, &mut ctx, &mut bridge),
             LineKind::Heading => {
+                // headings section the plain math; tag sums are
+                // sheet-wide views (spec.md "Tags")
                 ctx.subtotal = Sum::S(0.0);
-                ctx.tag_sums.clear();
                 None
             }
             _ => None,
@@ -844,12 +845,16 @@ total @housing
     }
 
     #[test]
-    fn tags_carry_quantities_and_headings_reset_them() {
+    fn tags_are_sheet_wide_across_headings() {
+        // headings section the plain math, but tag sums accumulate
+        // across them: the budget pattern is categories in sections
+        // with the views at the end
         let sheet = "\
 5 kg @bulk
-total @bulk
 # Aisle
+3 kg @bulk
 total @bulk
+total
 ";
         let rendered: Vec<_> = evaluate_sheet(sheet)
             .into_iter()
@@ -858,9 +863,10 @@ total @bulk
         assert_eq!(
             rendered,
             vec![
-                "5 kg".to_string(), // tagged unit line
-                "5 kg".to_string(), // the view sums through the engine
-                "0".to_string(),    // the heading reset the tag sums
+                "5 kg".to_string(), // the first tagged unit line
+                "3 kg".to_string(), // the second, after the heading
+                "8 kg".to_string(), // the view spans the headings
+                "3 kg".to_string(), // the plain total is section-bounded
             ]
         );
     }

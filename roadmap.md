@@ -349,17 +349,18 @@ the work lands, with the current recommendation recorded here.
   months of platform tax before one feature ships, and numbat's
   module system is already the unit-layer extension seam); revisit
   only if a real extension need appears post-1.0.
-  - [ ] Manual price snapshots: `AAPL = 190` with an optional dated
+  - [x] Manual price snapshots: `AAPL = 190` with an optional dated
     form (`AAPL = 190 @ 2026-10-06`); portfolio sheets are variables
     (shares) times snapshot prices, summed and allocated by percent.
-    **Next in queue** (Brandon's pick, 2026-10-06, after tags): the
-    dated snapshot syntax claims `@` + date (coexisting with `@` +
-    ident tags), the snapshot value binds like any result, and the
-    budget/portfolio sheet templates ship with the app.
+    (2026-10-06: the dated syntax, and the portfolio + budget sheet
+    templates shipped behind a "New from template" menu section -
+    the templates are the worked examples, pinned by tests.)
   - [ ] Budget sheets: category sections with heading-bounded
     subtotals, recurrence phrases, budget-vs-actual as paired
     variables. NO live prices, ever (spec Non-goals): prices and
-    rates enter sheets as manually typed snapshots.
+    rates enter sheets as manually typed snapshots. (The budget
+    template ships; recurrence phrases and budget-vs-actual lines
+    remain.)
   - [ ] Sheet templates shipped with the app (budget, portfolio,
     trip - Soulver 4's trip planning is a recipe, not a feature).
 - [ ] **Phase 10 (post-1.0, gated): rendered preview, if ever.**

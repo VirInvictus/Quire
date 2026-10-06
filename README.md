@@ -34,6 +34,12 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
   `15% of 200` is 30
 - Markdown structure (headings, lists, emphasis, `//` comments) as
   styled text; documents are plain UTF-8, no lock-in
+- Tags (`@housing`, `total @housing`) that group lines into
+  sheet-wide views, and units with dimension-checked math (`5 kg +
+  300 g`, `26.2 miles -> km`)
+- Hand-typed price snapshots with dates (`aapl = 10 * 190 @
+  2026-10-06`) - portfolio and budget sheets ship as templates in
+  the menu
 - Wayland-native GTK4, no libadwaita, Kanagawa-themed through
   [vir-gtk](https://github.com/VirInvictus/vir-gtk), bundled JetBrains
   Mono

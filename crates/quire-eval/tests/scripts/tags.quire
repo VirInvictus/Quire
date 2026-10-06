@@ -36,3 +36,11 @@ total @bulk
 // an unknown tag sums to zero, like an empty section
 total @ghost
 # expect: 0
+
+// a heading does not touch tag sums, but the plain total above
+// reset them: only the apples since then are in the view
+# Later section
+apples = 3 @food
+# expect: 3
+total @food
+# expect: 3

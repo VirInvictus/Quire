@@ -1,0 +1,25 @@
+# Budget
+
+// tags group the categories; the views update as you type
+
+## Income
+paycheck = 2400 @income
+side = 350 @income
+
+## Fixed
+rent = 950 @fixed
+utilities = 120 @fixed
+internet = 45 @fixed
+
+## Variable
+groceries = 320 @variable
+transport = 90 @variable
+fun = 150 @fun
+
+## The picture
+total @income
+total @fixed
+total @variable
+total @fun
+leftover = paycheck + side - (rent + utilities + internet + groceries + transport + fun)
+total

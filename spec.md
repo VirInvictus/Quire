@@ -133,8 +133,10 @@ followed by an identifier, each preceded by whitespace (`lunch =
   since the most recent heading - through the unit engine when any
   item is a quantity, exactly like the plain total's dimension
   rules. A `total @a @b` sums lines carrying either tag.
-- **Boundaries.** A heading resets plain and tag sums together. A
-  plain `total` reports and resets the plain sum and the tag sums.
+- **Boundaries.** Tag sums are sheet-wide: a heading sections the
+  plain math but never touches them, so categories can live in
+  their own sections with the views gathered at the end. A plain
+  `total` reports and resets the plain sum and the tag sums.
   `total @tag` is a pure view: it reports and resets nothing.
 - **Plain totals include tagged lines.** A tagged result counts
   toward the section's plain total exactly as an untagged one does;

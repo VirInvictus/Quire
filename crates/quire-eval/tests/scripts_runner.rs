@@ -111,6 +111,17 @@ fn run_script(path: &Path) {
                     idx + 1
                 );
             }
+            // unit-engine results compare against the engine's own
+            // rendering (`# expect: 5.3 kg`), which is also its source
+            (Want::Value(want), Outcome::Quantity(v)) => {
+                let got = v.to_string();
+                assert_eq!(
+                    got,
+                    *want,
+                    "{name}: line {} wanted {want:?}, got {got:?}",
+                    idx + 1
+                );
+            }
             (Want::Err(sub), Outcome::Failed(e)) => {
                 let msg = e.kind.to_string();
                 assert!(
@@ -128,6 +139,11 @@ fn run_script(path: &Path) {
                 "{name}: line {} wanted error containing {sub:?}, got {}",
                 idx + 1,
                 quire_eval::format_number(*v)
+            ),
+            (Want::Err(sub), Outcome::Quantity(v)) => panic!(
+                "{name}: line {} wanted error containing {sub:?}, got {}",
+                idx + 1,
+                v
             ),
         }
     }

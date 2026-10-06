@@ -81,6 +81,44 @@ neighbouring lines. Digit-led prose (`2 tickets to the show`) is a
 known cost of the deterministic rule: it classifies as Expression and
 errors on its own line.
 
+## Unit expressions (Phase 6)
+
+Expression lines may carry physical units, powered by an embedded
+[numbat](https://numbat.dev) context (MIT OR Apache-2.0, built with
+its network-fetching and plotting features off). This section is the
+contract for the unit layer; currency and dates have not landed yet.
+
+- **Routing.** A line evaluates on the scalar engine exactly as
+  before, byte for byte. The numbat path takes an Expression line
+  only when the scalar path declines it: the line's parse failed, or
+  its evaluation touched a quantity-valued name, and the line's
+  tokens include no Quire keyword (`of`, `total`, `answer`), no
+  percent, and at least one identifier numbat knows as a unit.
+  Everything else keeps today's behavior, including its errors.
+- **Quantities.** A unit line's result is a quantity: a number and a
+  dimension (`5 kg + 300 g` is `5.3 kg`). Quantity results bind like
+  any result: toward `answer`, toward totals, visible to lines below,
+  and usable in later unit lines by name. Bare references to a
+  quantity show the quantity. Quire's scalar variables seed the unit
+  path as plain numbers, so `milk * 2` with `milk = 3.50` works in a
+  unit line too.
+- **Totals.** A `total` over scalar results is unchanged. A total
+  that includes quantity results sums them dimension-safely through
+  the unit engine: like dimensions add (`3 kg + 5 kg`); a mismatch
+  (`3 kg` against `5 m`) fails the total line and nothing else.
+  Scalar and quantity results never silently mix: a total mixing them
+  fails the same way.
+- **Formatting.** Scalar results keep the Results formatting rules
+  (comma grouping, 12 significant digits, trimmed). Quantity results
+  render in the unit engine's own notation.
+- **Errors.** A unit line the engine rejects fails on its own line
+  with the unit engine's message; a failed unit line is contained
+  like any other. Known sharp edge: a sheet variable named after a
+  unit-engine builtin (say `pi`) fails on the unit path with a clash
+  error.
+- **Toolchain.** The numbat dependency raises the workspace floor
+  from Rust 1.85 to numbat's 1.88.
+
 ## Evaluation semantics (Phase 1)
 
 - **Numbers.** Decimal literals (`12`, `3.50`). No scientific

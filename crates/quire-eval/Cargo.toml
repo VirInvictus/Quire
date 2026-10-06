@@ -7,3 +7,7 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
+# The unit engine behind spec.md "Unit expressions". Network
+# fetching and plotting stay off: no numbat code here reaches the
+# network, and the plotly dependency never enters the tree.
+numbat = { version = "1.24", default-features = false }

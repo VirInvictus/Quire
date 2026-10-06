@@ -2,6 +2,25 @@
 
 Newest first.
 
+## Unreleased
+
+- Phase 6 opens: the unit layer. quire-eval embeds numbat (MIT OR
+  Apache-2.0, built with its network-fetch and plotting features
+  off) as the engine for expression lines the scalar path declines:
+  `5 kg + 300 g` answers `5300 g`, `2 hours + 30 minutes` answers
+  `150 min`. Quantity results bind like any result - toward
+  `answer`, toward totals, visible to lines below - and `total`
+  sums like-dimensioned quantities through the engine, refusing a
+  mixed sum on the total line only. `bag + 300 g` stays prose (the
+  identifier-led rule covers quantities too); `(bag) + 300 g` asks
+  for the arithmetic. The scalar engine is untouched and the whole
+  existing corpus passes byte-identical; the unit corpus lands as
+  `tests/scripts/units.quire`. spec.md gained the "Unit
+  expressions" section (amended first, per the contract). The
+  embedded engine loads its prelude once per process and clones it
+  per keystroke pass (~1 ms); currency waits on the no-network
+  non-goal ruling, dates ride a later chunk.
+
 ## v0.1.0 (2026-10-06)
 
 - Initial skeleton: two-crate cargo workspace (`quire-eval` engine +

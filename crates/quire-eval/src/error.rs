@@ -33,6 +33,10 @@ pub enum ErrKind {
     DivideByZero,
     /// A result that is not finite (`1e308 * 10`).
     OutOfRange,
+    /// A unit-engine message for a line the unit path took (the
+    /// engine's own first message line; see spec.md "Unit
+    /// expressions").
+    Unit(String),
 }
 
 impl fmt::Display for ErrKind {
@@ -54,6 +58,7 @@ impl fmt::Display for ErrKind {
             ErrKind::NoAnswer => write!(f, "`answer` has no previous line"),
             ErrKind::DivideByZero => f.write_str("division by zero"),
             ErrKind::OutOfRange => f.write_str("result out of range"),
+            ErrKind::Unit(message) => f.write_str(message),
         }
     }
 }

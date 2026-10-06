@@ -263,23 +263,34 @@ the work lands, with the current recommendation recorded here.
     decision when the gate opens.
 
 - [ ] **Phase 6: Currency, units, dates.**
-  - [ ] **[D]** The gate: own implementation vs embedding numbat.
-    Research points hard at embed: `numbat::Context::new_without_importer()`
-    plus `interpret()` gives per-evaluation snapshot-and-rollback (a
-    failing line leaves no state), spans on all errors, and MIT.
-    Recommendation: embed.
-  - [ ] If embed: sheet lines compile to numbat source; quantities
-    carry their units; our formatter renders the answers column.
-  - [ ] Currency with an owned fetching layer through numbat's
-    `set_exchange_rates` seam: ECB daily XML, cached under
-    `~/.cache/quire` like gnome-calculator's providers (stale cache
-    works offline; refresh interval in GSettings).
-  - [ ] Dates ride numbat's jiff-backed module (`datetime()`, `now()`,
-    `calendar_add`, `-> tz(...)`).
+  - [x] **[D]** The gate: own implementation vs embedding numbat.
+    Decided 2026-10-06, embed in the additive shape: the live gate
+    prompt went unanswered, so the roadmap's recorded recommendation
+    (embed) governs, refined to additive for userspace safety - the
+    existing corpus stays byte-identical. Numbat joins with
+    default-features off (no network code, no plotly). Full-compile
+    (one engine for every line) remains the possible destination if
+    the seams prove out.
+  - [x] Units land additively (2026-10-06): spec.md "Unit
+    expressions" amended first; quantity results bind like any
+    result (`answer`, totals, visible below); totals sum
+    like-dimensioned quantities through the engine and refuse mixed
+    sums on the total line only; `bag + 300 g` stays prose and
+    `(bag) + 300 g` asks for the arithmetic; quantity rendering is
+    the engine's own notation. Corpus: `tests/scripts/units.quire`.
+  - [ ] Currency: gated on Brandon's ruling - the ECB fetch layer
+    vs the spec's no-network non-goal wording. The
+    `set_exchange_rates` seam is verified against the embedded
+    engine; currency units load on demand once rates are set.
+  - [ ] Dates ride numbat's jiff-backed module (`datetime()`,
+    `now()`, `calendar_add`, `-> tz(...)`); a classification pass
+    for date-shaped prose comes with them.
   - [ ] Completion source: numbat's `variable_names()` /
-    `unit_names()` / `get_completions_for()`.
+    `unit_names()` / `get_completions_for()` feed the existing Tab
+    completion once unit lines exist to complete.
   - [ ] Spec amendment pass: grow spec.md Semantics with whatever
-    lands.
+    lands (the units section is in; currency and dates amend theirs
+    when they land).
 
 - [ ] **Phase 7 (post-0.1.0): Soulver-depth semantics.**
   - [ ] **[D]** Stable line references: NoteCalc's `&[line-id]` model
@@ -381,9 +392,9 @@ spellcheck in v1 (the path if ever wanted: libspelling with math lines
 excluded), pandoc as a bundled engine, and WebKitGTK as a preview pane
 (see Phase 8).
 
-- [ ] **v0.1.0 release** after Phase 4: bump VERSION, patchnotes,
-  annotated tag with the patchnotes entry verbatim, GitHub release
-  with the built artifact. A Flatpak is not required for the first
-  tag.
+- [x] **v0.1.0 release** (2026-10-06): VERSION 0.1.0, patchnotes
+  finalized, annotated tag with the patchnotes entry verbatim,
+  GitHub release with the built tarball attached by the tag-gated
+  release job. A Flatpak was not required for the first tag.
 - [ ] **1.0** after Phase 6: Brandon's display passes, docs truth pass
   (doc-drift-auditor), release-auditor pre-flight before the tag.

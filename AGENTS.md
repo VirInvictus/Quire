@@ -11,27 +11,39 @@ public, MIT.
 
 ## Where this stands (updated 2026-10-06)
 
-Phases 0-5 complete; the v0.1.0 release gate is next (latest: Phase 5
-packaging). The engine covers the whole Semantics section
-of spec.md (Phase 1) plus the sheet line model with Reference lines.
-The app renders sheets at 20px JetBrains Mono in Kanagawa Dragon/Lotus
-through vir-gtk (Phase 2), with the custom `quire` language spec,
-scheme pair, and renderer-drawn answers column (Phase 3). Phase 4
-added the document backbone (open/save/save-as, dirty guard, recents,
-file monitor, GSettings) and editing UX (outline popover, Tab
-completion, Ctrl+C answer copy, Ctrl+B definition jump, drag-and-drop
-open, line-numbers toggle, auto list continuation on Enter - Phase 4
-closed complete). Phase 5 landed the packaging: Meson wrapper,
-desktop file, AppStream metainfo, hicolor icon set, mime package for
-.quire sheets, and the tag-gated release CI attaching an
-installed-prefix tarball. Flatpak deferred past 1.0 (2026-10-06).
-Next: the v0.1.0 gate (docs truth, release-auditor pre-flight, tag,
-GitHub release).
+Phases 0-5 shipped and tagged (v0.1.0); Phase 6 is open with the
+unit layer landed (the numbat embed, additive shape). The engine
+covers the whole Semantics section of spec.md (Phase 1) plus the
+sheet line model with Reference lines and the "Unit expressions"
+section (Phase 6 chunk 1). The app renders sheets at 20px JetBrains
+Mono in Kanagawa Dragon/Lotus through vir-gtk (Phase 2), with the
+custom `quire` language spec, scheme pair, and renderer-drawn
+answers column (Phase 3), the document backbone and editing UX
+(Phase 4), and the packaging set: Meson wrapper, desktop file,
+AppStream metainfo, hicolor icons, mime package, tag-gated release
+CI (Phase 5). Currency waits on Brandon's no-network non-goal
+ruling; dates ride a later chunk. Next: currency/dates per the
+roadmap, then Brandon's display passes.
 
 ## Stack
 
 - Rust 2024, two-crate workspace: `crates/quire-eval` (engine; no
   GTK, no I/O dependencies) and `crates/quire` (the GTK4 app).
+- The engine embeds `numbat` (default-features off: no network code,
+  no plotly) as the unit layer behind spec.md "Unit expressions".
+  This raises the workspace Rust floor to numbat's 1.88. Bridge
+  facts that bite (crates/quire-eval/src/units.rs):
+  - The prelude loads once per process into a thread-local master
+    `Context`; every evaluation pass clones it. Never interpret the
+    prelude per pass (30-170 ms).
+  - numbat answers `let` statements with `Continue`, not a value:
+    assignment lines compile to `let name = rest` plus a trailing
+    `name` reference.
+  - Statement seeds separate with newlines; numbat has no `;`.
+  - `knows_unit` probes `1 <name>`: prefixed forms (`kg`) are not
+    registry names.
+  - numbat's error Display is short multi-line detail; the bridge
+    collapses it to one compact line for the answers column.
 - Plain GTK4, NO libadwaita. Styling goes through `vir-gtk` (a git
   dependency tracked on `main`, pinned by Cargo.lock; 1.4.3 is the
   floor - see the Alert gotcha below) —

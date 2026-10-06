@@ -21,6 +21,12 @@ pub fn compute(sheet: &str) -> HashMap<u32, AnswerCell> {
                     text: quire_eval::format_number(v),
                     is_error: false,
                 },
+                // unit-engine values arrive pre-rendered (the engine's
+                // Display is the cell text, spec.md "Unit expressions")
+                Outcome::Quantity(v) => AnswerCell {
+                    text: v.to_string(),
+                    is_error: false,
+                },
                 Outcome::Failed(e) => AnswerCell {
                     text: e.kind.to_string(),
                     is_error: true,

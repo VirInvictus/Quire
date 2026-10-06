@@ -1,0 +1,39 @@
+# Units (Phase 6)
+
+// the scalar engine declines `5 kg`; the unit engine takes it
+5 kg + 300 g
+# expect: 5300 g
+
+// bindings carry quantities downward, like any result
+bag = 5 kg
+# expect: 5 kg
+
+// `bag + 300 g` is prose (the identifier-led rule covers quantities
+// too); parenthesizing asks for the arithmetic
+(bag) + 300 g
+# expect: 5300 g
+
+bag
+# expect: 5 kg
+
+// the total sums this section's quantities through the engine:
+// the opening line, the assignment, the sum, and the reference
+total
+# expect: 20600 g
+
+# Durations
+2 hours + 30 minutes
+# expect: 150 min
+total
+# expect: 150 min
+
+# Mixing scalars in
+milk = 3.50
+# expect: 3.5
+milk * 2 kg
+# expect: 7 kg
+milk
+# expect: 3.5
+// scalar and quantity never silently mix in a total
+total
+# err: left hand side

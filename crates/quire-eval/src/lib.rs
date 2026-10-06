@@ -11,6 +11,7 @@ mod eval;
 mod format;
 mod parser;
 mod tokens;
+mod units;
 
 pub use error::{ErrKind, QuireError, Span};
 pub use eval::{LineOutcome, Outcome, evaluate_line, evaluate_sheet};

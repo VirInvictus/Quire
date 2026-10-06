@@ -9,17 +9,18 @@ Quire: a Soulver-style notepad calculator for Linux. Plain-text
 sheets, per-line live results in a right-hand column. Portfolio piece,
 public, MIT.
 
-## Where this stands (2026-10-06)
+## Where this stands (updated 2026-10-06)
 
-Phases 0-3 shipped and pushed. The engine (Phase 1) covers the whole
-Semantics section of spec.md: arithmetic, the four percent forms,
-variables, `answer`, heading-or-total bounded `total`, bare-identifier
-Reference lines (lenient: bound = value, unbound = plain text),
-span-carrying errors. The app (Phases 2-3) renders sheets at 20px
-JetBrains Mono in Kanagawa Dragon/Lotus through vir-gtk, with a
-custom `quire` GtkSourceView language, a quire-dark/quire-light
-scheme pair, and a right-gutter AnswersRenderer drawing the live
-results. Next: Phase 4, documents and editing UX (see roadmap.md).
+Phases 0-4 complete and pushed (latest: 8fbc27f). The engine covers
+the whole Semantics section of spec.md (Phase 1) plus the sheet line
+model with Reference lines. The app renders sheets at 20px JetBrains
+Mono in Kanagawa Dragon/Lotus through vir-gtk (Phase 2), with the
+custom `quire` language spec, scheme pair, and renderer-drawn answers
+column (Phase 3). Phase 4 added the document backbone (open/save/
+save-as, dirty guard, recents, file monitor, GSettings) and editing
+UX (outline popover, Tab completion, Ctrl+C answer copy, Ctrl+B
+definition jump, drag-and-drop open, line-numbers toggle). Next:
+Phase 5 packaging (see roadmap.md), then the v0.1.0 gate.
 
 ## Stack
 

@@ -52,8 +52,15 @@ release.
   baseline land off-pixel) - the sheet now renders at 20px, which
   lands clean and reads better anyway, and the answers renderer
   pixel-snaps its draw position. Bare identifier lines are also
-  highlighted as references now (the quire.math style), matching
+  highlighted as references now (the quire.variable style), matching
   the evaluation added above.
+- Token-level sheet coloring per Brandon's design: variables render
+  blue, numbers and operators in the default foreground (the brief
+  whole-line blue overshoot lasted one commit). The math-line context
+  is a zero-width-lookahead start/end region so the identifier
+  sub-context can see past the line's opening token. README.md and
+  AGENTS.md brought current with the shipped reality, and the docs
+  flow is now written into AGENTS.md as a checklist.
 - Three user-facing fixes from Brandon's first live session: TextView
   `line-height` clipped glyph ascenders on every line (the property is
   dropped; GTK clips whenever it is set), the caret was invisible on

@@ -23,7 +23,7 @@
     <style id="emphasis" name="Emphasis" map-to="def:emphasis"/>
     <style id="strong-emphasis" name="Strong Emphasis" map-to="def:strong-emphasis"/>
     <style id="code-span" name="Code Span" map-to="def:inline-code"/>
-    <style id="math" name="Math Line" map-to="def:constant"/>
+    <style id="variable" name="Variable" map-to="def:identifier"/>
   </styles>
 
   <definitions>
@@ -83,27 +83,38 @@
          matched span, which left the rest of the line default-colored
          ("200" lit, "+ 15%" gray). Start anchors the line, $ ends it,
          and the whole line takes the math style. -->
-    <context id="math-line" style-ref="math">
+    <!-- math-expression lines: a transparent start/end region (the
+         numbers render in the default foreground and stand out on
+         their own) with identifier runs styled as variables, so
+         `groceries = 42.50` reads blue-name, white-number -->
+    <context id="math-line">
+      <!-- pure lookaheads: the start consumes nothing, so the
+           identifier sub-context can see the whole line -->
       <start extended="true">
         ^[ \t]*
         (
-          [0-9]                        # number
-          | \.[0-9]                    # .5
-          | \$[0-9]                    # currency literal
-          | \(                         # parenthesised
-          | [+-][^ \t]                 # glued sign (-5, not "- 5")
-          | total([ \t]|$)             # the keyword
-          | [A-Za-z_][A-Za-z0-9_]*[ \t]*=[^=]       # assignment
-          | [A-Za-z_][A-Za-z0-9_]*[ \t]*[*+/\^(]    # reference line
+          (?=[0-9])                                # number
+          | (?=\.[0-9])                            # .5
+          | (?=\$[0-9])                            # currency literal
+          | (?=\()                                 # parenthesised
+          | (?=[+-][^ \t])                         # glued sign
+          | (?=total\b)                            # the keyword
+          | (?=[A-Za-z_][A-Za-z0-9_]*[ \t]*=[^=])  # assignment
+          | (?=[A-Za-z_][A-Za-z0-9_]*[ \t]*[*+/\^(])  # reference line
         )
       </start>
       <end>$</end>
+      <include>
+        <context id="idents-in-math" style-ref="variable">
+          <match>\b[A-Za-z_][A-Za-z0-9_]*\b</match>
+        </context>
+      </include>
     </context>
 
     <!-- a bare identifier line: the sheet asking what a name is
-         worth (spec.md, Reference). Colored like math whether or
-         not the name is bound; the answers column is the signal -->
-    <context id="bare-reference" style-ref="math">
+         worth (spec.md, Reference). Blue whether or not the name is
+         bound; the answers column is the signal -->
+    <context id="bare-reference" style-ref="variable">
       <match>^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*$</match>
     </context>
 

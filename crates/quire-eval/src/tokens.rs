@@ -24,6 +24,9 @@ pub enum Tok {
     Equals,
     /// `@name` trailing an expression line (spec.md "Tags").
     Tag(String),
+    /// `@YYYY-MM-DD` trailing an assignment (spec.md "Dated
+    /// snapshots"); documentation metadata, never an expression part.
+    DateStamp(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -99,11 +102,41 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, QuireError> {
             b'@' => {
                 let start = i;
                 i += 1;
+                // a digit after the @ begins a date stamp (spec.md
+                // "Dated snapshots"); an identifier begins a tag.
+                if b.get(i).is_some_and(|c| c.is_ascii_digit()) {
+                    let ds = i;
+                    while i < b.len() && (b[i].is_ascii_digit() || b[i] == b'-') {
+                        i += 1;
+                    }
+                    let text = &src[ds..i];
+                    let parts: Vec<&str> = text.split('-').collect();
+                    let shaped = parts.len() == 3
+                        && (1..=4).contains(&parts[0].len())
+                        && parts[1].len() <= 2
+                        && parts[2].len() <= 2
+                        && parts
+                            .iter()
+                            .all(|p| !p.is_empty() && p.bytes().all(|c| c.is_ascii_digit()));
+                    if !shaped {
+                        return Err(QuireError::new((start, start + 1), ErrKind::BadChar('@')));
+                    }
+                    out.push(Token {
+                        tok: Tok::DateStamp(text.to_string()),
+                        span: (start, i),
+                    });
+                    continue;
+                }
                 let name_start = i;
                 while i < b.len() && (b[i].is_ascii_alphanumeric() || b[i] == b'_') {
                     i += 1;
                 }
-                if i == name_start {
+                if i == name_start
+                    || !src[name_start..]
+                        .chars()
+                        .next()
+                        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+                {
                     let ch = src[start..].chars().next().unwrap();
                     return Err(QuireError::new(
                         (start, start + ch.len_utf8()),

@@ -146,6 +146,19 @@ followed by an identifier, each preceded by whitespace (`lunch =
 - **Errors.** A `total @tag` with no tagged results sums to zero,
   like an empty section.
 
+## Dated snapshots (Phase 9)
+
+An assignment may carry a date stamp documenting when its value was
+true: `AAPL = 190 @2026-10-06` (glued) or `AAPL = 190 @ 2026-10-06`
+(single space after the `@`). The date is sheet documentation: it
+changes nothing about evaluation, and the value binds exactly as an
+undated assignment. A stamp may combine with trailing tags
+(`aapl = 10 * 190 @ 2026-10-06 @stocks`). The date shape is
+`YYYY-MM-DD` (one- or two-digit month and day accepted); `@`
+followed by anything else that is not an identifier tag remains an
+error. A `@` mid-expression is still an error, and stamps appear
+only at a line's end, like tags.
+
 ## Evaluation semantics (Phase 1)
 
 - **Numbers.** Decimal literals (`12`, `3.50`). No scientific

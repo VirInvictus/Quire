@@ -99,6 +99,7 @@ pub fn describe(tok: &crate::tokens::Tok) -> String {
         Tok::LParen => "`(`".to_string(),
         Tok::RParen => "`)`".to_string(),
         Tok::Tag(n) => format!("`@{n}`"),
+        Tok::DateStamp(d) => format!("`@{d}`"),
         Tok::Equals => "`=`".to_string(),
     }
 }

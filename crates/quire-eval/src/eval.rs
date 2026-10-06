@@ -139,25 +139,66 @@ struct Ctx {
 /// tag is whitespace-prefixed `@identifier` glued to the line's end;
 /// anything else keeps the line whole (and `@` mid-line tokenizes to
 /// its own error).
-fn split_tags(raw: &str) -> (String, Vec<String>) {
+fn split_tags(raw: &str) -> (String, Vec<String>, Option<String>) {
     let mut body = raw.trim_end().to_string();
     let mut tags = Vec::new();
+    let mut stamp = None;
     loop {
         let trimmed = body.trim_end();
         let Some(at) = trimmed.rfind('@') else { break };
-        let name = &trimmed[at + 1..];
-        let ok = !name.is_empty()
-            && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-            // the tag must start the line or follow whitespace
-            && (at == 0 || trimmed[..at].ends_with(char::is_whitespace));
-        if !ok {
+        // the annotation must start the line or follow whitespace
+        if !(at == 0 || trimmed[..at].ends_with(char::is_whitespace)) {
             break;
         }
-        tags.push(name.to_string());
-        body = trimmed[..at].trim_end().to_string();
+        let after = &trimmed[at + 1..];
+        if let Some(name) = tag_name(after) {
+            // a trailing tag must run to the end of the line; stragglers
+            // after the name leave the line whole for the tokenizer
+            if after.len() == name.len() {
+                tags.push(name.to_string());
+                body = trimmed[..at].trim_end().to_string();
+                continue;
+            }
+            break;
+        }
+        // a date stamp: optional single space, then YYYY-MM-DD-ish
+        let date = after.strip_prefix(' ').unwrap_or(after);
+        if stamp.is_none() && is_date_shape(date) {
+            stamp = Some(date.to_string());
+            body = trimmed[..at].trim_end().to_string();
+            continue;
+        }
+        break;
     }
     tags.reverse();
-    (body, tags)
+    (body, tags, stamp)
+}
+
+/// A glued tag name: identifier-shaped, letter or underscore first
+/// (digit-first `@2026` belongs to the date stamp form).
+fn tag_name(after: &str) -> Option<&str> {
+    let mut chars = after.chars();
+    let first = chars.next()?;
+    if !(first.is_ascii_alphabetic() || first == '_') {
+        return None;
+    }
+    let end = after
+        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .unwrap_or(after.len());
+    Some(&after[..end])
+}
+
+/// `YYYY-MM-DD` with one- or two-digit month and day.
+fn is_date_shape(text: &str) -> bool {
+    let parts: Vec<&str> = text.split('-').collect();
+    parts.len() == 3
+        && !parts[0].is_empty()
+        && parts[0].len() <= 4
+        && parts[1].len() <= 2
+        && parts[2].len() <= 2
+        && parts
+            .iter()
+            .all(|p| !p.is_empty() && p.bytes().all(|c| c.is_ascii_digit()))
 }
 
 /// Evaluate a whole sheet top-down. Headings and `total` lines reset
@@ -242,7 +283,7 @@ fn eval_reference(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Opti
 }
 
 fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Outcome {
-    let (body, tags) = split_tags(raw);
+    let (body, tags, _stamp) = split_tags(raw);
     let raw = body.as_str();
     let toks = match tokenize(raw) {
         Ok(t) => t,

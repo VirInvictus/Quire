@@ -1,0 +1,26 @@
+# Dated snapshots (Phase 9)
+
+// a dated assignment binds exactly like an undated one
+aapl = 190 @ 2026-10-06
+# expect: 190
+
+msft = 410 @2026-10-06
+# expect: 410
+
+// stamps combine with trailing tags, in either order
+shares = 10
+# expect: 10
+position = shares * aapl @2026-10-06 @stocks
+# expect: 1,900
+rate = position @stocks @2026-10-06
+# expect: 1,900
+
+// a one-digit month and day shape
+ipo = 25 @ 2026-3-2
+# expect: 25
+
+// malformed shapes are errors on their own line
+bad = 5 @ 2026-1-2-3
+# err: unexpected
+bad2 = 5 @tomorrow-10-06
+# err: unexpected

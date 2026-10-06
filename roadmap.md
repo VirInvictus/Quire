@@ -212,6 +212,10 @@ the work lands, with the current recommendation recorded here.
     in the line model, and the markdown-app survey names the outline
     as the one structure feature that pays for itself in a
     math-first app.
+  - [ ] Toggle-able line numbers (Brandon's request): the
+      GtkSourceView left gutter with its line-number renderer,
+      behind a GSettings key and a menu/check action; default off
+      (the answers column is the sheet's numbering).
   - [ ] Variable-name completion via GtkSourceCompletion; NoteCalc's
     rule is enough for v1: Tab completes only on a unique match.
   - [ ] Ctrl+C with no selection copies the current line's answer;

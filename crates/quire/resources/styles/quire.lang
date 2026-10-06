@@ -78,9 +78,13 @@
          shape: a literal, parenthesised, glued sign, the `total`
          keyword, an assignment, or an identifier followed by
          * / ^ ( (the reference-line shape). `+`/`-` after a name
-         stay prose on purpose: spec.md, Expression shape. -->
+         stay prose on purpose: spec.md, Expression shape.
+         A start/end context, not a match: a match styles only the
+         matched span, which left the rest of the line default-colored
+         ("200" lit, "+ 15%" gray). Start anchors the line, $ ends it,
+         and the whole line takes the math style. -->
     <context id="math-line" style-ref="math">
-      <match extended="true">
+      <start extended="true">
         ^[ \t]*
         (
           [0-9]                        # number
@@ -92,7 +96,8 @@
           | [A-Za-z_][A-Za-z0-9_]*[ \t]*=[^=]       # assignment
           | [A-Za-z_][A-Za-z0-9_]*[ \t]*[*+/\^(]    # reference line
         )
-      </match>
+      </start>
+      <end>$</end>
     </context>
 
     <!-- a bare identifier line: the sheet asking what a name is

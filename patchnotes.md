@@ -42,6 +42,10 @@ release.
   scheme, and the column tone plus hairline are drawn by the
   renderer across the full column height. Verified on-desktop with
   screenshots at 1x.
+- The semi-highlighted math tokens fixed: the quire.lang math-line
+  context is a start/end context now (a plain match styled only the
+  matched span, which lit `groceries` but left `= 42.50` gray).
+  Toggle-able line numbers added to the Phase 4 roadmap on request.
 - Typography fixes from Brandon's first live session, round two:
   the 1px glyph-top shave turned out to be pixel snapping at 15px
   (JetBrains Mono's fractional 19.8px line height makes every

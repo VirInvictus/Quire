@@ -20,9 +20,9 @@ scheme pair, and renderer-drawn answers column (Phase 3). Phase 4
 added the document backbone (open/save/save-as, dirty guard, recents,
 file monitor, GSettings) and editing UX (outline popover, Tab
 completion, Ctrl+C answer copy, Ctrl+B definition jump, drag-and-drop
-open, line-numbers toggle). Phase 5 decisions recorded 2026-10-06:
-Meson adopted (house shape), Flatpak deferred past 1.0, auto list
-continuation ships as Phase 4 close-out. Next: the Phase 5 packaging
+open, line-numbers toggle, auto list continuation on Enter - Phase 4
+closed complete). Phase 5 decisions recorded 2026-10-06: Meson adopted
+(house shape), Flatpak deferred past 1.0. Next: the Phase 5 packaging
 work (see roadmap.md), then the v0.1.0 gate.
 
 ## Stack

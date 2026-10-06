@@ -96,3 +96,10 @@ release.
   the dialog window; Quire's lockfile pins the new revision. Verified
   on-desktop: dirty sheet, close, Discard ends the window; the
   regression test lives in vir-gtk.
+- Auto list continuation on Enter closes Phase 4. Enter on a list
+  line continues it: bullets repeat as-is, `1.` / `1)` numbering
+  increments, and indentation carries over. Enter on an empty item
+  (just a marker) exits the list, and Enter on a math line, heading,
+  comment, or reference stays a plain newline so the sheet keeps
+  evaluating. The decision is a pure function with table tests
+  (`lists.rs`); the Enter hook refuses modified keys and selections.

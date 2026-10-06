@@ -193,7 +193,7 @@ the work lands, with the current recommendation recorded here.
       screenshot-verified during the phase; the 2x check (GDK_SCALE
       does not apply on Wayland) rides Brandon's display pass.
 
-- [ ] **Phase 4: Documents and editing UX.** Document backbone
+- [x] **Phase 4: Documents and editing UX.** Document backbone
   shipped 2026-10-06 (GSettings schema compiled at startup into the
   user data dir; open/save/save-as via FileDialog; dirty tracking
   with the unsaved-changes guard on vir-gtk's Alert; recents in
@@ -214,11 +214,13 @@ the work lands, with the current recommendation recorded here.
     down while dirty.
   - [x] Recent sheets list (ordered, in GSettings).
   - [x] Drag-and-drop a text file onto the window opens it.
-  - [ ] Auto list continuation on Enter, contextual: continue `- ` or
+  - [x] Auto list continuation on Enter, contextual: continue `- ` or
     numbering only when the line Enter was pressed on is a list or
     prose line, never on a math line (the one near-universal markdown
     editing behavior; Enter on an expression must stay a plain
-    newline so the sheet keeps evaluating).
+    newline so the sheet keeps evaluating). Bullets repeat, numbering
+    increments, and an empty item exits the list; the decision is
+    pure functions in `lists.rs` with table tests.
   - [x] Heading-jump outline popover: headings are already first-class
     in the line model, and the markdown-app survey names the outline
     as the one structure feature that pays for itself in a

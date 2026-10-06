@@ -4,6 +4,7 @@
 
 mod answers;
 mod fonts;
+mod lists;
 mod page;
 mod renderer;
 mod settings;

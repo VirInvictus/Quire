@@ -250,9 +250,68 @@ impl QuirePage {
                 return glib::Propagation::Stop;
             }
 
+            // Enter continues a list only on the editor's terms: a
+            // plain Return (no modifiers, no selection) on a line the
+            // engine classifies as Text. Math lines, headings, and
+            // comments fall through to the default newline so the
+            // sheet keeps evaluating.
+            let plain_return = (name.as_deref() == Some("Return")
+                || name.as_deref() == Some("KP_Enter"))
+                && !ctrl
+                && !state.contains(gtk4::gdk::ModifierType::SHIFT_MASK)
+                && !state.contains(gtk4::gdk::ModifierType::ALT_MASK);
+            if plain_return && !page.buffer.has_selection() && page.continue_list() {
+                return glib::Propagation::Stop;
+            }
+
             glib::Propagation::Proceed
         });
         self.view.add_controller(controller);
+    }
+
+    /// Continue the list on the cursor's line: insert the next
+    /// marker after a newline, or exit the list when the line is an
+    /// empty item. Returns whether Enter was handled; the caller
+    /// falls back to the default newline otherwise.
+    fn continue_list(&self) -> bool {
+        let ins = self.cursor_iter();
+        let mut line_start = ins;
+        line_start.set_line_offset(0);
+        let mut line_end = line_start;
+        line_end.forward_to_line_end();
+        let line = self.buffer.text(&line_start, &line_end, true).to_string();
+
+        // The engine's shape rule decides what counts as a list
+        // line: only Text lines carry markers, and an unbound bare
+        // name must not be mistaken for one.
+        if quire_eval::Line::new(1, line.as_str()).kind != quire_eval::LineKind::Text {
+            return false;
+        }
+        match crate::lists::list_enter(&line) {
+            Some(crate::lists::ListEnter::Continue(prefix)) => {
+                self.buffer.begin_user_action();
+                let mut at = ins;
+                self.buffer
+                    .insert_interactive(&mut at, &format!("\n{prefix}"), true);
+                self.buffer.end_user_action();
+                true
+            }
+            Some(crate::lists::ListEnter::Exit(start, end)) => {
+                // The span is indent + marker + spaces, all ASCII, so
+                // the string's byte offsets are iter char offsets.
+                self.buffer.begin_user_action();
+                let mut from = line_start;
+                from.forward_chars(start as i32);
+                let mut to = line_start;
+                to.forward_chars(end as i32);
+                self.buffer.delete_interactive(&mut from, &mut to, true);
+                let mut at = self.cursor_iter();
+                self.buffer.insert_interactive(&mut at, "\n", true);
+                self.buffer.end_user_action();
+                true
+            }
+            None => false,
+        }
     }
 
     /// Re-evaluate the whole sheet on change, coalesced to the next

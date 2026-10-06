@@ -87,3 +87,12 @@ release.
   variable names (unique-match rule), Ctrl+C copying the current
   line's answer, and Ctrl+B jumping to a variable's definition.
   Verified on-desktop: Tab completion live-typed and confirmed.
+- The unsaved-changes Discard button works. The dead button was a
+  vir-gtk bug: an Alert's response state lived only as long as the
+  caller's Alert value, so the fire-and-forget present in the close
+  guard dropped it before any click could answer (the dialog closed
+  and nothing else happened; only saving made the window closable).
+  Fixed upstream in vir-gtk 1.4.3, which anchors the response state to
+  the dialog window; Quire's lockfile pins the new revision. Verified
+  on-desktop: dirty sheet, close, Discard ends the window; the
+  regression test lives in vir-gtk.

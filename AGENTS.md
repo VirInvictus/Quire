@@ -11,16 +11,19 @@ public, MIT.
 
 ## Where this stands (updated 2026-10-06)
 
-Phases 0-4 complete and pushed (latest: 8fbc27f). The engine covers
-the whole Semantics section of spec.md (Phase 1) plus the sheet line
-model with Reference lines. The app renders sheets at 20px JetBrains
-Mono in Kanagawa Dragon/Lotus through vir-gtk (Phase 2), with the
-custom `quire` language spec, scheme pair, and renderer-drawn answers
-column (Phase 3). Phase 4 added the document backbone (open/save/
-save-as, dirty guard, recents, file monitor, GSettings) and editing
-UX (outline popover, Tab completion, Ctrl+C answer copy, Ctrl+B
-definition jump, drag-and-drop open, line-numbers toggle). Next:
-Phase 5 packaging (see roadmap.md), then the v0.1.0 gate.
+Phases 0-4 complete; Phase 5 packaging in progress (latest: the
+vir-gtk 1.4.3 adoption). The engine covers the whole Semantics section
+of spec.md (Phase 1) plus the sheet line model with Reference lines.
+The app renders sheets at 20px JetBrains Mono in Kanagawa Dragon/Lotus
+through vir-gtk (Phase 2), with the custom `quire` language spec,
+scheme pair, and renderer-drawn answers column (Phase 3). Phase 4
+added the document backbone (open/save/save-as, dirty guard, recents,
+file monitor, GSettings) and editing UX (outline popover, Tab
+completion, Ctrl+C answer copy, Ctrl+B definition jump, drag-and-drop
+open, line-numbers toggle). Phase 5 decisions recorded 2026-10-06:
+Meson adopted (house shape), Flatpak deferred past 1.0, auto list
+continuation ships as Phase 4 close-out. Next: the Phase 5 packaging
+work (see roadmap.md), then the v0.1.0 gate.
 
 ## Stack
 
@@ -95,6 +98,11 @@ verbatim, via `--cleanup=verbatim`.
   foreground. The math-line context is a zero-width-lookahead
   start/end region: a consuming start would eat the identifiers
   before the identifier sub-context ever runs.
+- A `vir_gtk::widgets::Alert` must be pinned at 1.4.3 or newer: 1.4.2
+  held the response state only through the caller's Alert value, so
+  the fire-and-forget build-wire-present-drop shape (what the close
+  guard does) shipped dead buttons. 1.4.3 anchors the state to the
+  dialog window; dropping the Alert value after `present` is safe.
 - Every landed chunk updates the docs (see "Docs flow"): patchnotes
   bullet, roadmap ticks, spec on semantics, README on user-facing
   reality, this file on agent-facing reality. All five were current

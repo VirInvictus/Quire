@@ -201,7 +201,10 @@ the work lands, with the current recommendation recorded here.
   sheets; single-window model per Brandon's [D] pick; line-numbers
   toggle behind GSettings + Ctrl+L - the GSettings bind needed its
   BindingBuilder .build(), the silent no-op cost a debug session).
-  Brandon's interactive save-dialog round-trip pending.
+  The interactive save-dialog round-trip was verified live the same
+  day (patchnotes). The guard's dead Discard button was a vir-gtk
+  1.4.2 bug (Alert response state died with the dropped Alert value),
+  fixed in vir-gtk 1.4.3 and adopted here the same day.
   - [x] GSettings schema: window size, last folder,
     show-line-numbers, recent files.
   - [x] Line-numbers toggle (menu + Ctrl+L), default off.
@@ -210,23 +213,23 @@ the work lands, with the current recommendation recorded here.
   - [x] File-changed-on-disk monitoring: reload while clean, stand
     down while dirty.
   - [x] Recent sheets list (ordered, in GSettings).
-  - [ ] Drag-and-drop a text file onto the window opens it.
+  - [x] Drag-and-drop a text file onto the window opens it.
   - [ ] Auto list continuation on Enter, contextual: continue `- ` or
     numbering only when the line Enter was pressed on is a list or
     prose line, never on a math line (the one near-universal markdown
     editing behavior; Enter on an expression must stay a plain
     newline so the sheet keeps evaluating).
-  - [ ] Heading-jump outline popover: headings are already first-class
+  - [x] Heading-jump outline popover: headings are already first-class
     in the line model, and the markdown-app survey names the outline
     as the one structure feature that pays for itself in a
     math-first app.
-  - [ ] Toggle-able line numbers (Brandon's request): the
+  - [x] Toggle-able line numbers (Brandon's request): the
       GtkSourceView left gutter with its line-number renderer,
       behind a GSettings key and a menu/check action; default off
       (the answers column is the sheet's numbering).
-  - [ ] Variable-name completion via GtkSourceCompletion; NoteCalc's
+  - [x] Variable-name completion via GtkSourceCompletion; NoteCalc's
     rule is enough for v1: Tab completes only on a unique match.
-  - [ ] Ctrl+C with no selection copies the current line's answer;
+  - [x] Ctrl+C with no selection copies the current line's answer;
     Ctrl+B jumps to a variable's definition (cheap NoteCalc wins).
   - [x] **[D]** One window with one sheet for v1 (Brandon's pick,
     2026-10-06) vs tabs.

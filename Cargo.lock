@@ -688,8 +688,8 @@ checksum = "03c2856837ef78f57382f06b2b8563a2f512f7185d732608fd9176cb3b8edf0e"
 
 [[package]]
 name = "vir-gtk"
-version = "1.4.2"
-source = "git+https://github.com/VirInvictus/vir-gtk.git?branch=main#850961b3ad160ec1fdf3840f3b5c360e6bbfa0c5"
+version = "1.4.3"
+source = "git+https://github.com/VirInvictus/vir-gtk.git?branch=main#70a651e87c30d76dd05ac384f90a11604ff02a16"
 dependencies = [
  "gtk4",
 ]

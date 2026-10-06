@@ -45,6 +45,14 @@ jobs:
             zstd
 
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # The default shallow checkout carries no tag object, and
+          # `gh release create --notes-from-tag` then silently falls
+          # back to the target commit's message for the release body
+          # (v0.1.0 shipped exactly that and was repaired by hand).
+          # The full clone lets gh read the annotated tag's verbatim
+          # message, which is what the release body must be.
+          fetch-depth: 0
 
       - name: VERSION sync guard
         run: |

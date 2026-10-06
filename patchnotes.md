@@ -4,6 +4,12 @@ Newest first.
 
 ## Unreleased
 
+- Result-format cycling: Alt+Up/Down on a line cycles its answer
+  between the standard rendering, fixed two decimals (the
+  allocation-lines fix - `41.4519906323` becomes `41.45`), hex, and
+  binary. View-only, per line; the sheet stays clean and the choice
+  shifts with edits until the stable-ids gate lands. spec.md's
+  Results section notes the feature.
 - Tags land (Phase 8 pulled forward): an expression line may end
   with `@tag` labels, and `total @tag` sums that group - the
   keystone for budgets and portfolios. Tagged results count toward

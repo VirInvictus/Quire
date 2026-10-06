@@ -4,6 +4,12 @@ Newest first.
 
 ## Unreleased
 
+- The currency ruling is in: the no-network non-goal is now "no
+  live prices, ever" with an optional offline-first daily
+  reference-rate fetch (ECB XML cached under ~/.cache/quire, stale
+  cache fully functional). The ECB layer through numbat's
+  `set_exchange_rates` seam is greenlit for Phase 6; conversion
+  support lands with it.
 - Phase 6 opens: the unit layer. quire-eval embeds numbat (MIT OR
   Apache-2.0, built with its network-fetch and plotting features
   off) as the engine for expression lines the scalar path declines:

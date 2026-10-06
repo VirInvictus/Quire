@@ -278,10 +278,14 @@ the work lands, with the current recommendation recorded here.
     sums on the total line only; `bag + 300 g` stays prose and
     `(bag) + 300 g` asks for the arithmetic; quantity rendering is
     the engine's own notation. Corpus: `tests/scripts/units.quire`.
-  - [ ] Currency: gated on Brandon's ruling - the ECB fetch layer
-    vs the spec's no-network non-goal wording. The
-    `set_exchange_rates` seam is verified against the embedded
-    engine; currency units load on demand once rates are set.
+  - [ ] Currency with an owned fetching layer through numbat's
+    `set_exchange_rates` seam: ECB daily XML, cached under
+    `~/.cache/quire` like gnome-calculator's providers (stale cache
+    works offline; refresh interval in GSettings). **Ruled
+    2026-10-06**: Brandon picked the fetch layer; the spec's
+    non-goal is reworded to "no live prices, ever; optional daily
+    reference-rate fetch, offline-first" (amendment in the same
+    commit as the ruling).
   - [ ] Dates ride numbat's jiff-backed module (`datetime()`,
     `now()`, `calendar_add`, `-> tz(...)`); a classification pass
     for date-shaped prose comes with them.

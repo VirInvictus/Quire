@@ -11,8 +11,15 @@ use gtk4::glib;
 use gtk4::prelude::*;
 use sourceview5::prelude::*;
 
+use gtk4::prelude::TextViewExt;
+
 use crate::answers;
 use crate::renderer::AnswersRenderer;
+use quire_eval::{SheetIndex, index_sheet};
+
+/// Fired after each evaluation burst with the fresh sheet index.
+type ReindexCallback = Box<dyn Fn(&SheetIndex)>;
+
 use crate::{styles, view::QuireView};
 
 /// First-run content: the shortest sheet that shows what Quire is.
@@ -36,6 +43,10 @@ pub struct QuirePage {
     monitor: RefCell<Option<gio::FileMonitor>>,
     /// guard so the file monitor ignores the app's own writes
     loading: Cell<bool>,
+    /// called after each evaluation burst with the fresh sheet index
+    on_reindex: RefCell<Option<ReindexCallback>>,
+    /// the live answers map, for copy-answer and friends
+    answers: RefCell<std::collections::HashMap<u32, answers::AnswerCell>>,
 }
 
 impl QuirePage {
@@ -68,8 +79,10 @@ impl QuirePage {
             file: RefCell::new(None),
             monitor: RefCell::new(None),
             loading: Cell::new(false),
+            on_reindex: RefCell::new(None),
+            answers: RefCell::new(std::collections::HashMap::new()),
         });
-        Self::wire_evaluation(&buffer, &page.renderer);
+        Self::wire_evaluation(&page, &buffer);
         // one delayed repaint: on a very first run the fonts were
         // installed moments ago and the earliest frames can resolve
         // text against a cold font cache; repainting once the map is
@@ -193,16 +206,65 @@ impl QuirePage {
         }
     }
 
+    /// Editing-key behaviors on the view: Tab completes the word
+    /// before the cursor when exactly one bound variable matches;
+    /// Ctrl+C with no selection copies the current line's answer;
+    /// Ctrl+B jumps to the nearest definition above.
+    pub fn wire_editing_keys(self: &Rc<Self>) {
+        let controller = gtk4::EventControllerKey::new();
+        controller.set_propagation_phase(gtk4::PropagationPhase::Capture);
+        let page = Rc::downgrade(self);
+        controller.connect_key_pressed(move |_controller, keyval, _code, state| {
+            let Some(page) = page.upgrade() else {
+                return glib::Propagation::Proceed;
+            };
+            let ctrl = state.contains(gtk4::gdk::ModifierType::CONTROL_MASK);
+            let name = keyval.name().map(|n| n.to_string());
+
+            if ctrl && name.as_deref() == Some("c") && !page.buffer.has_selection() {
+                let line = page.cursor_iter().line() as u32 + 1;
+                if let Some(cell) = page.answer_for_line(line) {
+                    page.copy_to_clipboard(&cell.text);
+                    return glib::Propagation::Stop;
+                }
+                return glib::Propagation::Proceed;
+            }
+
+            if ctrl && name.as_deref() == Some("b") {
+                if let Some(word) = page.word_at_cursor() {
+                    let cursor_line = page.cursor_iter().line() as usize + 1;
+                    if let Some((line, _)) = page
+                        .index()
+                        .assignments
+                        .into_iter()
+                        .rfind(|(l, n)| n == &word && *l < cursor_line)
+                    {
+                        page.goto_line(line);
+                        return glib::Propagation::Stop;
+                    }
+                }
+                return glib::Propagation::Proceed;
+            }
+
+            if name.as_deref() == Some("Tab") && !ctrl && page.complete_variable() {
+                return glib::Propagation::Stop;
+            }
+
+            glib::Propagation::Proceed
+        });
+        self.view.add_controller(controller);
+    }
+
     /// Re-evaluate the whole sheet on change, coalesced to the next
     /// idle turn (the spec's debounce; whole-sheet evaluation is O(n)
     /// on tiny sheets, so one deferred pass per burst is plenty).
-    fn wire_evaluation(buffer: &sourceview5::Buffer, renderer: &AnswersRenderer) {
+    /// After each pass the answers map is stored and the reindex
+    /// callback fires with the fresh sheet index.
+    fn wire_evaluation(page: &Rc<Self>, buffer: &sourceview5::Buffer) {
         let pending = Rc::new(Cell::new(false));
         buffer.connect_changed(glib::clone!(
             #[weak]
-            buffer,
-            #[weak]
-            renderer,
+            page,
             #[strong]
             pending,
             move |_| {
@@ -211,18 +273,117 @@ impl QuirePage {
                 }
                 glib::idle_add_local_once(glib::clone!(
                     #[weak]
-                    buffer,
-                    #[weak]
-                    renderer,
+                    page,
                     #[strong]
                     pending,
                     move || {
                         pending.set(false);
-                        let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), true);
-                        renderer.set_answers(answers::compute(&text));
+                        let text = page.buffer.text(
+                            &page.buffer.start_iter(),
+                            &page.buffer.end_iter(),
+                            true,
+                        );
+                        let cells = answers::compute(&text);
+                        page.answers.replace(cells.clone());
+                        page.renderer.set_answers(cells);
+                        if let Some(f) = page.on_reindex.borrow().as_ref() {
+                            f(&index_sheet(&text));
+                        }
                     }
                 ));
             }
         ));
+    }
+
+    /// Register the callback fired with a fresh sheet index after
+    /// each evaluation pass.
+    pub fn set_on_reindex(&self, f: impl Fn(&SheetIndex) + 'static) {
+        *self.on_reindex.borrow_mut() = Some(Box::new(f));
+    }
+
+    /// The current structural index of the sheet.
+    pub fn index(&self) -> SheetIndex {
+        let text = self
+            .buffer
+            .text(&self.buffer.start_iter(), &self.buffer.end_iter(), true);
+        index_sheet(&text)
+    }
+
+    /// The stored answer cell for a one-based sheet line.
+    pub fn answer_for_line(&self, line: u32) -> Option<answers::AnswerCell> {
+        self.answers.borrow().get(&line).cloned()
+    }
+
+    /// Copy `text` to the system clipboard.
+    pub fn copy_to_clipboard(&self, text: &str) {
+        self.view.display().clipboard().set_text(text);
+    }
+
+    /// The insert-mark position as an iterator.
+    fn cursor_iter(&self) -> gtk4::TextIter {
+        let offset = self.buffer.cursor_position();
+        let mut iter = self.buffer.start_iter();
+        iter.set_offset(offset);
+        iter
+    }
+
+    /// Place the cursor at a one-based line and scroll it into view.
+    pub fn goto_line(&self, line: usize) {
+        let mut iter = self.buffer.start_iter();
+        iter.set_line(line.saturating_sub(1) as i32);
+        self.buffer.place_cursor(&iter);
+        self.view.scroll_to_iter(&mut iter, 0.0, false, 0.0, 0.0);
+    }
+
+    /// The identifier under (or ending at) the cursor, if any.
+    pub fn word_at_cursor(&self) -> Option<String> {
+        let (start, end) = {
+            let ins = self.cursor_iter();
+            let mut s = ins;
+            let mut e = ins;
+            while s.char().is_ascii_alphanumeric() || s.char() == '_' {
+                s.backward_char();
+            }
+            while e.char().is_ascii_alphanumeric() || e.char() == '_' {
+                e.forward_char();
+            }
+            (s, e)
+        };
+        let word = self.buffer.text(&start, &end, true).to_string();
+        if word.is_empty() { None } else { Some(word) }
+    }
+
+    /// Complete the word before the cursor from variable names bound
+    /// above it, NoteCalc's rule: act only on a unique match. Returns
+    /// whether a completion was inserted.
+    pub fn complete_variable(&self) -> bool {
+        let ins = self.cursor_iter();
+        let mut line_start = ins;
+        line_start.set_line_offset(0);
+        let prefix = self.buffer.text(&line_start, &ins, true).to_string();
+        let prefix = prefix.trim_end().to_string();
+        if prefix.is_empty()
+            || !prefix
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_')
+        {
+            return false;
+        }
+        let cursor_line = ins.line() as usize + 1;
+        let names: Vec<String> = self
+            .index()
+            .assignments
+            .into_iter()
+            .filter(|(line, _)| *line < cursor_line)
+            .map(|(_, name)| name)
+            .filter(|n| n.starts_with(&prefix) && *n != prefix)
+            .collect();
+        if names.len() != 1 {
+            return false;
+        }
+        let completion = &names[0][prefix.len()..];
+        let mut at = ins;
+        self.buffer.insert_interactive(&mut at, completion, true);
+        true
     }
 }

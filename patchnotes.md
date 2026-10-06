@@ -82,3 +82,8 @@ release.
   identifier lines now evaluate as references - `groceries` on its own
   line shows its value when bound above and stays plain text when not
   (spec.md amended; unbound bare names never error).
+- Phase 4 completion: drag-and-drop opening, a heading-jump outline
+  button rebuilt from the engine's sheet index, Tab completion of
+  variable names (unique-match rule), Ctrl+C copying the current
+  line's answer, and Ctrl+B jumping to a variable's definition.
+  Verified on-desktop: Tab completion live-typed and confirmed.

@@ -77,6 +77,54 @@ pub fn parse_sheet(text: &str) -> Vec<Line> {
         .collect()
 }
 
+/// The structural index of a sheet: assignments and headings, in
+/// document order with their one-based line numbers. Feeds the UI's
+/// completion, go-to-definition, and outline features.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SheetIndex {
+    /// `(line, name)` for every assignment line, top to bottom.
+    pub assignments: Vec<(usize, String)>,
+    /// `(line, title)` for every heading, top to bottom (the `#`s
+    /// stripped from the title).
+    pub headings: Vec<(usize, String)>,
+}
+
+pub fn index_sheet(text: &str) -> SheetIndex {
+    let mut index = SheetIndex::default();
+    for line in parse_sheet(text) {
+        match line.kind {
+            LineKind::Expression => {
+                let t = line.raw.trim();
+                if let Some(eq) = t.find('=')
+                    && !t[eq..].starts_with("==")
+                {
+                    let name = t[..eq].trim_end();
+                    let valid = {
+                        let mut chars = name.chars();
+                        let first = chars.next();
+                        first.is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+                            && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+                    };
+                    if valid {
+                        index.assignments.push((line.number, name.to_string()));
+                    }
+                }
+            }
+            LineKind::Heading => {
+                let title = line
+                    .raw
+                    .trim_start()
+                    .trim_start_matches('#')
+                    .trim()
+                    .to_string();
+                index.headings.push((line.number, title));
+            }
+            _ => {}
+        }
+    }
+    index
+}
+
 /// Classification rules (spec.md, "Line kinds"):
 ///
 /// - blank and comment shapes come first;
@@ -239,6 +287,16 @@ mod tests {
             ("answer", K::Reference),
             ("_x", K::Reference),
         ];
+
+        let index = index_sheet("# Plan\nmilk = 3.50\n\n## Later\nx_1 = milk * 2\n");
+        assert_eq!(
+            index.assignments,
+            vec![(2, "milk".to_string()), (5, "x_1".to_string())]
+        );
+        assert_eq!(
+            index.headings,
+            vec![(1, "Plan".to_string()), (4, "Later".to_string())]
+        );
         for (raw, want) in cases {
             assert_eq!(Line::new(1, *raw).kind, *want, "line {raw:?}");
         }

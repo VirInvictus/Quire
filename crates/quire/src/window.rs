@@ -17,6 +17,7 @@ pub struct QuireWindow {
     window: gtk4::ApplicationWindow,
     title: gtk4::Label,
     menu_button: gtk4::MenuButton,
+    outline_button: gtk4::MenuButton,
     page: Rc<QuirePage>,
     /// set when the user chose to discard unsaved changes, so the
     /// close-request handler lets the window die
@@ -43,6 +44,12 @@ impl QuireWindow {
         menu_button.set_tooltip_text(Some("Menu"));
         header.pack_end(&menu_button);
 
+        let outline_button = gtk4::MenuButton::new();
+        outline_button.set_icon_name("view-list-symbolic");
+        outline_button.set_tooltip_text(Some("Outline"));
+        outline_button.set_visible(false);
+        header.pack_start(&outline_button);
+
         window.set_titlebar(Some(&header));
 
         let page = QuirePage::new();
@@ -55,6 +62,7 @@ impl QuireWindow {
             app: app.clone(),
             window: window.clone(),
             title,
+            outline_button,
             menu_button,
             page: page.clone(),
             force_close: Rc::new(std::cell::Cell::new(false)),
@@ -70,9 +78,45 @@ impl QuireWindow {
         win.build_menu();
         win.wire_title_tracking();
         win.wire_close_guard();
+        win.wire_drop_target();
+        win.wire_outline();
+        page.wire_editing_keys();
 
         window.present();
         win
+    }
+
+    /// Rebuild the outline menu whenever the sheet is re-indexed.
+    fn wire_outline(&self) {
+        let win = self.clone();
+        self.page.set_on_reindex(move |index| {
+            let menu = gio::Menu::new();
+            for (line, title) in &index.headings {
+                menu.append(
+                    Some(&title.to_string()),
+                    Some(&format!("win.goto-heading({line})")),
+                );
+            }
+            win.outline_button.set_menu_model(Some(&menu));
+            win.outline_button.set_visible(!index.headings.is_empty());
+        });
+    }
+
+    /// Open a file dropped onto the window.
+    fn wire_drop_target(&self) {
+        let drop = gtk4::DropTarget::new(gio::File::static_type(), gtk4::gdk::DragAction::COPY);
+        let win = self.clone();
+        drop.connect_drop(move |_target, value, _x, _y| {
+            let Ok(file) = value.get::<gio::File>() else {
+                return false;
+            };
+            let Some(path) = file.path() else {
+                return false;
+            };
+            win.open_path(path.to_string_lossy().to_string());
+            true
+        });
+        self.window.add_controller(drop);
     }
 
     pub fn window(&self) -> &gtk4::ApplicationWindow {
@@ -128,6 +172,15 @@ impl QuireWindow {
             });
         }
         self.window.add_action(&line_numbers);
+
+        let win = self.clone();
+        let goto_action = gio::SimpleAction::new("goto-heading", Some(&i32::static_variant_type()));
+        goto_action.connect_activate(move |_, param| {
+            if let Some(line) = param.and_then(|v| v.get::<i32>()) {
+                win.page.goto_line(line.max(1) as usize);
+            }
+        });
+        self.window.add_action(&goto_action);
 
         self.app.set_accels_for_action("win.new", &["<Primary>n"]);
         self.app.set_accels_for_action("win.open", &["<Primary>o"]);

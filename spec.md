@@ -40,6 +40,7 @@ Leading whitespace is insignificant for classification.
 | Comment | first non-space is `//` | dimmed |
 | Heading | 1-6 `#` then space/tab/end of line | styled (CommonMark's 3-space indent limit does not apply; any leading whitespace is allowed) |
 | Expression | shape rule below | text + result |
+| Reference | exactly one identifier (`[A-Za-z_][A-Za-z0-9_]*`, not a keyword), optional surrounding whitespace | text + result when the name is bound above; plain text when it is not |
 | Text | everything else | text |
 
 `//` starts a comment that runs to the end of the line: on its own
@@ -66,10 +67,10 @@ A line is an Expression if any of these holds:
   by `*`, `/`, `^`, or `(`: a reference line like `milk * 2`.
 
 That last rule is deliberately narrow. Identifier-led lines whose next
-token is `+`, `-`, or nothing are Text: prose like "War and Peace -
-part 1" must not grow an error cell, and a missed calculation beats a
-false error. To force such a line to evaluate, wrap the name in
-parentheses.
+token is `+` or `-` are Text: prose like "War and Peace - part 1" must
+not grow an error cell, and a missed calculation beats a false error.
+A line that is *nothing but* an identifier is a Reference and evaluates
+leniently (see Evaluation semantics).
 
 Classification is shape-only. An Expression line the parser rejects
 still evaluates, to an error on its own line; it never poisons
@@ -93,6 +94,12 @@ errors on its own line.
 - **Variables.** `name = expression` evaluates immediately and is
   visible to lines below, never to lines above. Reassignment is
   allowed; a reading line sees the nearest binding above it.
+- **References.** A Reference line (a bare identifier) asks what that
+  name is worth. Bound above, it shows the value and counts like any
+  expression result — toward `answer`, toward totals, visible to
+  lines below. Unbound, it renders as plain text with no cell: bare
+  names never error, and a bare `answer` behaves the same way for the
+  most recent result.
 - **`answer`** refers to the most recent Expression result above the
   reading line.
 - **`total`** on a line by itself sums every Expression result since

@@ -1,5 +1,7 @@
-// Variables flow downward only; reassignment wins below.
+// Variables flow downward only; reassignment wins below. A bare
+// identifier line references the variable when it is bound above.
 milk = 3.50
+milk //= 3.5
 milk * 2 //= 7
 bread = 2.25
 (milk) + bread //= 5.75

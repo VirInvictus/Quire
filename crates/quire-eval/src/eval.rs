@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use crate::error::{ErrKind, QuireError};
 use crate::format::format_number;
 use crate::parser::{BinOp, Expr, Stmt, parse};
-use crate::tokens::tokenize;
+use crate::tokens::{Tok, tokenize};
 use crate::{Line, LineKind};
 
 /// What one line produced.
@@ -53,6 +53,7 @@ pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
     for line in parse_sheet_lines(text) {
         let outcome = match line.kind {
             LineKind::Expression => Some(eval_line(&line.raw, &mut ctx)),
+            LineKind::Reference => eval_reference(&line.raw, &mut ctx),
             LineKind::Heading => {
                 ctx.subtotal = 0.0;
                 None
@@ -69,9 +70,50 @@ pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
 }
 
 /// Evaluate a single line against a fresh context. Table-test and
-/// app convenience; sheets go through `evaluate_sheet`.
+/// app convenience; sheets go through `evaluate_sheet`. An unbound
+/// reference has nothing to say context-free, so it surfaces here as
+/// a `NoAnswer`-shaped error.
 pub fn evaluate_line(raw: &str) -> Outcome {
-    eval_line(raw, &mut Ctx::default())
+    let mut ctx = Ctx::default();
+    match crate::parse_sheet(raw).first().map(|l| l.kind) {
+        Some(LineKind::Reference) => {
+            // context-free, an unbound reference needs a named error
+            let miss = match tokenize(raw).ok().as_deref().and_then(|t| t.first()) {
+                Some(t) if matches!(t.tok, Tok::Answer) => ErrKind::NoAnswer,
+                Some(t) => match &t.tok {
+                    Tok::Ident(n) => ErrKind::UnknownName(n.clone()),
+                    _ => ErrKind::UnexpectedEol {
+                        expected: "a value",
+                    },
+                },
+                None => ErrKind::UnexpectedEol {
+                    expected: "a value",
+                },
+            };
+            eval_reference(raw, &mut ctx)
+                .unwrap_or_else(|| Outcome::Failed(QuireError::new((0, 0), miss)))
+        }
+        _ => eval_line(raw, &mut ctx),
+    }
+}
+
+/// A bare identifier line: the sheet asking what a name is worth.
+/// Bound above -> its value, counted like any expression result
+/// (toward `answer`, the totals, and later lines). Unbound -> no cell
+/// at all; prose stays prose and bare names never error.
+fn eval_reference(raw: &str, ctx: &mut Ctx) -> Option<Outcome> {
+    let toks = tokenize(raw).ok()?;
+    if toks.len() != 1 {
+        return None;
+    }
+    let v = match &toks[0].tok {
+        Tok::Ident(name) => *ctx.vars.get(name)?,
+        Tok::Answer => ctx.answer?,
+        _ => return None,
+    };
+    ctx.answer = Some(v);
+    ctx.subtotal += v;
+    Some(Outcome::Value(v))
 }
 
 fn eval_line(raw: &str, ctx: &mut Ctx) -> Outcome {
@@ -294,6 +336,35 @@ total
             .filter_map(|l| l.outcome.as_ref().map(|o| o.render()))
             .collect();
         assert_eq!(rendered, vec!["2", "20", "3", "30"]);
+    }
+
+    #[test]
+    fn bare_references_are_lenient() {
+        // bound: the value, counted like any expression result
+        let sheet = "milk = 3.50\nmilk\nanswer\ntotal\n";
+        let lines = evaluate_sheet(sheet);
+        let rendered: Vec<_> = lines
+            .iter()
+            .map(|l| l.outcome.as_ref().map(|o| o.render()))
+            .collect();
+        assert_eq!(
+            rendered,
+            vec![
+                Some("3.5".to_string()),  // milk = 3.50
+                Some("3.5".to_string()),  // milk (reference)
+                Some("3.5".to_string()),  // answer (reference)
+                Some("10.5".to_string()), // total: 3.5 + 3.5 + 3.5
+            ]
+        );
+
+        // unbound: no cell at all, and nothing after it is poisoned
+        let sheet = "2 + 2\nghost\nanswer\n";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(lines[1].outcome, None);
+        assert_eq!(
+            lines[2].outcome.as_ref().map(|o| o.render()),
+            Some("4".to_string())
+        );
     }
 
     #[test]

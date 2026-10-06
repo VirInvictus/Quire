@@ -72,9 +72,8 @@ fn run_script(path: &Path) {
         };
         let idx = cleaned.len();
         cleaned.push(body.to_string());
-        let is_expr = parse_sheet(body)
-            .first()
-            .is_some_and(|l| l.kind == LineKind::Expression);
+        let kind = parse_sheet(body).first().map(|l| l.kind);
+        let is_expr = matches!(kind, Some(LineKind::Expression) | Some(LineKind::Reference));
         if is_expr {
             last_expr = Some(idx);
         }

@@ -31,6 +31,9 @@ pub enum LineKind {
     Heading,
     /// Starts something the engine may evaluate (see `classify`).
     Expression,
+    /// Exactly one identifier: the sheet asking what a name is.
+    /// Evaluates to its value when bound above, plain text when not.
+    Reference,
     /// Anything else: prose the engine leaves alone.
     Text,
 }
@@ -42,6 +45,7 @@ impl fmt::Display for LineKind {
             LineKind::Comment => "comment",
             LineKind::Heading => "heading",
             LineKind::Expression => "expression",
+            LineKind::Reference => "reference",
             LineKind::Text => "text",
         };
         f.write_str(s)
@@ -83,15 +87,19 @@ pub fn parse_sheet(text: &str) -> Vec<Line> {
 ///   keyword `total`; or is a variable statement (`name = ...`,
 ///   single `=`, not `==`); or leads with an identifier immediately
 ///   followed by `*`, `/`, `^`, or `(` (a reference line, `milk * 2`);
+/// - a line that is exactly one identifier is a Reference: the sheet
+///   asking what that name is worth (evaluated leniently, see
+///   eval.rs);
 /// - everything else is Text.
 ///
 /// Leading whitespace is insignificant. Classification is shape-only:
-/// an Expression line the Phase 1 parser rejects errors on its own
-/// line and never affects its neighbours. Identifier-led lines keep
-/// `+`/`-` for prose ("War and Peace - part 1" is a sentence): a
-/// missed calculation beats a false error.
+/// an Expression line the parser rejects errors on its own line and
+/// never affects its neighbours. Identifier-led lines keep `+`/`-`
+/// for prose ("War and Peace - part 1" is a sentence): a missed
+/// calculation beats a false error.
 fn classify(raw: &str) -> LineKind {
-    let t = raw.trim_start();
+    // both ends: a trailing space must not un-reference a bare name
+    let t = raw.trim();
     if t.is_empty() {
         return LineKind::Blank;
     }
@@ -103,6 +111,9 @@ fn classify(raw: &str) -> LineKind {
     }
     if is_expression(t) {
         return LineKind::Expression;
+    }
+    if is_reference(t) {
+        return LineKind::Reference;
     }
     LineKind::Text
 }
@@ -124,6 +135,17 @@ fn is_expression(t: &str) -> bool {
         b'+' | b'-' => b.get(1).is_some_and(|&c| !c.is_ascii_whitespace()),
         _ => is_word_expression(t),
     }
+}
+
+/// A line that is exactly one identifier (`groceries`, `answer`):
+/// classified Reference, evaluated leniently (eval.rs). The keyword
+/// `total` never reaches here; it is an Expression first.
+fn is_reference(t: &str) -> bool {
+    let mut chars = t.chars();
+    chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 /// Word-led lines: the keyword `total`, assignments, and reference
@@ -206,12 +228,16 @@ mod tests {
             ("rate == 12", K::Text),
             ("a sentence = not an assignment", K::Text),
             ("$ rate", K::Text),
-            // `+`/`-` after a name, and bare names, are prose: a missed
-            // calculation beats a false error cell.
+            // `+`/`-` after a name stays prose: a missed calculation
+            // beats a false error cell.
             ("milk + 2", K::Text),
             ("War and Peace - part 1", K::Text),
             ("A note (important)", K::Text),
             ("Notes on the renovation", K::Text),
+            // a bare identifier is the sheet asking what a name is
+            ("groceries", K::Reference),
+            ("answer", K::Reference),
+            ("_x", K::Reference),
         ];
         for (raw, want) in cases {
             assert_eq!(Line::new(1, *raw).kind, *want, "line {raw:?}");

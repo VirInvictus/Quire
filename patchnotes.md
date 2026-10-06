@@ -42,3 +42,10 @@ release.
   scheme, and the column tone plus hairline are drawn by the
   renderer across the full column height. Verified on-desktop with
   screenshots at 1x.
+- Three user-facing fixes from Brandon's first live session: TextView
+  `line-height` clipped glyph ascenders on every line (the property is
+  dropped; GTK clips whenever it is set), the caret was invisible on
+  the dark canvas (the scheme now carries a `cursor` style), and bare
+  identifier lines now evaluate as references - `groceries` on its own
+  line shows its value when bound above and stays plain text when not
+  (spec.md amended; unbound bare names never error).

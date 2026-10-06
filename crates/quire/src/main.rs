@@ -14,15 +14,16 @@ use gtk4::prelude::*;
 
 /// App stylesheet, spliced with the active Kanagawa palette on every
 /// dark/light flip. Tokens are vir-gtk's `%NAME%` replacements.
-/// Column tone and hairline are painted by QuireView's below-text
-/// layer (the Gutter widget ignores CSS backgrounds), not here.
+/// Column tone and hairline are painted by the answers renderer, not
+/// here. No `line-height`: GTK clips TextView ascenders whenever the
+/// property is set (verified at 150% and a 24px value); the cursor
+/// color comes from the style scheme's `cursor` style.
 const APP_CSS: &str = "\
 textview.quire-editor {
   background-color: %BG_VIEW%;
   color: %FG%;
   font-family: \"JetBrains Mono\", monospace;
   font-size: 15px;
-  line-height: 150%;
 }";
 
 fn resplice() {

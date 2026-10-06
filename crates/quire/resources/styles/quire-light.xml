@@ -11,6 +11,9 @@
   <style name="quire:result" foreground="#43436c" bold="true"/>
   <style name="quire:error" foreground="#c84053" bold="true"/>
 
+  <!-- the caret, matching the sheet foreground -->
+  <style name="cursor" foreground="#545464"/>
+
   <!-- sheet structure -->
   <style name="quire:comment" foreground="#8a8980" italic="true"/>
   <style name="quire:header" foreground="#43436c" bold="true"/>

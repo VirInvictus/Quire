@@ -252,9 +252,11 @@ the work lands, with the current recommendation recorded here.
     with the interactive chooser.
   - [ ] Mixed-line evaluation (NoteCalc's classify-by-failure):
     `50 apples at 3 EUR` evaluates the math and demotes the words.
-    Gated on golden prose tests. (First candidate to pull forward:
-    writing natural sheets keeps hitting the strict-shape rule, three
-    times during Phase 1 alone.)
+    Gated on golden prose tests. (Partially pulled forward 2026-10-06:
+    bare identifier references now evaluate when bound — Brandon hit
+    the strict-shape rule live on his first session and it became a
+    spec amendment; what remains here is mixed prose+math on one
+    line and the `+`/`-` prose exception.)
   - [ ] Reverse percent forms: `41 is 17% on what`, `20 is what
     percent of 60`.
   - [ ] Implicit multiplication (`2pi`, `3(4+5)`) with a dedicated

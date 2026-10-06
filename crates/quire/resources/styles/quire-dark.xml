@@ -10,6 +10,10 @@
   <style name="quire:result" foreground="#c8c093" bold="true"/>
   <style name="quire:error" foreground="#c4746e" bold="true"/>
 
+  <!-- the caret: without this the scheme leaves it theme-default,
+       which on this dark canvas is invisible -->
+  <style name="cursor" foreground="#c5c9c5"/>
+
   <!-- sheet structure -->
   <style name="quire:comment" foreground="#a6a69c" italic="true"/>
   <style name="quire:header" foreground="#c8c093" bold="true"/>

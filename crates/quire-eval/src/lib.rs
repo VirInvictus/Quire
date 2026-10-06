@@ -15,7 +15,7 @@ mod units;
 
 pub use error::{ErrKind, QuireError, Span};
 pub use eval::{LineOutcome, Outcome, evaluate_line, evaluate_sheet};
-pub use format::format_number;
+pub use format::{format_number, format_number_with};
 pub use parser::{Expr, Stmt};
 pub use tokens::{Tok, tokenize};
 

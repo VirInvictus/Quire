@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 
 use gtk4::gio;
-use gtk4::prelude::SettingsExtManual;
+use gtk4::prelude::*;
 
 const SCHEMA_XML: &[u8] = include_bytes!("../resources/io.github.virinvictus.Quire.gschema.xml");
 
@@ -39,6 +39,15 @@ pub fn install() {
 /// docs intend and costs nothing.
 pub fn get() -> gio::Settings {
     gio::Settings::new(SCHEMA_ID)
+}
+
+/// The answer-decimals cap: -1 means the full 12-significant
+/// rendering; 0..=12 caps the decimal places.
+pub fn answer_decimals() -> Option<u32> {
+    match get().int("answer-decimals") {
+        d if d < 0 => None,
+        d => Some(d as u32),
+    }
 }
 
 /// Prepends `path` to the recent-files list, deduplicating and

@@ -4,6 +4,12 @@ Newest first.
 
 ## Unreleased
 
+- An answer-decimals setting: the menu's "Answer decimals" radio
+  (Full, 0-4) caps how many decimal places scalar answers show,
+  persisted in GSettings and applied live. A cap that would zero a
+  value out keeps the full rendering instead, so `1/3` with a
+  zero-decimal cap still reads `0.333333333333`. spec.md's Results
+  section notes the cap.
 - Result-format cycling: Alt+Up/Down on a line cycles its answer
   between the standard rendering, fixed two decimals (the
   allocation-lines fix - `41.4519906323` becomes `41.45`), hex, and

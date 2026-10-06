@@ -72,6 +72,7 @@ whole = total
 // Ctrl+B jumps to a definition; Ctrl+L toggles line numbers
 // Alt+Up/Down cycles a line's format (fixed decimals, hex, bin)
 // drag any text file onto the window to open it
+// the menu sets how many decimals answers show
 
 // this sheet is yours - edit it, or start fresh with Ctrl+N
 ";
@@ -395,7 +396,11 @@ impl QuirePage {
                             &page.buffer.end_iter(),
                             true,
                         );
-                        let cells = answers::compute_with_formats(&text, &page.formats.borrow());
+                        let cells = answers::compute_with_formats(
+                            &text,
+                            &page.formats.borrow(),
+                            crate::settings::answer_decimals(),
+                        );
                         page.answers.replace(cells.clone());
                         page.renderer.set_answers(cells);
                         if let Some(f) = page.on_reindex.borrow().as_ref() {
@@ -523,11 +528,15 @@ impl QuirePage {
     }
 
     /// Recompute the answers map (formats included) and repaint.
-    fn refresh_answers(&self) {
+    pub(crate) fn refresh_answers(&self) {
         let text = self
             .buffer
             .text(&self.buffer.start_iter(), &self.buffer.end_iter(), true);
-        let cells = answers::compute_with_formats(&text, &self.formats.borrow());
+        let cells = answers::compute_with_formats(
+            &text,
+            &self.formats.borrow(),
+            crate::settings::answer_decimals(),
+        );
         self.answers.replace(cells.clone());
         self.renderer.set_answers(cells);
         self.renderer.queue_draw();

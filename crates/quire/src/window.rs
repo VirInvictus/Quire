@@ -144,6 +144,25 @@ impl QuireWindow {
         save_as_action.connect_activate(move |_, _| win.action_save_as());
         self.window.add_action(&save_as_action);
 
+        // stateful answer-decimals radio: the cap as its string state
+        // (-1 = full); a change persists and repaints the sheet
+        let win = self.clone();
+        let decimals = settings::get().int("answer-decimals").to_string();
+        let decimals_action = gio::SimpleAction::new_stateful(
+            "answer-decimals",
+            Some(glib::VariantTy::STRING),
+            &decimals.to_variant(),
+        );
+        decimals_action.connect_activate(move |action, payload| {
+            if let Some(v) = payload.and_then(|v| v.str()) {
+                let parsed: i32 = v.parse().unwrap_or(-1);
+                let _ = settings::get().set_int("answer-decimals", parsed);
+                action.set_state(&v.to_variant());
+                win.page.refresh_answers();
+            }
+        });
+        self.window.add_action(&decimals_action);
+
         // parameterized new-from-template: the template id as payload
         let win = self.clone();
         let template_action = gio::SimpleAction::new("template", Some(glib::VariantTy::STRING));
@@ -221,6 +240,22 @@ impl QuireWindow {
             template_section.append(Some(name), Some(&format!("win.template('{escaped}')")));
         }
         menu.append_section(Some("New from template"), &template_section);
+
+        let decimals_section = gio::Menu::new();
+        for (label, id) in [
+            ("Full", "-1"),
+            ("0 decimals", "0"),
+            ("1 decimal", "1"),
+            ("2 decimals", "2"),
+            ("3 decimals", "3"),
+            ("4 decimals", "4"),
+        ] {
+            let item = gio::MenuItem::new(Some(label), None);
+            let target = id.to_variant();
+            item.set_action_and_target_value(Some("win.answer-decimals"), Some(&target));
+            decimals_section.append_item(&item);
+        }
+        menu.append_section(Some("Answer decimals"), &decimals_section);
 
         let recent_section = gio::Menu::new();
         for path in settings::get().strv("recent-files") {

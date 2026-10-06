@@ -20,6 +20,13 @@
       <summary>Last used folder</summary>
       <description>Where the open and save dialogs start.</description>
     </key>
+    <key name="answer-decimals" type="i">
+      <default>-1</default>
+      <range min="-1" max="12"/>
+      <summary>Answer decimal places</summary>
+      <description>Cap on decimal places in scalar answers; -1 is
+        the full 12-significant-digit rendering.</description>
+    </key>
     <key name="recent-files" type="as">
       <default>[]</default>
       <summary>Recent sheets</summary>

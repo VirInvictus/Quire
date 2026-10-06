@@ -227,7 +227,10 @@ editor's right edge, not a separately scrolled pane.
 
 Formatting: integer parts grouped in threes with `,`; up to 12
 significant digits; trailing zeros trimmed; whole results print
-without a decimal part. A line's answer can cycle alternative
+without a decimal part. The app's answer-decimals setting caps the
+decimal places a scalar answer shows (a value the cap would zero
+out keeps the full rendering, so `1/3` never reads as zero). A
+line's answer can cycle alternative
 formats with Alt+Up/Down - standard, fixed two decimals, hex, bin -
 a per-line view choice that never changes the sheet (unit values
 keep the engine's notation; hex and bin apply to non-negative

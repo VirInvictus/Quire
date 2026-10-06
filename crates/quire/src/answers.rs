@@ -45,12 +45,13 @@ impl LineFormat {
 }
 
 pub fn compute(sheet: &str) -> HashMap<u32, AnswerCell> {
-    compute_with_formats(sheet, &Default::default())
+    compute_with_formats(sheet, &Default::default(), None)
 }
 
 pub fn compute_with_formats(
     sheet: &str,
     formats: &HashMap<u32, LineFormat>,
+    max_decimals: Option<u32>,
 ) -> HashMap<u32, AnswerCell> {
     quire_eval::evaluate_sheet(sheet)
         .into_iter()
@@ -59,7 +60,10 @@ pub fn compute_with_formats(
             let cell = match line.outcome? {
                 Outcome::Value(v) => AnswerCell {
                     text: match format {
-                        None | Some(LineFormat::Standard) => quire_eval::format_number(v),
+                        None | Some(LineFormat::Standard) => match max_decimals {
+                            Some(cap) => quire_eval::format_number_with(v, cap),
+                            None => quire_eval::format_number(v),
+                        },
                         Some(LineFormat::Fixed2) => format!("{v:.2}"),
                         // hex and bin are integer shapes; anything
                         // else stays on the previous format
@@ -112,26 +116,36 @@ mod tests {
     }
 
     #[test]
+    fn decimal_caps_round_the_standard_rendering() {
+        let sheet = "pct = 3540 / 8540 * 100\nfine = 1 / 3\n";
+        let cells = compute_with_formats(sheet, &Default::default(), Some(2));
+        assert_eq!(cells[&1].text, "41.45");
+        // the lossy guard: a zero-decimal cap cannot zero out 1/3
+        let cells = compute_with_formats(sheet, &Default::default(), Some(0));
+        assert_eq!(cells[&2].text, "0.333333333333");
+    }
+
+    #[test]
     fn format_cycling_covers_the_shapes() {
         let sheet = "whole = 8540\npct = 40 * whole / 100\nneg = -3\n";
         // standard
         let formats = Default::default();
-        let cells = compute_with_formats(sheet, &formats);
+        let cells = compute_with_formats(sheet, &formats, None);
         assert_eq!(cells[&2].text, "3,416");
         // fixed two decimals: the portfolio allocation case
         let mut formats = HashMap::new();
         formats.insert(2, LineFormat::Fixed2);
-        let cells = compute_with_formats(sheet, &formats);
+        let cells = compute_with_formats(sheet, &formats, None);
         assert_eq!(cells[&2].text, "3416.00");
         // hex and bin apply to non-negative integers
         formats.insert(1, LineFormat::Hex);
         formats.insert(2, LineFormat::Bin);
-        let cells = compute_with_formats(sheet, &formats);
+        let cells = compute_with_formats(sheet, &formats, None);
         assert_eq!(cells[&1].text, "0x215c");
         assert_eq!(cells[&2].text, "0b110101011000");
         // negatives keep their previous format when hex/bin cannot apply
         formats.insert(3, LineFormat::Hex);
-        let cells = compute_with_formats(sheet, &formats);
+        let cells = compute_with_formats(sheet, &formats, None);
         assert_eq!(cells[&3].text, "-3");
         // the cycle order is Standard -> Fixed2 -> Hex -> Bin
         assert_eq!(LineFormat::Standard.next(), LineFormat::Fixed2);

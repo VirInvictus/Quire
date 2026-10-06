@@ -2,6 +2,21 @@
 //! with `,`; up to 12 significant digits; trailing zeros trimmed;
 //! whole results print without a decimal part.
 
+/// Format with a cap on decimal places (the app's answer-decimals
+/// setting): the value rounds to `max_decimals` places, then runs
+/// the standard pipeline. A value the cap would zero out keeps the
+/// 12-significant rendering instead (the guard against lossy
+/// display: `1/3` with a zero-decimal cap must not read as zero).
+pub fn format_number_with(x: f64, max_decimals: u32) -> String {
+    let scale = 10f64.powi(max_decimals.min(12) as i32);
+    let rounded = (x * scale).round() / scale;
+    if x != 0.0 && rounded == 0.0 {
+        format_number(x)
+    } else {
+        format_number(rounded)
+    }
+}
+
 /// Format a finite value for an answer cell.
 pub fn format_number(x: f64) -> String {
     debug_assert!(x.is_finite(), "evaluator must not emit non-finite values");
@@ -57,7 +72,7 @@ fn group(int_part: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::format_number as f;
+    use super::{format_number as f, format_number_with as fw};
 
     #[test]
     fn formats_whole_and_grouped() {
@@ -90,5 +105,16 @@ mod tests {
         assert_eq!(f(3.50), "3.5");
         assert_eq!(f(7.00), "7");
         assert_eq!(f(1.2300), "1.23");
+    }
+
+    #[test]
+    fn decimal_caps_round_and_stay_grouped() {
+        assert_eq!(fw(41.4519906323, 2), "41.45");
+        assert_eq!(fw(8540.0 / 40.0, 2), "213.5");
+        assert_eq!(fw(1234567.891, 2), "1,234,567.89");
+        assert_eq!(fw(7.0, 2), "7");
+        // the lossy guard: a cap that would zero the value out
+        // keeps the full rendering
+        assert_eq!(fw(1.0 / 3.0, 0), "0.333333333333");
     }
 }

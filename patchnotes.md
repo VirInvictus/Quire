@@ -69,6 +69,12 @@ release.
   and a toggle-able line-numbers gutter (menu + Ctrl+L). Live
   session caught the silent GSettings bind no-op (the BindingBuilder
   must be .build()-ed).
+- Save round-trip verified live (Ctrl+S through the FileDialog,
+  file lands with the sheet contents, recents and title update) and
+  the first-press crash fixed: the `last-folder` key is a maybe-string
+  (`ms`), and reading a nothing-variant through the plain string
+  getter panicked - it now goes through the typed variant API as
+  Option<String>.
 - Three user-facing fixes from Brandon's first live session: TextView
   `line-height` clipped glyph ascenders on every line (the property is
   dropped; GTK clips whenever it is set), the caret was invisible on

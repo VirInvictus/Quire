@@ -198,21 +198,21 @@ impl QuireWindow {
             if win.force_close.get() || !win.page.is_modified() {
                 return glib::Propagation::Proceed;
             }
-            win.confirm_discard(glib::clone!(
+            win.confirm_discard(Box::new(glib::clone!(
                 #[strong]
                 win,
                 move || {
                     win.force_close.set(true);
                     win.window.close();
                 }
-            ));
+            )));
             glib::Propagation::Stop
         });
     }
 
     /// Present the unsaved-changes alert; `then` runs only when the
     /// user chooses Discard.
-    fn confirm_discard(&self, then: impl Fn() + 'static) {
+    fn confirm_discard(&self, then: Box<dyn FnOnce()>) {
         let alert = vir_gtk::widgets::Alert::new(
             Some("Discard unsaved changes?"),
             Some("The sheet has been modified since the last save."),
@@ -222,8 +222,11 @@ impl QuireWindow {
         alert.set_response_appearance("discard", vir_gtk::widgets::Appearance::Destructive);
         alert.set_default_response(Some("cancel"));
         alert.set_close_response("cancel");
+        let then = std::cell::RefCell::new(Some(then));
         alert.connect_response(move |response| {
-            if response == "discard" {
+            if response == "discard"
+                && let Some(then) = then.borrow_mut().take()
+            {
                 then();
             }
         });
@@ -232,9 +235,9 @@ impl QuireWindow {
 
     /// Run `then` immediately when the sheet is clean, otherwise ask
     /// first.
-    fn with_discard_check(&self, then: impl Fn() + 'static) {
+    fn with_discard_check(&self, then: impl FnOnce() + 'static) {
         if self.page.is_modified() {
-            self.confirm_discard(then);
+            self.confirm_discard(Box::new(then));
         } else {
             then();
         }
@@ -247,13 +250,24 @@ impl QuireWindow {
         });
     }
 
+    /// Read the `ms` (maybe-string) last-folder key. The string
+    /// getter panics on nothing-variants, so this must go through the
+    /// typed variant API.
+    fn last_folder(&self) -> String {
+        settings::get()
+            .value("last-folder")
+            .get::<Option<String>>()
+            .flatten()
+            .unwrap_or_default()
+    }
+
     fn action_open(&self) {
+        let folder = self.last_folder();
         let page = self.page.clone();
         let win = self.clone();
         self.with_discard_check(move || {
             let dialog = gtk4::FileDialog::new();
             dialog.set_title("Open Sheet");
-            let folder = settings::get().string("last-folder").to_string();
             if !folder.is_empty() {
                 let initial = gio::File::for_path(folder);
                 dialog.set_initial_folder(Some(&initial));
@@ -316,12 +330,12 @@ impl QuireWindow {
     }
 
     fn action_save_as(&self) {
+        let folder = self.last_folder();
         let page = self.page.clone();
         let win = self.clone();
         let dialog = gtk4::FileDialog::new();
         dialog.set_title("Save Sheet As");
         dialog.set_initial_name(Some(&format!("{}.quire", page.display_name())));
-        let folder = settings::get().string("last-folder").to_string();
         if !folder.is_empty() {
             let initial = gio::File::for_path(folder);
             dialog.set_initial_folder(Some(&initial));

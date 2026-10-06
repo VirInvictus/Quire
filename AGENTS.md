@@ -29,6 +29,10 @@ From the repo root:
 - `cargo test -p quire-eval` for engine-only
 - `cargo fmt` before committing
 
+Build requirements (from Phase 2): the `gtksourceview5-devel` system
+package (`pkg-config gtksourceview-5` must resolve). CI installs the
+Ubuntu equivalents (`libgtk-4-dev`, `libgtksourceview-5-dev`) per job.
+
 ## VERSION
 
 `VERSION` at the repo root and the workspace `version` in `Cargo.toml`
@@ -39,8 +43,10 @@ verbatim, via `--cleanup=verbatim`.
 ## House rules that bite here
 
 - spec.md is the contract: semantics changes update spec.md first.
-- Never assume an installed font: the app bundles OFL fonts with
-  generic fallbacks (Phase 3).
+- Never assume an installed font: the app bundles JetBrains Mono (SIL
+  OFL 1.1, `crates/quire/resources/fonts/` with the license text) and
+  installs it under `~/.local/share/fonts/Quire/` at startup, before
+  GTK builds its font map.
 - Documents are plain UTF-8 files; no sidecars, no lock-in.
 - Sheets are user data: the app never writes a sheet the user did not
   ask to save.

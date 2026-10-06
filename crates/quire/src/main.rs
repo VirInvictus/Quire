@@ -1,17 +1,70 @@
 //! Quire: a Soulver-style notepad calculator for Linux.
 //!
-//! Phase 0 skeleton: the GTK4 window and editor arrive in Phase 2
-//! (see roadmap.md). The engine lives in the quire-eval crate.
+//! Plain GTK4, Kanagawa Dragon through vir-gtk, engine in quire-eval.
 
-fn main() {
-    println!("quire {}", env!("CARGO_PKG_VERSION"));
-    let sheet = quire_eval::parse_sheet("# Groceries\nmilk = 3.50\nmilk * 2\n");
-    for line in &sheet {
-        println!(
-            "{:>3}  {:<10}  {}",
-            line.number,
-            line.kind.to_string(),
-            line.raw
-        );
+mod answers;
+mod fonts;
+mod page;
+mod renderer;
+mod window;
+
+use gtk4::prelude::*;
+
+/// App stylesheet, spliced with the active Kanagawa palette on every
+/// dark/light flip. Tokens are vir-gtk's `%NAME%` replacements.
+const APP_CSS: &str = "\
+/* the sheet */
+textview.quire-editor {
+  background-color: %BG_VIEW%;
+  color: %FG%;
+  font-family: \"JetBrains Mono\", monospace;
+  font-size: 15px;
+  line-height: 150%;
+}
+
+/* the answers column: a hairline from the text, same canvas */
+.quire-gutter {
+  background-color: %BG_VIEW%;
+  border-left: 1px solid %GRID%;
+}
+.quire-answers {
+  background-color: %BG_VIEW%;
+}
+";
+
+fn resplice() {
+    use vir_gtk::theme::{base_css, install_app_stylesheet, install_stylesheet};
+    let palette = active_palette();
+    install_stylesheet(&base_css(&palette));
+    install_app_stylesheet(&palette.replace_tokens(APP_CSS));
+}
+
+pub fn active_palette() -> vir_gtk::theme::Palette {
+    if vir_gtk::portal::is_dark() {
+        vir_gtk::theme::Palette::dragon()
+    } else {
+        vir_gtk::theme::Palette::lotus()
     }
+}
+
+fn main() -> gtk4::glib::ExitCode {
+    // fonts land before GTK builds its font map inside run(), so a
+    // first run renders in JetBrains Mono without a restart
+    fonts::ensure_installed();
+
+    let app = gtk4::Application::builder()
+        .application_id("io.github.virinvictus.Quire")
+        .build();
+
+    app.connect_activate(|app| {
+        use vir_gtk::portal;
+        portal::init(None, None, true);
+        portal::connect_dark_changed(app, |_| resplice());
+        resplice();
+
+        let win = window::new(app);
+        win.present();
+    });
+
+    app.run()
 }

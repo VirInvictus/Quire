@@ -8,3 +8,6 @@ authors.workspace = true
 
 [dependencies]
 quire-eval = { path = "../quire-eval" }
+gtk4 = "0.11"
+sourceview5 = { version = "0.11", features = ["v5_16"] }
+vir-gtk = { git = "https://github.com/VirInvictus/vir-gtk.git", branch = "main" }

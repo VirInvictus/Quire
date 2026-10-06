@@ -25,3 +25,10 @@ release.
   Phase 8 preview decision with researched options, and a recorded
   deliberately-skipped list. Apostrophe and Marker cloned as
   references.
+- Phase 2 window and live results: GTK4 app on vir-gtk Kanagawa
+  theming (dark/light portal flips), GtkSourceView editor with
+  bundled JetBrains Mono, and the answers column as a right-gutter
+  GutterRenderer: per-line values in the palette heading tone, errors
+  in red, idle-coalesced live re-evaluation. Verified on-desktop with
+  screenshots; the debugging pass fixed 0-based gutter numbering and
+  a Pango width/translate clip bug.

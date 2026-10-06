@@ -74,42 +74,55 @@ the work lands, with the current recommendation recorded here.
       pinned toolchain; `cargo fmt --check`, `clippy -D warnings`,
       `cargo test`.
 
-- [ ] **Phase 2: Window and live results.** Goal: type `2 + 2`, see
-  `4` aligned to that line.
+- [x] **Phase 2: Window and live results.** Goal: type `2 + 2`, see
+  `4` aligned to that line. (2026-10-05)
   - Setup
-    - [ ] Install `gtksourceview5-devel` (the one system package this
-      phase needs).
-    - [ ] Add `gtk4` 0.11 + `sourceview5` 0.11 deps; `vir-gtk` git dep
+    - [x] Install `gtksourceview5-devel` (5.20.0; Brandon ran the dnf
+      install by hand after run0/polkit proved dead from tool shells).
+    - [x] Add `gtk4` 0.11 + `sourceview5` 0.11 deps; `vir-gtk` git dep
       for the house Kanagawa stylesheet.
-    - [ ] App skeleton mirroring the gnome-text-editor shape:
+    - [x] App skeleton mirroring the gnome-text-editor shape:
       `QuireApplication` -> `QuireWindow` -> `QuirePage` (a
       `GtkSourceBuffer` subclass plus a `sourceview::View` subclass).
   - Results column (the recipe, verified against GtkSourceView 5.22
     source)
-    - [ ] `AnswersRenderer`: Rust subclass of `gtk_source::GutterRenderer`;
-      override `WidgetImpl::measure` (fixed column width), `begin` /
-      `end` (per-frame caches), `query_data` (line to answer lookup),
-      `snapshot_line` (draw via `get_line_extent` + `align_cell`).
-    - [ ] Attach at `view.gutter(TextWindowType::Right)` with position
+    - [x] `AnswersRenderer`: Rust subclass of `gtk_source::GutterRenderer`;
+      landed simpler than the recipe: a fresh Pango layout per cell
+      per frame (nothing to invalidate), `measure` gives the fixed
+      column width, and `align_cell` gets the full inner column width
+      so the right-aligned layout ends flush at the pad edge.
+    - [x] Attach at `view.gutter(TextWindowType::Right)` with position
       0; scroll sync is free (the gutter tracks the vadjustment and
       repaints the visible rect).
-    - [ ] Wrapped lines: `alignment_mode = CELL`; never hardcode line
+    - [x] Wrapped lines: `alignment_mode = CELL`; never hardcode line
       height (gnome-text-editor ships a `line-height` GSettings key;
       always read `get_line_extent`).
-    - [ ] Answers model: a line-number-keyed map rebuilt on buffer
+    - [x] Answers model: a line-number-keyed map rebuilt on buffer
       change; only visible lines get painted, so per-frame cost stays
       bounded.
-    - [ ] Error cells: short message in the Kanagawa red; token-level
+    - [x] Error cells: short message in the Kanagawa red; token-level
       red highlighting is Phase 7 polish.
-    - [ ] Collapse: renderer `visible = false` when the sheet has no
+    - [x] Collapse: renderer `visible = false` when the sheet has no
       expression lines (an empty gutter draws nothing).
   - Evaluation wiring
-    - [ ] Re-evaluate on buffer change and measure whether debouncing
-      matters: NoteCalc runs synchronous per keystroke at notepad
-      scale and is fine. **[D]** if measurement contradicts the spec's
-      "debounced", amend the spec.
-    - [ ] Reserve `snapshot_layer(BELOW_TEXT)` row painting for a
-      cursor-line expression highlight.
+    - [x] Re-evaluate on buffer change, coalesced to the next idle
+      turn (the spec's "debounced"; whole-sheet evaluation is O(n) on
+      tiny sheets and one deferred pass per burst is plenty). No
+      **[D]** needed: the spec text is satisfied as written.
+    - [x] Cold-start repaint safety net: a one-shot queue_draw 400ms
+      after page build, because a first-ever run can paint its
+      earliest frames against a just-installed font cache.
+  - Display pass
+    - [x] Launched on the Hyprland desktop and screenshot-verified:
+      values in the Kanagawa carpYellow right-aligned at the pad
+      edge, errors in the Kanagawa red, JetBrains Mono throughout.
+      Two bugs found and fixed in the pass (0-based gutter line
+      numbers vs 1-based sheet numbers; a width-set right-aligned
+      Pango layout translating its glyphs past the renderer clip).
+    - [ ] Gutter chrome finding, carried to Phase 3: CSS background
+      and border-left on the Gutter widget's class do not paint; the
+      hairline separator and column tone need a different mechanism
+      (renderer-drawn line or CSS node investigation).
 
 - [ ] **Phase 3: Typography and the markdown surface.**
   - Language spec (the markdown research, 2026-10-05)
@@ -137,24 +150,28 @@ the work lands, with the current recommendation recorded here.
       scheme via `get_style` so computed values match the theme from
       one source of truth.
   - Fonts
-    - [ ] **[D]** Bundled font choice: JetBrains Mono, Iosevka,
-      Martian Mono, or IBM Plex Mono (all OFL). NoteCalc bundles
-      JetBrains Mono and Apostrophe bundles Fira; recommendation:
-      JetBrains Mono for the numeric surface at v1.
-    - [ ] Font loaded from the app's resources with a generic fallback
-      chain; nothing assumes an installed font (the Apostrophe
-      `@font-face` + `local()` + remote-fallback chain is the
-      pattern). Optional override via the `use-system-font` /
-      `custom-font` GSettings keys.
-    - [ ] Refresh cached glyphs and colors in `css_changed` so font or
-      scale changes never desync the answers column (the line-numbers
-      renderer's gotcha).
+    - [x] **[D]** Bundled font: JetBrains Mono (Brandon's pick,
+      2026-10-05); OFL files live in `crates/quire/resources/fonts/`
+      with the license text.
+    - [x] Font installed at startup under `~/.local/share/fonts/Quire/`
+      before GTK builds its font map, with a generic fallback chain in
+      the stylesheet; nothing assumes an installed font. gresource
+      loading revisits this at the Phase 5 Meson decision.
+    - [x] Layout cache made safe by construction (fresh per frame);
+      the renderer-lines `css_changed` invalidation dance only
+      returns if Phase 3 reintroduces a cache.
     - [ ] Renderer colors read from the scheme (`style("line-numbers")`,
-      `style("text")`), not hardcoded CSS.
-    - [ ] **[D]** Light variant (Kanagawa Lotus): the scheme metadata
-      supports a dark-variant pairing; recommend deferring light mode
-      past 1.0.
-    - [ ] Display pass with Brandon at 1x and 2x scale.
+      `style("text")`, `quire:result`), not palette hexes (paired with
+      the `quire:result` item above).
+    - [ ] Gutter chrome: settle the hairline separator + column tone
+      carried from Phase 2 (renderer-drawn 1px line vs a working CSS
+      node), and the `snapshot_layer(BELOW_TEXT)` cursor-line
+      expression highlight.
+    - [ ] **[D]** Light variant (Kanagawa Lotus): the palette flip
+      already works through vir-gtk; deciding is whether Quire
+      commits to tuning Lotus rendering past 1.0.
+    - [ ] Display pass with Brandon at 1x and 2x scale (Phase 2's pass
+      was 1x; the 2x check rides this phase).
 
 - [ ] **Phase 4: Documents and editing UX.**
   - [ ] GSettings schema: window size, last folder, wrap,

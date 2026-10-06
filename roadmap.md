@@ -236,20 +236,31 @@ the work lands, with the current recommendation recorded here.
   - [x] **[D]** One window with one sheet for v1 (Brandon's pick,
     2026-10-06) vs tabs.
 
-- [ ] **Phase 5: Packaging.**
-  - [ ] Real icon replacing the placeholder logo; hicolor sizes.
-  - [ ] Desktop file and AppStream metainfo at
-    `io.github.virinvictus.Quire`, validated with appstreamcli.
-  - [ ] **[D]** Build system: adopt Meson (house GTK-app precedent:
-    resources, desktop file, metainfo, VERSION stamping) vs stay
-    cargo-only with an install script. Recommendation: Meson, at this
-    phase.
-  - [ ] Release CI: tag-gated job that builds the release binary and
-    attaches it to the GitHub release (house rule: releases carry the
-    real artifact).
-  - [ ] **[D]** Flatpak manifest (`org.gnome.Platform` 50, VirInvictus
-    app-id): recommend deferring past 1.0; it is its own decision in
-    the house precedent.
+- [x] **Phase 5: Packaging.** (2026-10-06)
+  - [x] Real icon replacing the placeholder logo; hicolor sizes. The
+    answers-column tile (Brandon's pick from three rendered
+    candidates): scalable SVG plus 128/256 PNGs in `data/icons/`,
+    and `logo.svg` replaced with the same design.
+  - [x] Desktop file and AppStream metainfo at
+    `io.github.virinvictus.Quire`, validated with appstreamcli
+    (every push via a CI job, and in the release job). Ships with a
+    shared-mime-info package registering `application/x-quire` for
+    `*.quire` sheets, and a real screenshot for the software-center
+    entry.
+  - [x] **[D]** Build system: Meson adopted (Brandon's pick,
+    2026-10-06; the house shape: a thin cargo wrapper like Atrium's
+    that owns the GNOME install layout). The app stays
+    self-contained: fonts, language spec, and schemes still extract
+    to the user dirs at startup, with or without the install.
+  - [x] Release CI: a tag-gated job (pinned `fedora:44` container)
+    runs the checks, validates the desktop file and metainfo, stages
+    a Meson install tree (schemas compiled by hand under DESTDIR,
+    where gnome.post_install deliberately skips), and attaches
+    `quire-vX.Y.Z-x86_64.tar.zst` to the GitHub release it creates
+    from the tag's verbatim message. (2026-10-06)
+  - [x] **[D]** Flatpak manifest: deferred past 1.0 (Brandon's pick,
+    2026-10-06; the roadmap recommendation accepted). Its own
+    decision when the gate opens.
 
 - [ ] **Phase 6: Currency, units, dates.**
   - [ ] **[D]** The gate: own implementation vs embedding numbat.

@@ -16,6 +16,18 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  package:
+    name: desktop + appstream validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - run: sudo apt-get update && sudo apt-get install -y appstream desktop-file-utils
+      - name: Validate the desktop file and AppStream metadata
+        run: |
+          desktop-file-validate data/io.github.virinvictus.Quire.desktop
+          appstreamcli validate --no-net data/io.github.virinvictus.Quire.metainfo.xml
+
   fmt:
     name: rustfmt
     runs-on: ubuntu-latest

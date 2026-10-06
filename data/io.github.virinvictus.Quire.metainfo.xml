@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.virinvictus.Quire</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <name>Quire</name>
+  <summary>A Soulver-style notepad calculator for Linux</summary>
+
+  <description>
+    <p>
+      Quire is a notepad calculator for the Wayland desktop: prose,
+      markdown structure, and math share one plain-text sheet, and
+      every expression answers on its own line in a results column at
+      the right edge, live as you type.
+    </p>
+    <p>
+      Write sums the way you would say them: 200 + 15%, 15% of 200,
+      milk = 3.50, total. Variables carry down the sheet, bare
+      references answer with their value, a heading sections the math
+      as well as the page, and lists continue themselves as you write.
+      An error belongs to its line and never breaks the others.
+    </p>
+    <p>
+      Local-first and plain files: no accounts, no sync, no telemetry,
+      and no live prices, ever. Sheets are plain UTF-8 that any editor
+      can open. Kanagawa Dragon and Lotus themes ship built in, along
+      with the bundled JetBrains Mono face.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">io.github.virinvictus.Quire.desktop</launchable>
+
+  <url type="homepage">https://github.com/VirInvictus/Quire</url>
+  <url type="bugtracker">https://github.com/VirInvictus/Quire/issues</url>
+
+  <developer id="io.github.virinvictus" translatable="no">
+    <name>Brandon LaRocque</name>
+  </developer>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/VirInvictus/Quire/main/data/screenshots/quire-dark.png</image>
+      <caption>A sheet with variables, percentages, and the live answers column</caption>
+    </screenshot>
+  </screenshots>
+
+  <provides>
+    <binary>quire</binary>
+    <mediatype>application/x-quire</mediatype>
+  </provides>
+
+  <recommends>
+    <display_length compare="ge">768</display_length>
+    <internet>offline-only</internet>
+  </recommends>
+
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="0.1.0" date="2026-10-06">
+      <description>
+        <p>First tagged release: the quire-eval engine (arithmetic,
+        the four percent forms, variables, answer, heading-or-total
+        bounded totals, span-carrying errors), the GTK4 sheet editor
+        with the live answers column, Kanagawa Dragon and Lotus
+        themes, the document backbone (open, save, recents, dirty
+        guard, file monitoring), and the editing UX (outline, Tab
+        completion, copy-answer, definition jump, drag-and-drop
+        open, line numbers, list continuation).</p>
+      </description>
+    </release>
+  </releases>
+</component>

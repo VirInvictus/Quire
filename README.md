@@ -40,11 +40,15 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
 
 ## Status
 
-Early development, moving fast. Phases 0-3 of the roadmap are
+Early development, moving fast. Phases 0-4 of the roadmap are
 shipped: the evaluation engine (arithmetic, percents, variables,
 totals, span-carrying errors), the GTK4 window with the live answers
-column, and the sheet typography and highlighting. Documents and
-editing UX are next; the first tagged release follows Phase 4.
+column, the sheet typography and highlighting, and the document and
+editing backbone (open/save with a dirty guard, recents, file
+monitoring, outline, Tab completion, copy-answer, list
+continuation). Phase 5 packaging just landed: the desktop entry,
+AppStream metadata, hicolor icon set, and the Meson install. The
+first tagged release (v0.1.0) is next.
 
 ## Building
 
@@ -55,10 +59,18 @@ Rust 1.85+ and the GTK 4 + GtkSourceView 5 development packages
     cargo build
     cargo test
 
+Or the full desktop install through Meson, which puts the binary,
+desktop entry, icons, `.quire` mime type, and GSettings schema in
+the usual system places:
+
+    meson setup builddir --prefix=/usr
+    meson install -C builddir
+
 First run installs JetBrains Mono (SIL OFL 1.1, bundled) under
 `~/.local/share/fonts/Quire/` and the sheet language and color
 schemes under `~/.local/share/quire/`; nothing else is assumed of the
-system.
+system. The install and the startup extraction are independent:
+either alone gives a working Quire.
 
 ## License
 

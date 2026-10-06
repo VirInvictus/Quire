@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Quire
+GenericName=Notepad Calculator
+Comment=Plain-text sheets where prose and math share the page
+Exec=quire
+Icon=io.github.virinvictus.Quire
+Terminal=false
+Type=Application
+StartupNotify=true
+StartupWMClass=io.github.virinvictus.Quire
+Categories=GTK;Utility;Calculator;TextEditor;
+Keywords=calculator;notepad;sheets;math;arithmetic;percent;totals;
+MimeType=application/x-quire;text/plain;

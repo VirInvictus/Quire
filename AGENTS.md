@@ -11,8 +11,8 @@ public, MIT.
 
 ## Where this stands (updated 2026-10-06)
 
-Phases 0-4 complete; Phase 5 packaging in progress (latest: the
-vir-gtk 1.4.3 adoption). The engine covers the whole Semantics section
+Phases 0-5 complete; the v0.1.0 release gate is next (latest: Phase 5
+packaging). The engine covers the whole Semantics section
 of spec.md (Phase 1) plus the sheet line model with Reference lines.
 The app renders sheets at 20px JetBrains Mono in Kanagawa Dragon/Lotus
 through vir-gtk (Phase 2), with the custom `quire` language spec,
@@ -21,16 +21,20 @@ added the document backbone (open/save/save-as, dirty guard, recents,
 file monitor, GSettings) and editing UX (outline popover, Tab
 completion, Ctrl+C answer copy, Ctrl+B definition jump, drag-and-drop
 open, line-numbers toggle, auto list continuation on Enter - Phase 4
-closed complete). Phase 5 decisions recorded 2026-10-06: Meson adopted
-(house shape), Flatpak deferred past 1.0. Next: the Phase 5 packaging
-work (see roadmap.md), then the v0.1.0 gate.
+closed complete). Phase 5 landed the packaging: Meson wrapper,
+desktop file, AppStream metainfo, hicolor icon set, mime package for
+.quire sheets, and the tag-gated release CI attaching an
+installed-prefix tarball. Flatpak deferred past 1.0 (2026-10-06).
+Next: the v0.1.0 gate (docs truth, release-auditor pre-flight, tag,
+GitHub release).
 
 ## Stack
 
 - Rust 2024, two-crate workspace: `crates/quire-eval` (engine; no
   GTK, no I/O dependencies) and `crates/quire` (the GTK4 app).
 - Plain GTK4, NO libadwaita. Styling goes through `vir-gtk` (a git
-  dependency tracked on `main`, pinned by Cargo.lock) —
+  dependency tracked on `main`, pinned by Cargo.lock; 1.4.3 is the
+  floor - see the Alert gotcha below) —
   `portal::init` + `connect_dark_changed` + resplice on every
   dark/light flip: `base_css` at the crate tier, the app sheet at the
   app tier via `palette.replace_tokens(APP_CSS)`.
@@ -38,6 +42,15 @@ work (see roadmap.md), then the v0.1.0 gate.
   `gtksourceview5-devel` system package; CI's Ubuntu ships
   GtkSourceView 5.12, so NO version-gated features — the v5_16
   feature once red-ran CI).
+- Packaging is Meson wrapping cargo (the house shape): `meson.build`
+  at the root installs the binary, `data/`'s desktop file and
+  metainfo, the `data/icons/hicolor` set, `data/mime/quire.xml`, and
+  the gschema (compiled at install). `gnome.post_install` skips
+  itself under DESTDIR, so the release job compiles the staged
+  schemas by hand. The app's runtime extraction (fonts, lang,
+  schemes, schema) is independent of the install; both alone are a
+  working Quire. Tag-gated `release.yml` (pinned fedora:44) cuts the
+  GitHub release and attaches the tarball.
 - No third-party dependencies beyond what spec.md Architecture lists
   without asking first.
 
@@ -48,6 +61,10 @@ From the repo root:
 - `cargo build` / `cargo test` (workspace-wide)
 - `cargo test -p quire-eval` for engine-only
 - `cargo fmt` before committing
+- `meson setup builddir --prefix=/usr` + `meson install -C builddir`
+  for the full desktop install (never commits; builddir/ and stage/
+  are gitignored, and the release job is the rehearsed version of
+  this flow)
 
 ## VERSION
 

@@ -1,0 +1,113 @@
+name: Release
+
+# A v* tag is always hand-cut (forward-only policy, verbatim patchnotes
+# message); this workflow answers it with the same checks CI runs on
+# main, then creates the GitHub Release from the tag's own verbatim
+# message and attaches the installed-prefix artifact (the house rule:
+# releases carry the real artifact). Atrium's release job is the shape.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-and-release:
+    name: checks, then Release from tag with the built artifact
+    runs-on: ubuntu-latest
+    # Pinned (not fedora:latest): a release build must be reproducible
+    # against the toolchain it shipped with, and 44 is the committer's
+    # own Fedora.
+    container: fedora:44
+    timeout-minutes: 30
+    steps:
+      - name: Install system dependencies
+        run: |
+          dnf install -y \
+            gcc \
+            git \
+            gh \
+            pkgconf-pkg-config \
+            glib2-devel \
+            gtk4-devel \
+            gtksourceview5-devel \
+            meson \
+            appstream \
+            desktop-file-utils \
+            zstd
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: VERSION sync guard
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          CARGO_VERSION="$(grep -m1 '^version =' Cargo.toml | sed 's/version *= *"\(.*\)"/\1/')"
+          FILE_VERSION="$(cat VERSION)"
+          if [ -z "$FILE_VERSION" ]; then
+            echo "VERSION is empty; it is the single source of truth and meson reads it directly" >&2
+            exit 1
+          fi
+          if [ "$FILE_VERSION" != "$CARGO_VERSION" ]; then
+            echo "VERSION ($FILE_VERSION) != workspace Cargo.toml version ($CARGO_VERSION)" >&2
+            exit 1
+          fi
+          if [ "v$FILE_VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "tag ($GITHUB_REF_NAME) != VERSION ($FILE_VERSION)" >&2
+            exit 1
+          fi
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: cargo fmt --check
+        run: cargo fmt --all --check
+
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      # The suite is headless pure functions (no widget tests), so no
+      # display and no xvfb here.
+      - name: cargo test
+        run: cargo test --workspace
+
+      - name: Validate the desktop file and AppStream metadata
+        run: |
+          desktop-file-validate data/io.github.virinvictus.Quire.desktop
+          appstreamcli validate --no-net data/io.github.virinvictus.Quire.metainfo.xml
+
+      - name: Build and stage the install tree
+        run: |
+          meson setup builddir --prefix=/usr -Dbuildtype=release
+          meson install -C builddir --destdir "$GITHUB_WORKSPACE/stage"
+          # gnome.post_install skips itself under DESTDIR (packaging
+          # convention), so the staged tree needs the compiled schema
+          # by hand or the tarball's GSettings will not load.
+          glib-compile-schemas stage/usr/share/glib-2.0/schemas
+
+      - name: Pack the artifact
+        run: |
+          test -x stage/usr/bin/quire
+          tar --zstd -cf "quire-${GITHUB_REF_NAME}-x86_64.tar.zst" -C stage .
+
+      - name: Create the Release from the tag's verbatim message
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "quire-${GITHUB_REF_NAME}-x86_64.tar.zst" \
+            --notes-from-tag \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME"

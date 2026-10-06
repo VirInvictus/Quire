@@ -103,3 +103,17 @@ release.
   comment, or reference stays a plain newline so the sheet keeps
   evaluating. The decision is a pure function with table tests
   (`lists.rs`); the Enter hook refuses modified keys and selections.
+- Phase 5 packaging: a real hicolor icon set (the answers-column
+  tile, Brandon's pick from three rendered candidates, replacing the
+  placeholder logo), a desktop file, AppStream metainfo
+  (appstreamcli-validated on every push and in the release job), a
+  shared-mime-info package registering `.quire` sheets, and a Meson
+  wrapper (the house shape) that installs all of it: the binary into
+  bindir, the desktop entry, icons, mime package, and the GSettings
+  schema compiled at install. The app stays self-contained: fonts,
+  the language spec, and the schemes still extract to the user dirs
+  at startup, so a bare `cargo build` and an installed Quire are
+  equally whole. The tag-gated release job builds in a pinned
+  fedora:44 container, runs the full checks, stages the install
+  tree, and attaches `quire-vX.Y.Z-x86_64.tar.zst` to the GitHub
+  release it creates from the tag's verbatim message.

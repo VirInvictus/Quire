@@ -1,9 +1,8 @@
 # Patchnotes
 
-Newest first. The v0.1.0 entry accumulates until the first tagged
-release.
+Newest first.
 
-## v0.1.0 (unreleased)
+## v0.1.0 (2026-10-06)
 
 - Initial skeleton: two-crate cargo workspace (`quire-eval` engine +
   `quire` app stub), the sheet line model with classification tests,

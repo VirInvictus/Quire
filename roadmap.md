@@ -352,6 +352,10 @@ the work lands, with the current recommendation recorded here.
   - [ ] Manual price snapshots: `AAPL = 190` with an optional dated
     form (`AAPL = 190 @ 2026-10-06`); portfolio sheets are variables
     (shares) times snapshot prices, summed and allocated by percent.
+    **Next in queue** (Brandon's pick, 2026-10-06, after tags): the
+    dated snapshot syntax claims `@` + date (coexisting with `@` +
+    ident tags), the snapshot value binds like any result, and the
+    budget/portfolio sheet templates ship with the app.
   - [ ] Budget sheets: category sections with heading-bounded
     subtotals, recurrence phrases, budget-vs-actual as paired
     variables. NO live prices, ever (spec Non-goals): prices and

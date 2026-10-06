@@ -70,6 +70,7 @@ whole = total
 ## Editing
 // Tab completes a variable name; Ctrl+C copies the answer
 // Ctrl+B jumps to a definition; Ctrl+L toggles line numbers
+// Alt+Up/Down cycles a line's format (fixed decimals, hex, bin)
 // drag any text file onto the window to open it
 
 // this sheet is yours - edit it, or start fresh with Ctrl+N
@@ -87,6 +88,10 @@ pub struct QuirePage {
     on_reindex: RefCell<Option<ReindexCallback>>,
     /// the live answers map, for copy-answer and friends
     answers: RefCell<std::collections::HashMap<u32, answers::AnswerCell>>,
+    /// per-line answer formats (Alt+Up/Down), keyed by line number;
+    /// the choice rides the NUMBER, so it shifts with edits until the
+    /// stable line-ids gate lands
+    formats: RefCell<std::collections::HashMap<u32, answers::LineFormat>>,
 }
 
 impl QuirePage {
@@ -121,6 +126,7 @@ impl QuirePage {
             loading: Cell::new(false),
             on_reindex: RefCell::new(None),
             answers: RefCell::new(std::collections::HashMap::new()),
+            formats: RefCell::new(std::collections::HashMap::new()),
         });
         Self::wire_evaluation(&page, &buffer);
         // one delayed repaint: on a very first run the fonts were
@@ -286,6 +292,13 @@ impl QuirePage {
                 return glib::Propagation::Proceed;
             }
 
+            let alt = state.contains(gtk4::gdk::ModifierType::ALT_MASK);
+            if alt && !ctrl && matches!(name.as_deref(), Some("Up") | Some("Down")) {
+                let next = name.as_deref() == Some("Up");
+                page.cycle_line_format(next);
+                return glib::Propagation::Stop;
+            }
+
             if name.as_deref() == Some("Tab") && !ctrl && page.complete_variable() {
                 return glib::Propagation::Stop;
             }
@@ -382,7 +395,7 @@ impl QuirePage {
                             &page.buffer.end_iter(),
                             true,
                         );
-                        let cells = answers::compute(&text);
+                        let cells = answers::compute_with_formats(&text, &page.formats.borrow());
                         page.answers.replace(cells.clone());
                         page.renderer.set_answers(cells);
                         if let Some(f) = page.on_reindex.borrow().as_ref() {
@@ -484,6 +497,40 @@ impl QuirePage {
         let mut at = ins;
         self.buffer.insert_interactive(&mut at, completion, true);
         true
+    }
+
+    /// Cycle the cursor line's answer format (Alt+Up/Down). This is
+    /// view state only: the sheet stays clean, and the choice rides
+    /// the line number until stable line ids land.
+    fn cycle_line_format(&self, next: bool) {
+        let line = self.cursor_iter().line() as u32 + 1;
+        let format = {
+            let mut formats = self.formats.borrow_mut();
+            let current = formats
+                .get(&line)
+                .copied()
+                .unwrap_or(answers::LineFormat::Standard);
+            let next_format = if next {
+                current.next()
+            } else {
+                current.previous()
+            };
+            formats.insert(line, next_format);
+            next_format
+        };
+        let _ = format;
+        self.refresh_answers();
+    }
+
+    /// Recompute the answers map (formats included) and repaint.
+    fn refresh_answers(&self) {
+        let text = self
+            .buffer
+            .text(&self.buffer.start_iter(), &self.buffer.end_iter(), true);
+        let cells = answers::compute_with_formats(&text, &self.formats.borrow());
+        self.answers.replace(cells.clone());
+        self.renderer.set_answers(cells);
+        self.renderer.queue_draw();
     }
 }
 

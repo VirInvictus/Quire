@@ -12,6 +12,7 @@ total @stocks
 total @bonds
 
 ## Allocation
+// Alt+Up/Down on a line cycles its format - try it on the pcts
 pct(x) = x / whole * 100
 stocks_pct = pct(aapl + msft)
 bonds_pct = pct(bonds)

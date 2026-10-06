@@ -323,7 +323,12 @@ the work lands, with the current recommendation recorded here.
     latex subprocesses).
   - [ ] Task-list checkbox toggling: the one GFM extra worth
     revisiting, since a notepad is a natural checklist.
-  - [ ] Alt+Up/Down cycles a line's result format (dec/hex/bin).
+  - [x] Alt+Up/Down cycles a line's result format (2026-10-06:
+    standard, fixed two decimals, hex, bin - the fixed-decimals stop
+    is what makes allocation lines readable. View-only state keyed
+    by line number, shifting with edits until the stable-ids gate;
+    unit values and errors keep their rendering. The portfolio
+    template invites trying it on the pct lines.)
   - [ ] Region model: decimal-point-aligned answers per heading region
     (NoteCalc's renderer alignment).
 

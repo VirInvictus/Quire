@@ -227,7 +227,12 @@ editor's right edge, not a separately scrolled pane.
 
 Formatting: integer parts grouped in threes with `,`; up to 12
 significant digits; trailing zeros trimmed; whole results print
-without a decimal part.
+without a decimal part. A line's answer can cycle alternative
+formats with Alt+Up/Down - standard, fixed two decimals, hex, bin -
+a per-line view choice that never changes the sheet (unit values
+keep the engine's notation; hex and bin apply to non-negative
+integers). The choice rides the line number and shifts when the
+sheet's structure shifts.
 
 ## Architecture
 

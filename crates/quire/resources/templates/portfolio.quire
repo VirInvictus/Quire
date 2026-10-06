@@ -12,5 +12,6 @@ total @stocks
 total @bonds
 
 ## Allocation
-stocks_pct = (aapl + msft) / whole * 100
-bonds_pct = bonds / whole * 100
+pct(x) = x / whole * 100
+stocks_pct = pct(aapl + msft)
+bonds_pct = pct(bonds)

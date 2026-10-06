@@ -37,6 +37,14 @@ pub enum ErrKind {
     /// engine's own first message line; see spec.md "Unit
     /// expressions").
     Unit(String),
+    /// A function definition repeating a parameter name.
+    DuplicateParam(String),
+    /// A call passing the wrong number of arguments.
+    CallArity {
+        name: String,
+        expected: usize,
+        got: usize,
+    },
 }
 
 impl fmt::Display for ErrKind {
@@ -59,6 +67,18 @@ impl fmt::Display for ErrKind {
             ErrKind::DivideByZero => f.write_str("division by zero"),
             ErrKind::OutOfRange => f.write_str("result out of range"),
             ErrKind::Unit(message) => f.write_str(message),
+            ErrKind::DuplicateParam(p) => {
+                write!(f, "duplicate parameter `{p}`")
+            }
+            ErrKind::CallArity {
+                name,
+                expected,
+                got,
+            } => write!(
+                f,
+                "`{name}` expects {expected} argument{}, got {got}",
+                if *expected == 1 { "" } else { "s" }
+            ),
         }
     }
 }
@@ -101,6 +121,7 @@ pub fn describe(tok: &crate::tokens::Tok) -> String {
         Tok::Tag(n) => format!("`@{n}`"),
         Tok::DateStamp(d) => format!("`@{d}`"),
         Tok::Equals => "`=`".to_string(),
+        Tok::Comma => "`,`".to_string(),
         Tok::Arrow => "`->`".to_string(),
     }
 }

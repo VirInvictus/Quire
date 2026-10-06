@@ -38,11 +38,16 @@ pub enum Expr {
     /// evaluator reads it relatively (spec.md, Semantics).
     Pct(Span, Box<Expr>),
     Bin(BinOp, Box<Expr>, Box<Expr>, Span),
+    /// `name(arg, ...)`. Functions are defined by statement form
+    /// `FnDef` (spec.md "Functions").
+    Call(String, Vec<Expr>, Span),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     Assign(String, Span, Expr),
+    /// `name(a, b) = expression`: the inline function definition.
+    FnDef(String, Vec<String>, Expr, Span),
     Expr(Expr),
 }
 
@@ -54,6 +59,55 @@ pub fn parse(tokens: &[Token]) -> Result<Stmt, QuireError> {
                 expected: "an expression",
             },
         ));
+    }
+    // `name(params) = body`: scan ahead for the parameter list's
+    // closing paren followed by the single `=`. A call statement
+    // (`double(21)`) has no `=` and falls through to the expression.
+    if let (Tok::Ident(name), Some(Tok::LParen)) = (&tokens[0].tok, tokens.get(1).map(|t| &t.tok)) {
+        let mut depth = 0usize;
+        let mut close = None;
+        for (i, t) in tokens.iter().enumerate().skip(1) {
+            match t.tok {
+                Tok::LParen => depth += 1,
+                Tok::RParen => {
+                    depth -= 1;
+                    if depth == 0 {
+                        close = Some(i);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        if let Some(close) = close
+            && tokens.get(close + 1).map(|t| &t.tok) == Some(&Tok::Equals)
+            && tokens.get(close + 2).is_some()
+        {
+            if name == "total" || name == "answer" {
+                let keyword: &'static str = if name == "total" { "total" } else { "answer" };
+                return Err(QuireError::new(
+                    tokens[0].span,
+                    ErrKind::AssignToKeyword(keyword),
+                ));
+            }
+            let mut params = Vec::new();
+            for t in &tokens[2..close] {
+                if let Tok::Ident(p) = &t.tok {
+                    if params.iter().any(|existing| existing == p) {
+                        return Err(QuireError::new(t.span, ErrKind::DuplicateParam(p.clone())));
+                    }
+                    params.push(p.clone());
+                }
+            }
+            let mut p = P {
+                toks: tokens,
+                pos: close + 2,
+                depth: 0,
+            };
+            let body = p.expr()?;
+            p.expect_end()?;
+            return Ok(Stmt::FnDef(name.clone(), params, body, tokens[0].span));
+        }
     }
     match (&tokens[0].tok, tokens.get(1).map(|t| &t.tok)) {
         (Tok::Ident(name), Some(Tok::Equals)) => {
@@ -209,6 +263,48 @@ impl<'t> P<'t> {
         };
         match &t.tok {
             Tok::Num(v) => Ok(Expr::Num(*v)),
+            Tok::Ident(n) if self.peek().map(|p| p.tok.clone()) == Some(Tok::LParen) => {
+                // a call: consume the paren and the argument list
+                let name = n.clone();
+                let open = self.bump().unwrap().span;
+                self.enter(open)?;
+                let mut args = Vec::new();
+                if let Some(closing) = self.peek()
+                    && closing.tok == Tok::RParen
+                {
+                    self.pos += 1;
+                    self.depth -= 1;
+                    return Ok(Expr::Call(name, args, (t.span.0, closing.span.1)));
+                }
+                loop {
+                    args.push(self.expr()?);
+                    match self.peek().map(|p| p.tok.clone()) {
+                        Some(Tok::Comma) => {
+                            self.pos += 1;
+                        }
+                        Some(Tok::RParen) => {
+                            let closing = self.bump().unwrap();
+                            self.depth -= 1;
+                            return Ok(Expr::Call(name, args, (t.span.0, closing.span.1)));
+                        }
+                        Some(other) => {
+                            return Err(QuireError::new(
+                                self.peek().unwrap().span,
+                                ErrKind::UnexpectedTok {
+                                    expected: "`,` or `)`",
+                                    got: describe(&other),
+                                },
+                            ));
+                        }
+                        None => {
+                            return Err(QuireError::new(
+                                self.line_end(),
+                                ErrKind::UnexpectedEol { expected: "`)`" },
+                            ));
+                        }
+                    }
+                }
+            }
             Tok::Ident(n) => Ok(Expr::Name(n.clone(), t.span)),
             Tok::Total => Ok(Expr::Total(t.span)),
             Tok::Answer => Ok(Expr::Answer(t.span)),
@@ -277,7 +373,7 @@ mod tests {
         let toks = tokenize(src).expect("tokenizes");
         match parse(&toks).expect("parses") {
             Stmt::Expr(e) => e,
-            Stmt::Assign(..) => panic!("unexpected assignment"),
+            Stmt::Assign(..) | Stmt::FnDef(..) => panic!("unexpected statement"),
         }
     }
 

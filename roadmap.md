@@ -312,7 +312,11 @@ the work lands, with the current recommendation recorded here.
     percent of 60`.
   - [ ] Implicit multiplication (`2pi`, `3(4+5)`) with a dedicated
     ambiguities test folder (kalker pattern).
-  - [ ] User functions: `name(params) = ...`.
+  - [x] User functions: `name(params) = ...` (2026-10-06; inline
+    bodies, params shadow sheet variables, redefinition wins below,
+    no recursion - depth-capped, arity-checked, no answer cell on
+    the def line. Scalar-engine citizens in v1; corpus
+    `tests/scripts/functions.quire`.)
   - [ ] Token-level error highlighting in the editor.
   - [ ] Ctrl+click a math line opens a popover with its step-by-step
     breakdown (Apostrophe's inline-preview popover pattern, minus the

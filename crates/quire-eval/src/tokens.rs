@@ -22,6 +22,8 @@ pub enum Tok {
     LParen,
     RParen,
     Equals,
+    /// Argument separator in a call (`f(a, b)`).
+    Comma,
     /// `@name` trailing an expression line (spec.md "Tags").
     Tag(String),
     /// `@YYYY-MM-DD` trailing an assignment (spec.md "Dated
@@ -105,6 +107,7 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, QuireError> {
             b'*' => push(&mut out, &mut i, Tok::Star),
             b'^' => push(&mut out, &mut i, Tok::Caret),
             b'%' => push(&mut out, &mut i, Tok::Percent),
+            b',' => push(&mut out, &mut i, Tok::Comma),
             b'(' => push(&mut out, &mut i, Tok::LParen),
             b')' => push(&mut out, &mut i, Tok::RParen),
             b'=' => push(&mut out, &mut i, Tok::Equals),

@@ -127,11 +127,15 @@ pub struct LineOutcome {
 #[derive(Default)]
 struct Ctx {
     vars: HashMap<String, Num>,
+    fns: HashMap<String, (Vec<String>, Expr)>,
     answer: Option<Num>,
     subtotal: Sum,
     /// Per-tag sums behind `total @tag` (spec.md "Tags"): sheet-wide,
     /// reset only by a plain `total`; `total @tag` is a pure view.
     tag_sums: HashMap<String, Sum>,
+    /// Live function-call depth, for the recursion cap (spec.md
+    /// "Functions": a cycle fails the calling line).
+    depth: u8,
 }
 
 /// Split trailing tags off an Expression line: `lunch = 12.50 @food
@@ -210,7 +214,7 @@ pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
     let mut out = Vec::new();
     for line in parse_sheet_lines(text) {
         let outcome = match line.kind {
-            LineKind::Expression => Some(eval_line(&line.raw, &mut ctx, &mut bridge)),
+            LineKind::Expression => eval_line(&line.raw, &mut ctx, &mut bridge),
             LineKind::Reference => eval_reference(&line.raw, &mut ctx, &mut bridge),
             LineKind::Heading => {
                 // headings section the plain math; tag sums are
@@ -233,7 +237,7 @@ pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
 /// app convenience; sheets go through `evaluate_sheet`. An unbound
 /// reference has nothing to say context-free, so it surfaces here as
 /// a `NoAnswer`-shaped error.
-pub fn evaluate_line(raw: &str) -> Outcome {
+pub fn evaluate_line(raw: &str) -> Option<Outcome> {
     let mut ctx = Ctx::default();
     let mut bridge = Bridge::new();
     match crate::parse_sheet(raw).first().map(|l| l.kind) {
@@ -251,8 +255,10 @@ pub fn evaluate_line(raw: &str) -> Outcome {
                     expected: "a value",
                 },
             };
-            eval_reference(raw, &mut ctx, &mut bridge)
-                .unwrap_or_else(|| Outcome::Failed(QuireError::new((0, 0), miss)))
+            Some(
+                eval_reference(raw, &mut ctx, &mut bridge)
+                    .unwrap_or_else(|| Outcome::Failed(QuireError::new((0, 0), miss))),
+            )
         }
         _ => eval_line(raw, &mut ctx, &mut bridge),
     }
@@ -283,29 +289,32 @@ fn eval_reference(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Opti
     })
 }
 
-fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Outcome {
+fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<Outcome> {
     let (body, tags, _stamp) = split_tags(raw);
     let raw = body.as_str();
     let toks = match tokenize(raw) {
         Ok(t) => t,
-        Err(e) => return Outcome::Failed(e),
+        Err(e) => return Some(Outcome::Failed(e)),
     };
     if toks.is_empty() {
         // classification guarantees expression-shaped lines carry
         // tokens; this is the defensive net, not a real path
-        return Outcome::Failed(QuireError::new(
+        return Some(Outcome::Failed(QuireError::new(
             (0, 0),
             ErrKind::UnexpectedEol {
                 expected: "an expression",
             },
-        ));
+        )));
     }
     let stmt = match parse(&toks) {
         Ok(s) => s,
-        Err(e) => return declined_line(raw, &toks, &tags, ctx, bridge, Fail::Err(e)),
+        Err(e) => {
+            return Some(declined_line(raw, &toks, &tags, ctx, bridge, Fail::Err(e)));
+        }
     };
-    match eval_stmt(&stmt, &tags, ctx, bridge) {
-        Ok(num) => num.outcome(),
+    Some(match eval_stmt(&stmt, &tags, ctx, bridge) {
+        Ok(Some(num)) => num.outcome(),
+        Ok(None) => return None, // a function definition: no cell
         Err(Fail::Err(e)) => Outcome::Failed(e),
         Err(Fail::Reroute) => declined_line(
             raw,
@@ -318,7 +327,7 @@ fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Outcome {
                 ErrKind::Unit(NO_UNIT_SUPPORT.into()),
             )),
         ),
-    }
+    })
 }
 
 /// A line the scalar path declined: the unit bridge takes it when the
@@ -440,15 +449,22 @@ fn eval_stmt(
     tags: &[String],
     ctx: &mut Ctx,
     bridge: &mut Option<Bridge>,
-) -> Result<Num, Fail> {
+) -> Result<Option<Num>, Fail> {
     match stmt {
+        Stmt::FnDef(name, params, body, _) => {
+            // definitions are visible below, produce no cell, and
+            // never touch answer, subtotal, or tags (spec.md
+            // "Functions")
+            ctx.fns.insert(name.clone(), (params.clone(), body.clone()));
+            Ok(None)
+        }
         Stmt::Assign(name, _, e) => {
             let num = eval_expr(e, ctx)?;
             ctx.vars.insert(name.clone(), num.clone());
             ctx.answer = Some(num.clone());
             ctx.subtotal.push(num.clone());
             record_tags(ctx, tags, num.clone());
-            Ok(num)
+            Ok(Some(num))
         }
         // a total reports the subtotal and becomes the answer, but
         // never adds itself to the sum it reports, and it starts a
@@ -471,14 +487,14 @@ fn eval_stmt(
                 finish_sum(&merged, bridge)?
             };
             ctx.answer = Some(num.clone());
-            Ok(num)
+            Ok(Some(num))
         }
         Stmt::Expr(e) => {
             let num = eval_expr(e, ctx)?;
             ctx.answer = Some(num.clone());
             ctx.subtotal.push(num.clone());
             record_tags(ctx, tags, num.clone());
-            Ok(num)
+            Ok(Some(num))
         }
     }
 }
@@ -533,9 +549,50 @@ fn sum_by_bridge(items: &[Num], bridge: &mut Option<Bridge>) -> Result<Num, Fail
         .map_err(|message| Fail::Err(QuireError::new((0, 0), ErrKind::Unit(message))))
 }
 
-fn eval_expr(e: &Expr, ctx: &Ctx) -> Result<Num, Fail> {
+fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
     let num = match e {
         Expr::Num(n) => Num::S(*n),
+        Expr::Call(name, args, span) => {
+            let Some((params, body)) = ctx.fns.get(name).cloned() else {
+                return Err(Fail::Err(QuireError::new(
+                    *span,
+                    ErrKind::UnknownName(name.clone()),
+                )));
+            };
+            if args.len() != params.len() {
+                return Err(Fail::Err(QuireError::new(
+                    *span,
+                    ErrKind::CallArity {
+                        name: name.clone(),
+                        expected: params.len(),
+                        got: args.len(),
+                    },
+                )));
+            }
+            ctx.depth += 1;
+            if ctx.depth > 64 {
+                ctx.depth -= 1;
+                return Err(Fail::Err(QuireError::new(*span, ErrKind::NestTooDeep)));
+            }
+            // the call frame: params shadow sheet variables; the body
+            // sees the sheet's variables, functions, and answer, but
+            // a zero subtotal (`total` in a body reads zero, spec)
+            let mut frame = Ctx {
+                vars: ctx.vars.clone(),
+                fns: ctx.fns.clone(),
+                answer: ctx.answer.clone(),
+                subtotal: Sum::S(0.0),
+                tag_sums: Default::default(),
+                depth: ctx.depth,
+            };
+            for (param, arg) in params.iter().zip(args) {
+                let value = eval_expr(arg, ctx)?;
+                frame.vars.insert(param.clone(), value);
+            }
+            let num = eval_expr(&body, &mut frame)?;
+            ctx.depth -= 1;
+            num
+        }
         Expr::Name(n, span) => ctx
             .vars
             .get(n)
@@ -611,14 +668,15 @@ mod tests {
     use crate::error::ErrKind;
 
     fn show(src: &str) -> String {
-        evaluate_line(src).render()
+        evaluate_line(src).expect("a result").render()
     }
 
     fn err_of(src: &str) -> ErrKind {
         match evaluate_line(src) {
-            Outcome::Failed(e) => e.kind,
-            Outcome::Value(v) => panic!("expected error, got {v}"),
-            Outcome::Quantity(v) => panic!("expected error, got {v}"),
+            Some(Outcome::Failed(e)) => e.kind,
+            Some(Outcome::Value(v)) => panic!("expected error, got {v}"),
+            Some(Outcome::Quantity(v)) => panic!("expected error, got {v}"),
+            None => panic!("expected error, got no cell"),
         }
     }
 
@@ -813,6 +871,56 @@ total
         // no unit names anywhere: byte-identical legacy behavior
         assert_eq!(show("2 + 2"), "4");
         assert_eq!(err_of("2 bloognorch"), ErrKind::TrailingTokens);
+    }
+
+    #[test]
+    fn functions_define_call_and_shadow() {
+        let sheet = "double(x) = x * 2
+double(21)
+area(w, h) = w * h
+area(3, 4)
+n = 10
+double(n)
+";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        // the definitions produce no cells; the calls do
+        assert_eq!(rendered, vec!["42", "12", "10", "20"]);
+    }
+
+    #[test]
+    fn function_scoping_and_limits() {
+        // params shadow sheet variables; redefinition wins below;
+        // arity mismatches fail the calling line; recursion is capped
+        let sheet = "x = 100
+double(x) = x * 2
+double(5)
+double(x) = x + 1
+double(5)
+double(1, 2)
+loop(x) = loop(x)
+loop(1)
+";
+        let lines = evaluate_sheet(sheet);
+        let rendered: Vec<Option<String>> = lines
+            .into_iter()
+            .map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        assert_eq!(
+            rendered,
+            vec![
+                Some("100".to_string()), // x = 100
+                None,                    // the definition: no cell
+                Some("10".to_string()),  // param shadows the sheet variable
+                None,                    // redefinition: no cell
+                Some("6".to_string()),   // the redefined body wins below
+                Some("`double` expects 1 argument, got 2".to_string()),
+                None, // the recursive definition: no cell
+                Some("expression nested too deeply".to_string()),
+            ]
+        );
     }
 
     #[test]

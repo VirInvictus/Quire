@@ -161,6 +161,30 @@ followed by anything else that is not an identifier tag remains an
 error. A `@` mid-expression is still an error, and stamps appear
 only at a line's end, like tags.
 
+## Functions (Phase 7/8)
+
+`name(a, b) = expression` defines a function; lines below call it
+with `name(...)`. The body is inline - the only shape that fits a
+line-model sheet, where every line evaluates on its own.
+
+- **Visibility.** A definition is visible to lines below it, never
+  above; a redefinition wins below, like variables. Definitions
+  produce no answer cell.
+- **Scoping.** Parameters shadow sheet variables for the body; the
+  body also sees sheet variables and functions defined above.
+  `total` inside a body reads zero: bodies do not section the sheet.
+  `answer` inside a body reads the sheet's most recent result, as
+  anywhere. Names may not be `total` or `answer`.
+- **Arity.** Calling with the wrong number of arguments fails the
+  calling line.
+- **Recursion.** A function cannot call itself (directly or in a
+  cycle): call depth past a small cap fails the calling line rather
+  than looping.
+- **Engine scope.** Functions are scalar-engine citizens in v1;
+  unit lines cannot call them yet.
+- **Zero-parameter functions** are allowed and behave like named
+  constants.
+
 ## Evaluation semantics (Phase 1)
 
 - **Numbers.** Decimal literals (`12`, `3.50`). No scientific

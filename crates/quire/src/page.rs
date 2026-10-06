@@ -54,6 +54,12 @@ total
 2 hours + 30 minutes
 26.2 miles -> km
 
+## Functions
+double(x) = x * 2
+double(21)
+rate(x) = x / 100
+rate(40) of 90
+
 ## Hand-typed price snapshots
 aapl = 10 * 190 @ 2026-10-06 @stocks
 msft = 4 * 410 @ 2026-10-06 @stocks
@@ -500,7 +506,8 @@ mod tests {
         let cells = crate::answers::compute(WELCOME_SHEET);
         let texts: Vec<&str> = cells.values().map(|c| c.text.as_str()).collect();
         for expected in [
-            "230", "216", "12", "24", "1,420", "1,270", "150", "5300 g", "150 min", "3,540",
+            "230", "216", "12", "24", "42", "36", "1,420", "1,270", "150", "5300 g", "150 min",
+            "3,540",
         ] {
             assert!(
                 texts.contains(&expected),

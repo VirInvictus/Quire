@@ -24,10 +24,12 @@ AppStream metainfo, hicolor icons, mime package, tag-gated release
 CI (Phase 5). Currency is ruled and
 queued (ECB fetch layer, offline-first); dates ride a later chunk.
 The portfolio/budget templates ship behind the New-from-template
-menu (crates/quire/src/templates.rs + resources/templates/), and
-tag sums are sheet-wide (headings never clear them - spec Tags
-boundaries). Next: user functions, currency implementation, dates,
-then Brandon's display passes.
+menu (crates/quire/src/templates.rs + resources/templates/), tag
+sums are sheet-wide (headings never clear them - spec Tags
+boundaries), and user functions are in (inline bodies, call
+frames with param shadowing, depth-capped recursion - spec
+Functions). Next: currency implementation, dates, result-format
+cycling, then Brandon's display passes.
 
 ## Stack
 

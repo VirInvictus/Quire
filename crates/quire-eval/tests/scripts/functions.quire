@@ -1,0 +1,40 @@
+# Functions (Phase 7/8)
+
+// inline definitions; the def line shows no cell, calls do
+double(x) = x * 2
+double(21)
+# expect: 42
+
+area(w, h) = w * h
+area(3, 4)
+# expect: 12
+
+// params shadow sheet variables; the body still sees them
+x = 100
+# expect: 100
+double(x)
+# expect: 200
+
+// redefinitions win below, like variables
+double(x) = x + 1
+double(x)
+# expect: 101
+
+// calls compose (and the redefined double above still applies)
+half(x) = x / 2
+half(double(10))
+# expect: 5.5
+
+// zero-parameter functions behave like named constants
+rate() = 1.21
+rate() * 100
+# expect: 121
+
+// arity mismatches fail the calling line
+half(1, 2)
+# err: expects 1 argument
+
+// recursion is capped, not a hang
+forever(x) = forever(x)
+forever(1)
+# err: nested too deeply

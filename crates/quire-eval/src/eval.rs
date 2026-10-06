@@ -129,6 +129,35 @@ struct Ctx {
     vars: HashMap<String, Num>,
     answer: Option<Num>,
     subtotal: Sum,
+    /// Per-tag sums behind `total @tag` (spec.md "Tags"). Reset by
+    /// headings and plain totals; `total @tag` is a pure view.
+    tag_sums: HashMap<String, Sum>,
+}
+
+/// Split trailing tags off an Expression line: `lunch = 12.50 @food
+/// @london` becomes the body `lunch = 12.50` plus the tag list. A
+/// tag is whitespace-prefixed `@identifier` glued to the line's end;
+/// anything else keeps the line whole (and `@` mid-line tokenizes to
+/// its own error).
+fn split_tags(raw: &str) -> (String, Vec<String>) {
+    let mut body = raw.trim_end().to_string();
+    let mut tags = Vec::new();
+    loop {
+        let trimmed = body.trim_end();
+        let Some(at) = trimmed.rfind('@') else { break };
+        let name = &trimmed[at + 1..];
+        let ok = !name.is_empty()
+            && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+            // the tag must start the line or follow whitespace
+            && (at == 0 || trimmed[..at].ends_with(char::is_whitespace));
+        if !ok {
+            break;
+        }
+        tags.push(name.to_string());
+        body = trimmed[..at].trim_end().to_string();
+    }
+    tags.reverse();
+    (body, tags)
 }
 
 /// Evaluate a whole sheet top-down. Headings and `total` lines reset
@@ -144,6 +173,7 @@ pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
             LineKind::Reference => eval_reference(&line.raw, &mut ctx, &mut bridge),
             LineKind::Heading => {
                 ctx.subtotal = Sum::S(0.0);
+                ctx.tag_sums.clear();
                 None
             }
             _ => None,
@@ -212,6 +242,8 @@ fn eval_reference(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Opti
 }
 
 fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Outcome {
+    let (body, tags) = split_tags(raw);
+    let raw = body.as_str();
     let toks = match tokenize(raw) {
         Ok(t) => t,
         Err(e) => return Outcome::Failed(e),
@@ -228,14 +260,15 @@ fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Outcome {
     }
     let stmt = match parse(&toks) {
         Ok(s) => s,
-        Err(e) => return declined_line(raw, &toks, ctx, bridge, Fail::Err(e)),
+        Err(e) => return declined_line(raw, &toks, &tags, ctx, bridge, Fail::Err(e)),
     };
-    match eval_stmt(&stmt, ctx, bridge) {
+    match eval_stmt(&stmt, &tags, ctx, bridge) {
         Ok(num) => num.outcome(),
         Err(Fail::Err(e)) => Outcome::Failed(e),
         Err(Fail::Reroute) => declined_line(
             raw,
             &toks,
+            &tags,
             ctx,
             bridge,
             Fail::Err(QuireError::new(
@@ -253,6 +286,7 @@ fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Outcome {
 fn declined_line(
     raw: &str,
     toks: &[crate::tokens::Token],
+    tags: &[String],
     ctx: &mut Ctx,
     bridge: &mut Option<Bridge>,
     fail: Fail,
@@ -273,7 +307,13 @@ fn declined_line(
             )),
         };
     }
-    bridge_eval(raw, toks, ctx, bridge)
+    match bridge_eval(raw, toks, ctx, bridge) {
+        Outcome::Quantity(v) => {
+            record_tags(ctx, tags, Num::Q(v.clone()));
+            Outcome::Quantity(v)
+        }
+        other => other,
+    }
 }
 
 /// Compile the line for the unit engine (seed `let`s for the bound
@@ -353,33 +393,78 @@ fn split_assignment(raw: &str) -> Option<(String, &str)> {
     Some((name.to_string(), rest))
 }
 
-fn eval_stmt(stmt: &Stmt, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Result<Num, Fail> {
+fn eval_stmt(
+    stmt: &Stmt,
+    tags: &[String],
+    ctx: &mut Ctx,
+    bridge: &mut Option<Bridge>,
+) -> Result<Num, Fail> {
     match stmt {
         Stmt::Assign(name, _, e) => {
             let num = eval_expr(e, ctx)?;
             ctx.vars.insert(name.clone(), num.clone());
             ctx.answer = Some(num.clone());
             ctx.subtotal.push(num.clone());
+            record_tags(ctx, tags, num.clone());
             Ok(num)
         }
         // a total reports the subtotal and becomes the answer, but
         // never adds itself to the sum it reports, and it starts a
-        // new sum (spec: results "since the previous `total` line")
+        // new sum (spec: results "since the previous `total` line").
+        // A tagged total is a pure view over the tag sums: it
+        // reports and resets nothing.
         Stmt::Expr(Expr::Total(_)) => {
-            let num = match &ctx.subtotal {
-                Sum::S(s) => Num::S(*s),
-                Sum::Q(items) => sum_by_bridge(items, bridge)?,
+            let num = if tags.is_empty() {
+                let num = finish_sum(&ctx.subtotal, bridge)?;
+                ctx.subtotal = Sum::S(0.0);
+                ctx.tag_sums.clear();
+                num
+            } else {
+                let mut merged = Sum::S(0.0);
+                for tag in tags {
+                    if let Some(sum) = ctx.tag_sums.get(tag) {
+                        merge_sum(&mut merged, sum.clone());
+                    }
+                }
+                finish_sum(&merged, bridge)?
             };
             ctx.answer = Some(num.clone());
-            ctx.subtotal = Sum::S(0.0);
             Ok(num)
         }
         Stmt::Expr(e) => {
             let num = eval_expr(e, ctx)?;
             ctx.answer = Some(num.clone());
             ctx.subtotal.push(num.clone());
+            record_tags(ctx, tags, num.clone());
             Ok(num)
         }
+    }
+}
+
+fn record_tags(ctx: &mut Ctx, tags: &[String], num: Num) {
+    for tag in tags {
+        ctx.tag_sums
+            .entry(tag.clone())
+            .or_default()
+            .push(num.clone());
+    }
+}
+
+fn merge_sum(base: &mut Sum, other: Sum) {
+    match other {
+        Sum::S(v) => base.push(Num::S(v)),
+        Sum::Q(items) => {
+            for item in items {
+                base.push(item);
+            }
+        }
+    }
+}
+
+fn finish_sum(sum: &Sum, bridge: &mut Option<Bridge>) -> Result<Num, Fail> {
+    match sum {
+        Sum::S(s) => Ok(Num::S(*s)),
+        Sum::Q(items) => sum_by_bridge(items, bridge),
     }
 }
 
@@ -686,5 +771,56 @@ total
         // no unit names anywhere: byte-identical legacy behavior
         assert_eq!(show("2 + 2"), "4");
         assert_eq!(err_of("2 bloognorch"), ErrKind::TrailingTokens);
+    }
+
+    #[test]
+    fn tag_totals_are_pure_views() {
+        let sheet = "\
+rent = 1200 @housing
+groceries = 250 @food
+total @housing
+total @food
+total @housing @food
+total
+total @housing
+";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        assert_eq!(
+            rendered,
+            vec![
+                "1,200".to_string(), // the view, before any reset
+                "250".to_string(),   // the other tag
+                "1,200".to_string(), // the first tagged total again
+                "250".to_string(),
+                "1,450".to_string(), // the union of two tags
+                "1,450".to_string(), // the plain total includes tagged lines
+                "0".to_string(),     // the plain total reset the tag sums
+            ]
+        );
+    }
+
+    #[test]
+    fn tags_carry_quantities_and_headings_reset_them() {
+        let sheet = "\
+5 kg @bulk
+total @bulk
+# Aisle
+total @bulk
+";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        assert_eq!(
+            rendered,
+            vec![
+                "5 kg".to_string(), // tagged unit line
+                "5 kg".to_string(), // the view sums through the engine
+                "0".to_string(),    // the heading reset the tag sums
+            ]
+        );
     }
 }

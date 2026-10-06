@@ -123,6 +123,29 @@ contract for the unit layer; currency and dates have not landed yet.
 - **Toolchain.** The numbat dependency raises the workspace floor
   from Rust 1.85 to numbat's 1.88.
 
+## Tags (Phase 8)
+
+An Expression line may end with one or more tags: `@` immediately
+followed by an identifier, each preceded by whitespace (`lunch =
+12.50 @food @london`). Tags are sheet-local labels, not variables.
+
+- **Summing.** `total @tag` reports the sum of every tagged result
+  since the most recent heading - through the unit engine when any
+  item is a quantity, exactly like the plain total's dimension
+  rules. A `total @a @b` sums lines carrying either tag.
+- **Boundaries.** A heading resets plain and tag sums together. A
+  plain `total` reports and resets the plain sum and the tag sums.
+  `total @tag` is a pure view: it reports and resets nothing.
+- **Plain totals include tagged lines.** A tagged result counts
+  toward the section's plain total exactly as an untagged one does;
+  tags are an additional view, not a partition.
+- **Scope.** Tags attach to Expression lines only (a Text line with
+  `@` stays prose). `@` followed by anything that is not an
+  identifier is an error, as today; the dated-snapshot form of
+  Phase 9 will claim `@` followed by a date.
+- **Errors.** A `total @tag` with no tagged results sums to zero,
+  like an empty section.
+
 ## Evaluation semantics (Phase 1)
 
 - **Numbers.** Decimal literals (`12`, `3.50`). No scientific

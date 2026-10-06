@@ -324,19 +324,31 @@ the work lands, with the current recommendation recorded here.
     (NoteCalc's renderer alignment).
 
 - [ ] **Phase 8 (post-0.1.0): functions and tags.** The Soulver
-  parity core that budgets and portfolios stand on.
-  - [ ] **[D]** Tag syntax gate: `@tag` on expression lines, summed
-    by `total @tag` (Soulver 4's tags workflow). Recommendation:
-    `@name` glued to the end of an expression line.
+  parity core that budgets and portfolios stand on. Pulled to the
+  front of the queue 2026-10-06 (Brandon: "I want the cool shit" -
+  functions and portfolios before currency/dates polish).
+  - [x] **[D]** Tag syntax gate: `@tag` glued to the end of an
+    expression line, summed by `total @tag` (2026-10-06). Tagged
+    results count toward the plain total too; `total @a @b` sums the
+    union; tagged totals are pure views; headings and plain totals
+    reset the tag sums; tags ride the unit engine (`5 kg @bulk`).
+    Corpus: `tests/scripts/tags.quire`.
   - [ ] User functions: `name(params) = ...` with the body on
     following lines or inline after the equals (choose at the gate).
+    Numbat's own `fn` machinery is the unit-path candidate; the
+    scalar path needs its own call semantics.
   - [ ] Recurrence phrases: `$1200/month` and `/year` normalize to
     per-day equivalents for budget math.
   - [ ] Definition-sheet ergonomics: a variable reference section at
     the top of a sheet (name, value, note) that reads like a table.
 - [ ] **Phase 9: budgets and portfolios (all offline).** Sheet
   primitives first per Brandon's pick: no structured views until the
-  primitives stabilize.
+  primitives stabilize. The plugin question was asked and ruled
+  2026-10-06: budgets/portfolios are engine primitives, NOT a plugin
+  system - the spec's no-plugin non-goal stands (a plugin surface is
+  months of platform tax before one feature ships, and numbat's
+  module system is already the unit-layer extension seam); revisit
+  only if a real extension need appears post-1.0.
   - [ ] Manual price snapshots: `AAPL = 190` with an optional dated
     form (`AAPL = 190 @ 2026-10-06`); portfolio sheets are variables
     (shares) times snapshot prices, summed and allocated by percent.

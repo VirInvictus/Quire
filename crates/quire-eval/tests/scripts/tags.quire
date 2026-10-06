@@ -1,0 +1,38 @@
+# Tags (Phase 8)
+
+// tagged results count toward the plain total AND their tag views
+rent = 1200 @housing
+# expect: 1,200
+
+groceries = 250 @food
+# expect: 250
+
+// a tagged total is a pure view: it resets nothing
+total @housing
+# expect: 1,200
+
+total @food
+# expect: 250
+
+// several tags sum the union of their lines
+total @food @housing
+# expect: 1,450
+
+// the plain total includes tagged lines, and resets the tag sums
+total
+# expect: 1,450
+
+total @food
+# expect: 0
+
+# Tags ride the unit engine
+
+5 kg @bulk
+# expect: 5 kg
+
+total @bulk
+# expect: 5 kg
+
+// an unknown tag sums to zero, like an empty section
+total @ghost
+# expect: 0

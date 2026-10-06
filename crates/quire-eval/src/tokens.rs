@@ -22,6 +22,8 @@ pub enum Tok {
     LParen,
     RParen,
     Equals,
+    /// `@name` trailing an expression line (spec.md "Tags").
+    Tag(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -94,6 +96,25 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, QuireError> {
             b'(' => push(&mut out, &mut i, Tok::LParen),
             b')' => push(&mut out, &mut i, Tok::RParen),
             b'=' => push(&mut out, &mut i, Tok::Equals),
+            b'@' => {
+                let start = i;
+                i += 1;
+                let name_start = i;
+                while i < b.len() && (b[i].is_ascii_alphanumeric() || b[i] == b'_') {
+                    i += 1;
+                }
+                if i == name_start {
+                    let ch = src[start..].chars().next().unwrap();
+                    return Err(QuireError::new(
+                        (start, start + ch.len_utf8()),
+                        ErrKind::BadChar(ch),
+                    ));
+                }
+                out.push(Token {
+                    tok: Tok::Tag(src[name_start..i].to_string()),
+                    span: (start, i),
+                });
+            }
             _ => {
                 let ch = src[i..].chars().next().unwrap();
                 let kind = ErrKind::BadChar(ch);

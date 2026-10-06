@@ -4,6 +4,22 @@ Newest first.
 
 ## Unreleased
 
+- Tags land (Phase 8 pulled forward): an expression line may end
+  with `@tag` labels, and `total @tag` sums that group - the
+  keystone for budgets and portfolios. Tagged results count toward
+  the plain total as well; `total @a @b` sums the union of two
+  tags; tagged totals are pure views that reset nothing, while
+  headings and plain totals clear the tag sums. Tags ride the unit
+  engine (`5 kg @bulk` totals as `5 kg`), and `@` followed by
+  anything that is not an identifier stays an error, saving `@` +
+  date for Phase 9's dated snapshots. spec.md gained the Tags
+  section; corpus in `tests/scripts/tags.quire`.
+- The plugin question was asked and ruled: budgets, portfolios, and
+  future extensions are sheet primitives, not plugins - the spec's
+  no-plugin non-goal stands (months of platform tax before one
+  feature ships, and numbat's module system already serves as the
+  unit-layer extension seam); revisit only if a real extension need
+  appears post-1.0.
 - The currency ruling is in: the no-network non-goal is now "no
   live prices, ever" with an optional offline-first daily
   reference-rate fetch (ECB XML cached under ~/.cache/quire, stale

@@ -98,6 +98,7 @@ pub fn describe(tok: &crate::tokens::Tok) -> String {
         Tok::Percent => "`%`".to_string(),
         Tok::LParen => "`(`".to_string(),
         Tok::RParen => "`)`".to_string(),
+        Tok::Tag(n) => format!("`@{n}`"),
         Tok::Equals => "`=`".to_string(),
     }
 }

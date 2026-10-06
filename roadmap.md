@@ -124,32 +124,41 @@ the work lands, with the current recommendation recorded here.
       hairline separator and column tone need a different mechanism
       (renderer-drawn line or CSS node investigation).
 
-- [ ] **Phase 3: Typography and the markdown surface.**
+- [x] **Phase 3: Typography and the markdown surface.** (2026-10-05)
   - Language spec (the markdown research, 2026-10-05)
-    - [ ] Custom GtkSourceView language spec under a new `quire` id:
-      a fork of the in-tree `markdown.lang` keeping its header,
-      list-marker, emphasis, and code contexts, plus Quire additions:
-      `//` mapped to `def:comment` (the stock markdown lang maps
-      nothing there) and a math-expression-line context (the
-      `latex.lang` inline-math precedent). Shipped via the app
-      gresource with `LanguageManager::set_search_path` before first
-      load. Do NOT override the stock markdown lang id: sheets are
-      not markdown, markdown.lang exposes no hook context, and it
-      misclassifies a lone `---` as a setext heading.
-    - [ ] Every custom style keeps a `map-to="def:*"` fallback so
+    - [x] Custom GtkSourceView language spec under the new `quire` id
+      (`resources/styles/quire.lang`): a fork of the in-tree
+      `markdown.lang` keeping its header, list-marker, emphasis, and
+      code-span contexts, plus Quire additions: `//` mapped to
+      `def:comment` and a whole math-expression-line context. Shipped
+      by runtime extraction to `~/.local/share/quire/lang/` with
+      `LanguageManager::set_search_path` set before the first buffer
+      (the gresource variant waits for the Phase 5 Meson decision).
+      Do NOT override the stock markdown lang id: sheets are not
+      markdown, and markdown.lang exposes no hook context.
+    - [x] Every custom style keeps a `map-to="def:*"` fallback so
       stock schemes still render sensibly if one is ever loaded.
+    - [x] Engine gotcha worth remembering: a `.lang` needs a ROOT
+      context whose id matches the language id (`<context
+      id="quire">`); without it the file loads, `language("quire")`
+      returns Some, and the highlight engine silently does nothing.
+    - [x] Extended-mode gotcha, same pass: `extended="true"` regexes
+      treat a bare `#` as a comment start, so the header rule written
+      as `#{1,6}` degenerated to match-every-line (whole sheet went
+      header-yellow). The header context is a plain single-line match.
   - Style scheme
-    - [ ] A Quire scheme pair (`quire.xml` + `quire-dark`) with
-      `parent-scheme` + `dark-variant` metadata, styling
-      `quire:header`, `quire:list-marker`, comments, and a
-      `quire:math` context, in the Kanagawa Dragon palette.
-    - [ ] Scheme shipped via gresource +
-      `StyleSchemeManager::prepend_search_path` on a `resource://`
-      URI (the gnome-text-editor pattern).
-    - [ ] The answers column reads `quire:result` from the active
-      scheme via `get_style` so computed values match the theme from
-      one source of truth.
-  - Fonts
+    - [x] Scheme pair (`quire-dark.xml` + `quire-light.xml`) styling
+      `quire:header`, `quire:list-marker`, comments, `quire:math`,
+      `quire:result`, and `quire:error` in the Kanagawa Dragon /
+      Lotus palettes; selection follows the portal dark/light state.
+    - [x] Schemes shipped by the same runtime extraction +
+      `StyleSchemeManager::prepend_search_path` (gnome-text-editor
+      pattern; gresource at Phase 5).
+    - [x] The answers column reads `quire:result` / `quire:error`
+      from the buffer's scheme via `style()` so computed values match
+      the theme from one source of truth (palette hexes remain as the
+      fallback path).
+  - Fonts and chrome
     - [x] **[D]** Bundled font: JetBrains Mono (Brandon's pick,
       2026-10-05); OFL files live in `crates/quire/resources/fonts/`
       with the license text.
@@ -159,19 +168,23 @@ the work lands, with the current recommendation recorded here.
       loading revisits this at the Phase 5 Meson decision.
     - [x] Layout cache made safe by construction (fresh per frame);
       the renderer-lines `css_changed` invalidation dance only
-      returns if Phase 3 reintroduces a cache.
-    - [ ] Renderer colors read from the scheme (`style("line-numbers")`,
-      `style("text")`, `quire:result`), not palette hexes (paired with
-      the `quire:result` item above).
-    - [ ] Gutter chrome: settle the hairline separator + column tone
-      carried from Phase 2 (renderer-drawn 1px line vs a working CSS
-      node), and the `snapshot_layer(BELOW_TEXT)` cursor-line
-      expression highlight.
-    - [ ] **[D]** Light variant (Kanagawa Lotus): the palette flip
-      already works through vir-gtk; deciding is whether Quire
-      commits to tuning Lotus rendering past 1.0.
-    - [ ] Display pass with Brandon at 1x and 2x scale (Phase 2's pass
-      was 1x; the 2x check rides this phase).
+      returns if a cache is ever reintroduced.
+    - [x] Renderer colors read from the scheme (see `quire:result`
+      above); palette hexes are the documented fallback.
+    - [x] Gutter chrome settled as renderer-drawn: the renderer
+      widget's own snapshot paints the column tone and the 1px
+      hairline across the FULL widget box before the line loop draws
+      text. Verified facts behind the choice: the Gutter widget
+      ignores CSS backgrounds, and the view's below-text layer is
+      clipped to the text window (under the gutter child), so neither
+      surface can carry the chrome. The `snapshot_layer(BELOW_TEXT)`
+      cursor-line highlight keeps its QuireView hook for later.
+    - [x] **[D]** Light variant: BOTH schemes ship now (quire-light
+      tones picked from the Lotus palette); deep Lotus polish stays a
+      post-1.0 item. (Brandon's pick, 2026-10-05.)
+    - [ ] Display pass with Brandon at 1x and 2x scale: 1x done and
+      screenshot-verified during the phase; the 2x check (GDK_SCALE
+      does not apply on Wayland) rides Brandon's display pass.
 
 - [ ] **Phase 4: Documents and editing UX.**
   - [ ] GSettings schema: window size, last folder, wrap,

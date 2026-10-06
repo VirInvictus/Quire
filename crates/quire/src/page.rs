@@ -1,4 +1,4 @@
-//! The editor page: one buffer, one sourceview, one answers column.
+//! The editor page: one buffer, one sheet view, one answers column.
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -9,6 +9,7 @@ use sourceview5::prelude::*;
 
 use crate::answers;
 use crate::renderer::AnswersRenderer;
+use crate::{styles, view::QuireView};
 
 /// First-run content: the shortest sheet that shows what Quire is.
 const WELCOME_SHEET: &str = "\
@@ -24,18 +25,21 @@ total
 ";
 
 pub struct QuirePage {
-    pub view: sourceview5::View,
-    // the view keeps its buffer alive; nothing else needs a handle
+    pub view: QuireView,
     renderer: AnswersRenderer,
 }
 
 impl QuirePage {
     pub fn new() -> Self {
         let buffer = sourceview5::Buffer::new(None::<&gtk4::TextTagTable>);
-        // syntax highlighting arrives with the Phase 3 language spec
-        buffer.set_highlight_syntax(false);
+        let lang = styles::language();
+        buffer.set_language(lang.as_ref());
+        buffer.set_highlight_syntax(lang.is_some());
+        if let Some(scheme) = styles::scheme(vir_gtk::portal::is_dark()) {
+            buffer.set_style_scheme(Some(&scheme));
+        }
 
-        let view = sourceview5::View::with_buffer(&buffer);
+        let view = QuireView::with_buffer(&buffer);
         view.set_wrap_mode(gtk4::WrapMode::Word);
         view.set_monospace(true);
         // breathing room; the answers column lives at the right edge
@@ -45,9 +49,8 @@ impl QuirePage {
         view.set_right_margin(6);
         view.add_css_class("quire-editor");
 
-        let renderer = AnswersRenderer::new();
+        let renderer = AnswersRenderer::with_buffer(&buffer);
         let gutter = sourceview5::prelude::ViewExt::gutter(&view, gtk4::TextWindowType::Right);
-        gutter.add_css_class("quire-gutter");
         gutter.insert(&renderer, 0);
 
         let page = Self {

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<style-scheme id="quire-light" _name="Quire Light" version="1.0">
+  <metadata>
+    <property name="variant">light</property>
+    <property name="dark-variant">quire-dark</property>
+  </metadata>
+  <author>Brandon LaRocque</author>
+  <_description>Kanagawa Lotus sheet palette for Quire</_description>
+
+  <!-- answer cells (the renderer reads these by name) -->
+  <style name="quire:result" foreground="#43436c" bold="true"/>
+  <style name="quire:error" foreground="#c84053" bold="true"/>
+
+  <!-- sheet structure -->
+  <style name="quire:comment" foreground="#8a8980" italic="true"/>
+  <style name="quire:header" foreground="#43436c" bold="true"/>
+  <style name="quire:list-marker" foreground="#4d699b"/>
+  <style name="quire:emphasis" foreground="#545464" italic="true"/>
+  <style name="quire:strong-emphasis" foreground="#43436c" bold="true"/>
+  <style name="quire:code-span" foreground="#6f894e"/>
+  <style name="quire:math" foreground="#4d699b"/>
+</style-scheme>

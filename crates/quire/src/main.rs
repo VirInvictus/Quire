@@ -6,31 +6,24 @@ mod answers;
 mod fonts;
 mod page;
 mod renderer;
+mod styles;
+mod view;
 mod window;
 
 use gtk4::prelude::*;
 
 /// App stylesheet, spliced with the active Kanagawa palette on every
 /// dark/light flip. Tokens are vir-gtk's `%NAME%` replacements.
+/// Column tone and hairline are painted by QuireView's below-text
+/// layer (the Gutter widget ignores CSS backgrounds), not here.
 const APP_CSS: &str = "\
-/* the sheet */
 textview.quire-editor {
   background-color: %BG_VIEW%;
   color: %FG%;
   font-family: \"JetBrains Mono\", monospace;
   font-size: 15px;
   line-height: 150%;
-}
-
-/* the answers column: a hairline from the text, same canvas */
-.quire-gutter {
-  background-color: %BG_VIEW%;
-  border-left: 1px solid %GRID%;
-}
-.quire-answers {
-  background-color: %BG_VIEW%;
-}
-";
+}";
 
 fn resplice() {
     use vir_gtk::theme::{base_css, install_app_stylesheet, install_stylesheet};
@@ -61,6 +54,10 @@ fn main() -> gtk4::glib::ExitCode {
         portal::init(None, None, true);
         portal::connect_dark_changed(app, |_| resplice());
         resplice();
+
+        // language spec + schemes must be in place before the first
+        // buffer asks for them
+        styles::install();
 
         let win = window::new(app);
         win.present();

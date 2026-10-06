@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Quire sheet language: markdown structure (header, list markers,
+  emphasis, code spans) forked from GtkSourceView's markdown.lang
+  (LGPL-2.1+, the library we link), plus the Quire additions the
+  stock file cannot express: `//` comments map to def:comment and
+  whole math-expression lines get their own style. Classification
+  rules mirror spec.md; this file only colors, the engine decides.
+
+  Every style keeps a map-to fallback so stock schemes still render
+  sensibly if one is ever loaded.
+-->
+<language id="quire" name="Quire Sheet" version="2.0" section="Source">
+  <metadata>
+    <property name="globs">*.quire</property>
+    <property name="line-comment-start">//</property>
+  </metadata>
+
+  <styles>
+    <style id="comment" name="Comment" map-to="def:comment"/>
+    <style id="header" name="Header" map-to="def:heading"/>
+    <style id="list-marker" name="List Marker" map-to="def:list-marker"/>
+    <style id="emphasis" name="Emphasis" map-to="def:emphasis"/>
+    <style id="strong-emphasis" name="Strong Emphasis" map-to="def:strong-emphasis"/>
+    <style id="code-span" name="Code Span" map-to="def:inline-code"/>
+    <style id="math" name="Math Line" map-to="def:constant"/>
+  </styles>
+
+  <definitions>
+    <!-- `//` runs to end of line: own line or trailing an expression -->
+    <context id="line-comment" style-ref="comment">
+      <match extended="true">
+        ^[ \t]*      # optional indent
+        //.*$        # rest of the line
+      </match>
+    </context>
+
+    <!-- 1-6 hashes then space/tab/end: the Quire heading rule
+         (`#tag` stays prose). NOT extended mode: a bare `#` would
+         start a PCRE comment and swallow the discriminator. -->
+    <context id="atx-header" style-ref="header">
+      <match>^[ \t]*#{1,6}([ \t]|$).*$</match>
+    </context>
+
+    <!-- markdown list markers; `- ` and `+ ` are the same shapes the
+         engine classifies as list items -->
+    <context id="list-marker" style-ref="list-marker">
+      <match extended="true">
+        ^[ \t]*
+        (\*|\+|-|[0-9]+\.)
+        ([ \t]|$)
+      </match>
+    </context>
+
+    <!-- code spans, up to two backticks (from markdown.lang) -->
+    <context id="code-span-1" style-ref="code-span" class="no-spell-check">
+      <match>(?&lt;!`)`[^`]+(`{2,}[^`]+)*`(?!`)</match>
+    </context>
+    <context id="code-span-2" style-ref="code-span" class="no-spell-check">
+      <match>(?&lt;!`)``[^`]+((`|`{3,})[^`]+)*``(?!`)</match>
+    </context>
+
+    <!-- emphasis (from markdown.lang) -->
+    <context id="underscores-emphasis" style-ref="emphasis">
+      <match>(?&lt;!_)_[^_ \t].*?(?&lt;!\\|_| |\t)_(?!_)</match>
+    </context>
+    <context id="asterisks-emphasis" style-ref="emphasis">
+      <match>(?&lt;!\*)\*[^\* \t].*?(?&lt;!\\|\*| |\t)\*(?!\*)</match>
+    </context>
+    <context id="underscores-strong-emphasis" style-ref="strong-emphasis">
+      <match>__[^_ \t].*?(?&lt;!\\|_| |\t)__</match>
+    </context>
+    <context id="asterisks-strong-emphasis" style-ref="strong-emphasis">
+      <match>\*\*[^\* \t].*?(?&lt;!\\|\*| |\t)\*\*</match>
+    </context>
+
+    <!-- math-expression lines, mirroring the engine's Expression
+         shape: a literal, parenthesised, glued sign, the `total`
+         keyword, an assignment, or an identifier followed by
+         * / ^ ( (the reference-line shape). `+`/`-` after a name
+         stay prose on purpose: spec.md, Expression shape. -->
+    <context id="math-line" style-ref="math">
+      <match extended="true">
+        ^[ \t]*
+        (
+          [0-9]                        # number
+          | \.[0-9]                    # .5
+          | \$[0-9]                    # currency literal
+          | \(                         # parenthesised
+          | [+-][^ \t]                 # glued sign (-5, not "- 5")
+          | total([ \t]|$)             # the keyword
+          | [A-Za-z_][A-Za-z0-9_]*[ \t]*=[^=]       # assignment
+          | [A-Za-z_][A-Za-z0-9_]*[ \t]*[*+/\^(]    # reference line
+        )
+      </match>
+    </context>
+
+    <context id="quire-syntax">
+      <include>
+        <context ref="line-comment"/>
+        <context ref="atx-header"/>
+        <context ref="list-marker"/>
+        <context ref="code-span-1"/>
+        <context ref="code-span-2"/>
+        <context ref="underscores-emphasis"/>
+        <context ref="asterisks-emphasis"/>
+        <context ref="underscores-strong-emphasis"/>
+        <context ref="asterisks-strong-emphasis"/>
+        <context ref="math-line"/>
+      </include>
+    </context>
+
+    <!-- the root context: id must match the language id -->
+    <context id="quire">
+      <include>
+        <context ref="quire-syntax"/>
+      </include>
+    </context>
+  </definitions>
+</language>

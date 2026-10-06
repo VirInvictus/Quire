@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<style-scheme id="quire-dark" _name="Quire Dark" version="1.0">
+  <metadata>
+    <property name="variant">dark</property>
+  </metadata>
+  <author>Brandon LaRocque</author>
+  <_description>Kanagawa Dragon sheet palette for Quire</_description>
+
+  <!-- answer cells (the renderer reads these by name) -->
+  <style name="quire:result" foreground="#c8c093" bold="true"/>
+  <style name="quire:error" foreground="#c4746e" bold="true"/>
+
+  <!-- sheet structure -->
+  <style name="quire:comment" foreground="#a6a69c" italic="true"/>
+  <style name="quire:header" foreground="#c8c093" bold="true"/>
+  <style name="quire:list-marker" foreground="#ffa066"/>
+  <style name="quire:emphasis" foreground="#c5c9c5" italic="true"/>
+  <style name="quire:strong-emphasis" foreground="#c8c093" bold="true"/>
+  <style name="quire:code-span" foreground="#98bb6c"/>
+  <style name="quire:math" foreground="#7fb4ca"/>
+</style-scheme>

@@ -17,8 +17,8 @@ use crate::answers::AnswerCell;
 
 /// Column width in pixels: room for a typical computed value; longer
 /// error messages ellipsize until Phase 7 gives them token-level
-/// treatment.
-const COLUMN_WIDTH: i32 = 168;
+/// treatment. Also consumed by the view's chrome painting.
+pub const COLUMN_WIDTH: i32 = 168;
 
 mod imp {
     use super::*;
@@ -26,6 +26,7 @@ mod imp {
     #[derive(Default)]
     pub struct AnswersRenderer {
         pub answers: RefCell<HashMap<u32, AnswerCell>>,
+        pub buffer: RefCell<Option<sourceview5::Buffer>>,
     }
 
     #[glib::object_subclass]
@@ -56,6 +57,27 @@ mod imp {
                 _ => self.parent_measure(orientation, for_size),
             }
         }
+
+        /// Column chrome under everything: the widget's box is the
+        /// full column height, so the tone and hairline run
+        /// continuously, below the last line included. Painted BEFORE
+        /// the base snapshot, whose line loop draws the text on top.
+        fn snapshot(&self, snapshot: &Snapshot) {
+            let obj = self.obj();
+            let palette = crate::active_palette();
+            let rgba = |hex: &str| gdk::RGBA::parse(hex).unwrap_or(gdk::RGBA::WHITE);
+            let w = obj.width() as f32;
+            let h = obj.height() as f32;
+            let scale = obj.scale_factor() as f32;
+
+            snapshot.append_color(&rgba(palette.bg_view), &graphene::Rect::new(0.0, 0.0, w, h));
+            snapshot.append_color(
+                &rgba(palette.grid),
+                &graphene::Rect::new(0.0, 0.0, scale, h),
+            );
+
+            self.parent_snapshot(snapshot);
+        }
     }
 
     impl GutterRendererImpl for AnswersRenderer {
@@ -66,6 +88,8 @@ mod imp {
             let Some(cell) = cell else { return };
 
             let obj = self.obj();
+            let palette = crate::active_palette();
+
             // A fresh layout per cell per frame. At notepad scale this
             // is nothing, and it can never hold a font that resolved
             // before the user's font caches were warm (the one bug a
@@ -82,13 +106,25 @@ mod imp {
             let (_lw, lh) = layout.pixel_size();
             let (x, y) = obj.align_cell(line, inner as f32, lh as f32);
 
-            let palette = crate::active_palette();
-            let hex = if cell.is_error {
+            let style_name = if cell.is_error {
+                "quire:error"
+            } else {
+                "quire:result"
+            };
+            let fallback = if cell.is_error {
                 palette.err
             } else {
                 palette.heading
             };
-            let color = gdk::RGBA::parse(hex).unwrap_or(gdk::RGBA::WHITE);
+            let color = self
+                .buffer
+                .borrow()
+                .as_ref()
+                .and_then(|b| b.style_scheme())
+                .and_then(|scheme| scheme.style(style_name))
+                .and_then(|st| st.foreground())
+                .and_then(|hex| gdk::RGBA::parse(&hex).ok())
+                .unwrap_or_else(|| gdk::RGBA::parse(fallback).unwrap_or(gdk::RGBA::WHITE));
 
             snapshot.save();
             snapshot.translate(&graphene::Point::new(x, y));
@@ -113,6 +149,13 @@ impl Default for AnswersRenderer {
 impl AnswersRenderer {
     pub fn new() -> Self {
         glib::Object::builder().build()
+    }
+
+    /// The sheet whose style scheme colors the cells.
+    pub fn with_buffer(buffer: &sourceview5::Buffer) -> Self {
+        let renderer = Self::new();
+        renderer.imp().buffer.replace(Some(buffer.clone()));
+        renderer
     }
 
     pub fn set_answers(&self, answers: HashMap<u32, AnswerCell>) {

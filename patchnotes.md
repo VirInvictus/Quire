@@ -32,3 +32,13 @@ release.
   in red, idle-coalesced live re-evaluation. Verified on-desktop with
   screenshots; the debugging pass fixed 0-based gutter numbering and
   a Pango width/translate clip bug.
+- Phase 3 typography and the markdown surface: a custom `quire`
+  GtkSourceView language spec (fork of the in-tree markdown lang plus
+  `//` comments and whole math-line styling) and the quire-dark /
+  quire-light scheme pair in Kanagawa Dragon and Lotus tones,
+  selected by the portal dark/light state. The sheet now renders
+  three voices: dimmed italic comments, blue math lines, and bold
+  yellow answers; the answers column reads its colors from the
+  scheme, and the column tone plus hairline are drawn by the
+  renderer across the full column height. Verified on-desktop with
+  screenshots at 1x.

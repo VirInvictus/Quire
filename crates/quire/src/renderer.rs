@@ -105,6 +105,9 @@ mod imp {
             layout.set_width(inner * pango::SCALE);
             let (_lw, lh) = layout.pixel_size();
             let (x, y) = obj.align_cell(line, inner as f32, lh as f32);
+            // pixel-snap: fractional baselines raster one pixel up
+            // into the line's clip edge and shave glyph tops
+            let (x, y) = (x.round(), y.round());
 
             let style_name = if cell.is_error {
                 "quire:error"

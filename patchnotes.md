@@ -42,6 +42,14 @@ release.
   scheme, and the column tone plus hairline are drawn by the
   renderer across the full column height. Verified on-desktop with
   screenshots at 1x.
+- Typography fixes from Brandon's first live session, round two:
+  the 1px glyph-top shave turned out to be pixel snapping at 15px
+  (JetBrains Mono's fractional 19.8px line height makes every
+  baseline land off-pixel) - the sheet now renders at 20px, which
+  lands clean and reads better anyway, and the answers renderer
+  pixel-snaps its draw position. Bare identifier lines are also
+  highlighted as references now (the quire.math style), matching
+  the evaluation added above.
 - Three user-facing fixes from Brandon's first live session: TextView
   `line-height` clipped glyph ascenders on every line (the property is
   dropped; GTK clips whenever it is set), the caret was invisible on

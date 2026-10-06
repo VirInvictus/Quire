@@ -182,6 +182,13 @@ the work lands, with the current recommendation recorded here.
     - [x] **[D]** Light variant: BOTH schemes ship now (quire-light
       tones picked from the Lotus palette); deep Lotus polish stays a
       post-1.0 item. (Brandon's pick, 2026-10-05.)
+    - [x] Rendering size 20px with pixel-snapped renderer positions
+      (Brandon's live-session report: glyph tops shaved ~1px on every
+      line at 15px - JetBrains Mono's fractional 19.8px line height
+      lands every baseline off-pixel and GSK shaves the raster; 20px
+      renders clean and reads better). Bare identifier lines also
+      highlighted via a `bare-reference` context (quire.math style),
+      matching the Reference evaluation.
     - [ ] Display pass with Brandon at 1x and 2x scale: 1x done and
       screenshot-verified during the phase; the 2x check (GDK_SCALE
       does not apply on Wayland) rides Brandon's display pass.

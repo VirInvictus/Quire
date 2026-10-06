@@ -23,7 +23,15 @@ textview.quire-editor {
   background-color: %BG_VIEW%;
   color: %FG%;
   font-family: \"JetBrains Mono\", monospace;
-  font-size: 15px;
+  font-size: 20px;
+}
+
+/* identical metrics on the answers column: its cells are measured
+   against the view's line boxes, and a font mismatch clips glyph
+   tops */
+.quire-answers {
+  font-family: \"JetBrains Mono\", monospace;
+  font-size: 20px;
 }";
 
 fn resplice() {

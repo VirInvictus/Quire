@@ -95,6 +95,13 @@
       </match>
     </context>
 
+    <!-- a bare identifier line: the sheet asking what a name is
+         worth (spec.md, Reference). Colored like math whether or
+         not the name is bound; the answers column is the signal -->
+    <context id="bare-reference" style-ref="math">
+      <match>^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*$</match>
+    </context>
+
     <context id="quire-syntax">
       <include>
         <context ref="line-comment"/>
@@ -107,6 +114,7 @@
         <context ref="underscores-strong-emphasis"/>
         <context ref="asterisks-strong-emphasis"/>
         <context ref="math-line"/>
+        <context ref="bare-reference"/>
       </include>
     </context>
 

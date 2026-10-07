@@ -27,6 +27,13 @@ total
 total
 # expect: 150 min
 
+# Currency
+// sheet comments strip before the engine sees the line
+50 USD -> EUR // a trailing comment
+# expect: 50 €
+total
+# expect: 50 €
+
 # Mixing scalars in
 milk = 3.50
 # expect: 3.5

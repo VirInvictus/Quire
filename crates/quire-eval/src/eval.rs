@@ -383,6 +383,20 @@ fn bridge_eval(
         ));
     };
 
+    // The engine's comment character is `#`, the sheet's is `//`:
+    // the scalar tokenizer strips comments before parsing, so the
+    // compiled line must too, or numbat reads `// 46.5` as division.
+    let raw = raw.split("//").next().unwrap_or(raw);
+    if raw.trim().is_empty() {
+        // a pure-comment body reaching the bridge means the scalar
+        // path never saw tokens for it; nothing to evaluate
+        return Outcome::Failed(QuireError::new(
+            (0, 0),
+            ErrKind::UnexpectedEol {
+                expected: "an expression",
+            },
+        ));
+    }
     let mut source = String::new();
     let mut referenced = std::collections::BTreeSet::new();
     for t in toks {
@@ -666,6 +680,7 @@ fn parse_sheet_lines(text: &str) -> Vec<Line> {
 mod tests {
     use super::*;
     use crate::error::ErrKind;
+    use crate::use_test_rates;
 
     fn show(src: &str) -> String {
         evaluate_line(src).expect("a result").render()
@@ -921,6 +936,20 @@ loop(1)
                 Some("expression nested too deeply".to_string()),
             ]
         );
+    }
+
+    #[test]
+    fn unit_lines_strip_sheet_comments_before_the_bridge() {
+        // the engine's comment char is `#`; a trailing `//` comment
+        // must never reach numbat as division (Brandon hit this by
+        // uncommenting the tour's currency line)
+        use_test_rates();
+        let sheet = "50 USD -> EUR // 46.5 \u{20ac}\n";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        assert_eq!(rendered, vec!["50 \u{20ac}".to_string()]);
     }
 
     #[test]

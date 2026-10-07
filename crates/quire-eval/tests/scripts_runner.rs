@@ -17,6 +17,9 @@ use quire_eval::{LineKind, Outcome, evaluate_sheet, parse_sheet};
 
 #[test]
 fn script_files_hold_their_expectations() {
+    // currency corpus lines convert against the engine's test rates
+    // (every currency at 1.0)
+    quire_eval::use_test_rates();
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/scripts");
     let mut paths: Vec<_> = fs::read_dir(&dir)
         .expect("scripts directory exists")

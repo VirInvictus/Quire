@@ -21,8 +21,10 @@ custom `quire` language spec, scheme pair, and renderer-drawn
 answers column (Phase 3), the document backbone and editing UX
 (Phase 4), and the packaging set: Meson wrapper, desktop file,
 AppStream metainfo, hicolor icons, mime package, tag-gated release
-CI (Phase 5). Currency is ruled and
-queued (ECB fetch layer, offline-first); dates ride a later chunk.
+CI (Phase 5). Currency is live
+(ECB fetch layer, offline-first, attohttpc + ~/.cache/quire/ecb.xml);
+dates are in (bare date words and `N <unit> from today|now` / `ago`
+phrases translate to numbat datetime calls - spec Dates section).
 The portfolio/budget templates ship behind the New-from-template
 menu (crates/quire/src/templates.rs + resources/templates/), tag
 sums are sheet-wide (headings never clear them - spec Tags

@@ -34,7 +34,9 @@ values honest), and the currency layer is live: ECB XML fetched
 with attohttpc, cached at ~/.cache/quire/ecb.xml, seeded through
 quire_eval::set_exchange_rates (set-once per process - a refresh
 applies next launch; currency-refresh-hours GSettings key, menu
-item forces a fetch). Next: currency implementation, dates, result-format
+item forces a fetch). Error/answer cells show their FULL text as a
+tooltip on line hover (wire_answer_tooltips in page.rs; the column
+stays narrow by ruling). Next: currency implementation, dates, result-format
 cycling, then Brandon's display passes.
 
 ## Stack

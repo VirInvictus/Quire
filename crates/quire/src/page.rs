@@ -98,6 +98,36 @@ whole = total
 // this sheet is yours - edit it, or start fresh with Ctrl+N
 ";
 
+/// The net line shift between two sheet versions: Some((first
+/// moved 1-based line, delta)) when k lines were inserted or
+/// removed at a single point; None when the line count is unchanged
+/// or the change is not a clean tail shift.
+fn line_shift(old: &str, new: &str) -> Option<(usize, i32)> {
+    let old_lines: Vec<&str> = old.lines().collect();
+    let new_lines: Vec<&str> = new.lines().collect();
+    let delta = new_lines.len() as i32 - old_lines.len() as i32;
+    if delta == 0 {
+        return None;
+    }
+    // the first index where the versions differ is the edit point;
+    // everything from there must match once the delta is accounted
+    // for, or the change is not a pure line shift
+    let i = old_lines
+        .iter()
+        .zip(new_lines.iter())
+        .position(|(a, b)| a != b)
+        .unwrap_or(old_lines.len().min(new_lines.len()));
+    let shifted_tail_matches = if delta > 0 {
+        old_lines[i..] == new_lines[i + delta as usize..]
+    } else {
+        old_lines[i + (-delta) as usize..] == new_lines[i..]
+    };
+    if !shifted_tail_matches {
+        return None;
+    }
+    Some((i + 1, delta))
+}
+
 /// The `&N` tokens of a sheet: (byte range, value) in order.
 fn collect_refs(text: &str) -> Vec<((usize, usize), String)> {
     let mut out = Vec::new();
@@ -138,11 +168,11 @@ pub struct QuirePage {
     /// the choice rides the NUMBER, so it shifts with edits until the
     /// stable line-ids gate lands
     formats: RefCell<std::collections::HashMap<u32, answers::LineFormat>>,
-    /// a recorded but not-yet-applied &N shift: (first moved line,
-    /// delta). Structural edits record it; an idle turn applies.
-    pending_ref_shift: RefCell<Option<(usize, i32)>>,
     /// re-entry guard while the renumbering rewrites the buffer
     renumbering: std::cell::Cell<bool>,
+    /// the sheet as of the last change: diffed against the current
+    /// text to find line shifts for &N renumbering
+    previous_text: RefCell<String>,
 }
 
 impl QuirePage {
@@ -178,12 +208,12 @@ impl QuirePage {
             on_reindex: RefCell::new(None),
             answers: RefCell::new(std::collections::HashMap::new()),
             formats: RefCell::new(std::collections::HashMap::new()),
-            pending_ref_shift: RefCell::new(None),
             renumbering: std::cell::Cell::new(false),
+            previous_text: RefCell::new(String::new()),
         });
         Self::wire_evaluation(&page, &buffer);
         Self::wire_answer_tooltips(&page);
-        page.wire_ref_renumbering();
+        Self::wire_ref_renumbering(&page);
         // one delayed repaint: on a very first run the fonts were
         // installed moments ago and the earliest frames can resolve
         // text against a cold font cache; repainting once the map is
@@ -465,116 +495,77 @@ impl QuirePage {
         out
     }
 
-    /// Record structural edits (newline-bearing inserts, multi-line
-    /// deletes) and apply their &N shifts on the next idle turn.
-    /// Single-line typing records nothing: plain typing never
-    /// rewrites a sheet.
-    fn wire_ref_renumbering(&self) {
-        let renumbering = self.renumbering.clone();
-        let pending = self.pending_ref_shift.clone();
+    /// &N references renumber on line shifts: every buffer change
+    /// diffs against the previous text, and a pure line shift (k
+    /// lines inserted or removed at one point) rewrites the refs of
+    /// every line after the edit. The rewrite itself is line-count
+    /// neutral, so the pass self-terminates.
+    fn wire_ref_renumbering(page: &Rc<Self>) {
+        let renumbering = page.renumbering.clone();
+        let previous = page.previous_text.clone();
+        let page = page.clone();
+        let buffer = page.buffer.clone();
 
-        // inserts: newlines at 0-based line L shift refs from
-        // 1-based line L+2 (the first line that moved) by +count
-        self.buffer.connect_insert_text(glib::clone!(
+        buffer.connect_changed(glib::clone!(
             #[strong]
             renumbering,
             #[strong]
-            pending,
-            move |buffer: &sourceview5::Buffer, location, text: &str| {
+            previous,
+            move |buffer| {
+                let text = buffer
+                    .text(&buffer.start_iter(), &buffer.end_iter(), true)
+                    .to_string();
+                let old = previous.replace(text.clone());
+                // a file load replaces the whole sheet wholesale: the
+                // loaded text IS the new baseline, refs as authored
+                if page.loading.get() {
+                    return;
+                }
                 if renumbering.get() {
                     return;
                 }
-                let newlines = text.matches('\n').count() as i32;
-                if newlines == 0 {
-                    return;
+                // file loads replace the whole sheet: refs are as
+                // authored, nothing shifts
+                if let Some((from, delta)) = line_shift(&old, &text)
+                    && !collect_refs(&text).is_empty()
+                {
+                    eprintln!("[refs] shift queued: from={from} delta={delta}");
+                    let renumbering = renumbering.clone();
+                    let buffer = buffer.clone();
+                    glib::idle_add_local_once(move || {
+                        if renumbering.get() {
+                            return;
+                        }
+                        renumbering.set(true);
+                        let current = buffer
+                            .text(&buffer.start_iter(), &buffer.end_iter(), true)
+                            .to_string();
+                        let updated = QuirePage::renumber_refs(&current, from, delta);
+                        if updated != current {
+                            let old_refs = collect_refs(&current);
+                            let new_refs = collect_refs(&updated);
+                            for ((old_range, _), (_, new_value)) in
+                                old_refs.iter().rev().zip(new_refs.iter().rev())
+                            {
+                                if current[old_range.0..old_range.1] == *new_value {
+                                    continue;
+                                }
+                                let mut start = buffer.start_iter();
+                                start.set_offset(old_range.0 as i32);
+                                let mut end = buffer.start_iter();
+                                end.set_offset(old_range.1 as i32);
+                                buffer.delete_interactive(&mut start, &mut end, true);
+                                buffer.insert_interactive(&mut start, new_value, true);
+                            }
+                        }
+                        renumbering.set(false);
+                    });
                 }
-                let from = location.line() as usize + 2;
-                Self::record_shift(&pending, from, newlines);
-                let buffer = buffer.clone();
-                let renumbering = renumbering.clone();
-                let pending = pending.clone();
-                glib::idle_add_local_once(move || {
-                    Self::apply_ref_shift(&buffer, &renumbering, &pending);
-                });
             }
         ));
-
-        // deletes: removing 0-based lines [start, end] shifts refs
-        // from 1-based line end+1 (the first survivor) by -removed
-        self.buffer.connect_delete_range(glib::clone!(
-            #[strong]
-            renumbering,
-            #[strong]
-            pending,
-            move |buffer: &sourceview5::Buffer, start, end| {
-                if renumbering.get() {
-                    return;
-                }
-                let removed = end.line() - start.line();
-                if removed == 0 {
-                    return;
-                }
-                let from = end.line() as usize + 1;
-                Self::record_shift(&pending, from, -removed);
-                let buffer = buffer.clone();
-                let renumbering = renumbering.clone();
-                let pending = pending.clone();
-                glib::idle_add_local_once(move || {
-                    Self::apply_ref_shift(&buffer, &renumbering, &pending);
-                });
-            }
-        ));
     }
 
-    /// Fold a new shift into the pending one. Single-keystroke edits
-    /// apply before the next record in practice; a pile-up composes
-    /// as min(start) over summed deltas.
-    fn record_shift(pending: &RefCell<Option<(usize, i32)>>, from: usize, delta: i32) {
-        let mut slot = pending.borrow_mut();
-        *slot = match *slot {
-            None => Some((from, delta)),
-            Some((old_from, old_delta)) => Some((old_from.min(from), old_delta + delta)),
-        };
-    }
-
-    /// Apply the pending shift: rewrite each moved &N token in place,
-    /// back to front so byte offsets stay valid while editing.
-    fn apply_ref_shift(
-        buffer: &sourceview5::Buffer,
-        renumbering: &std::cell::Cell<bool>,
-        pending: &RefCell<Option<(usize, i32)>>,
-    ) {
-        let Some((from, delta)) = pending.borrow_mut().take() else {
-            return;
-        };
-        let text = buffer
-            .text(&buffer.start_iter(), &buffer.end_iter(), true)
-            .to_string();
-        let updated = Self::renumber_refs(&text, from, delta);
-        if updated == text {
-            return;
-        }
-        // collect the old and new token values in order: they are
-        // equal in count (renumbering never adds or removes refs)
-        let old_refs = collect_refs(&text);
-        let new_refs = collect_refs(&updated);
-        renumbering.set(true);
-        // apply back to front so earlier offsets stay put
-        for ((old_range, _), (_, new_value)) in old_refs.iter().rev().zip(new_refs.iter().rev()) {
-            if text[old_range.0..old_range.1] == *new_value {
-                continue;
-            }
-            let mut start = buffer.start_iter();
-            start.set_offset(old_range.0 as i32);
-            let mut end = buffer.start_iter();
-            end.set_offset(old_range.1 as i32);
-            buffer.delete_interactive(&mut start, &mut end, true);
-            buffer.insert_interactive(&mut start, new_value, true);
-        }
-        renumbering.set(false);
-    }
-
-    /// Re-evaluate the whole sheet on change, coalesced to the next
+    /// Re-evaluate the whole sheet on change, coalesced to the next    /// Re-evaluate the whole sheet on change, coalesced to the next    /// Re-evaluate the whole sheet on change, coalesced to the next
     /// idle turn (the spec's debounce; whole-sheet evaluation is O(n)
     /// on tiny sheets, so one deferred pass per burst is plenty).
     /// After each pass the answers map is stored and the reindex

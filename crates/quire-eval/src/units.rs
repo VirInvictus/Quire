@@ -113,9 +113,7 @@ impl Bridge {
     /// back as their first message line, ready for an error cell.
     pub fn eval(&self, source: &str) -> Result<Value, String> {
         MASTER.with(|master| {
-            let Some(mut ctx) = master.as_ref().map(|m| m.clone()) else {
-                return Err("the unit engine is unavailable".into());
-            };
+            let mut ctx = master.as_ref().map(|m| m.clone()).unwrap();
             match ctx.interpret(source, CodeSource::Internal) {
                 Ok((_, numbat::InterpreterResult::Value(v))) => Ok(v),
                 Ok((_, numbat::InterpreterResult::Continue)) => {
@@ -169,7 +167,7 @@ mod tests {
 
     #[test]
     fn prelude_loads_without_importer_or_network() {
-        let mut b = bridge();
+        let b = bridge();
         assert!(b.knows_unit("kg"));
         assert!(b.knows_unit("m"));
         assert!(!b.knows_unit("bloognorch"));
@@ -177,7 +175,7 @@ mod tests {
 
     #[test]
     fn quantities_evaluate_and_render_as_source() {
-        let mut b = bridge();
+        let b = bridge();
         let v = b.eval("5 kg + 300 g").expect("evaluates");
         assert_eq!(render(&v), "5300 g");
     }

@@ -329,7 +329,11 @@ the work lands, with the current recommendation recorded here.
     NoteCalc's invisible ids need a binary format, and a sheet's
     refs must be visible text). Poisoning follows the failed-line
     rule; function bodies cannot use refs. spec "Line references".
-  - [ ] Token-level error highlighting in the editor.
+  - [x] Token-level error highlighting (2026-10-07): each failed
+    line underlines the exact failing token in red in the sheet
+    (engine spans, cleared and reapplied per pass), pairing with
+    the hover tooltip - full message on hover, location in the
+    sheet.
   - [ ] Ctrl+click a math line opens a popover with its step-by-step
     breakdown (Apostrophe's inline-preview popover pattern, minus the
     latex subprocesses).

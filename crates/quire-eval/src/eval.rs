@@ -222,6 +222,7 @@ pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
         ctx.line = line.number;
         let outcome = match line.kind {
             LineKind::Expression => eval_line(&line.raw, &mut ctx, &mut bridge),
+            LineKind::Text => mixed_line(&line.raw, &mut ctx, &mut bridge),
             LineKind::Reference => eval_reference(&line.raw, &mut ctx, &mut bridge),
             LineKind::Heading => {
                 // headings section the plain math; tag sums are
@@ -344,6 +345,11 @@ fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<Ou
     Some(match eval_stmt(&stmt, &tags, ctx, bridge) {
         Ok(Some(num)) => num.outcome(),
         Ok(None) => return None, // a function definition: no cell
+        // classify-by-failure: an unknown name may be prose, and the
+        // prose-stripped skeleton may still answer
+        Err(Fail::Err(e)) if matches!(e.kind, ErrKind::UnknownName(_)) => {
+            mixed_line(raw, ctx, bridge).unwrap_or(Outcome::Failed(e))
+        }
         Err(Fail::Err(e)) => Outcome::Failed(e),
         Err(Fail::Reroute) => declined_line(
             raw,
@@ -357,6 +363,93 @@ fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<Ou
             )),
         ),
     })
+}
+
+/// Mixed-line evaluation (spec.md "Mixed lines"): a Text line whose
+/// prose words strip out to a complete expression answers with that
+/// expression's value - `50 apples at 3 each` is `150`. Word
+/// operators map (`at`/`of`/`times` multiply, `plus` adds, `minus`
+/// subtracts); unknown names drop as prose; anything that does not
+/// fully evaluate leaves the line as prose (a missed calculation
+/// beats a false error, and mixed failures are silent by design).
+fn mixed_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<Outcome> {
+    let toks = tokenize(raw).ok()?;
+    if toks.is_empty() {
+        return None;
+    }
+    // reserved words keep their errors: `total = 5` must never
+    // become a mixed `5`. Tags and line refs carry structured
+    // meaning too - dropping them would misread malformed stamps
+    // and refs as arithmetic.
+    if toks.iter().any(|t| {
+        matches!(
+            t.tok,
+            Tok::Total | Tok::Answer | Tok::Tag(_) | Tok::LineRef(_)
+        )
+    }) {
+        return None;
+    }
+    // the skeleton: drop prose idents, map word operators. A line
+    // with no numbers cannot become math.
+    let mut kept: Vec<crate::tokens::Token> = Vec::new();
+    let mut saw_number = false;
+    for t in &toks {
+        match &t.tok {
+            Tok::Num(_) => saw_number = true,
+            Tok::Comma
+            | Tok::Plus
+            | Tok::Minus
+            | Tok::Star
+            | Tok::Slash
+            | Tok::Caret
+            | Tok::LParen
+            | Tok::RParen => {}
+            Tok::Ident(n) => match n.to_lowercase().as_str() {
+                "at" | "of" | "times" => {
+                    kept.push(crate::tokens::Token {
+                        tok: Tok::Star,
+                        span: t.span,
+                    });
+                    continue;
+                }
+                "plus" => {
+                    kept.push(crate::tokens::Token {
+                        tok: Tok::Plus,
+                        span: t.span,
+                    });
+                    continue;
+                }
+                "minus" => {
+                    kept.push(crate::tokens::Token {
+                        tok: Tok::Minus,
+                        span: t.span,
+                    });
+                    continue;
+                }
+                // known names survive; unknown names are the prose
+                _ => {
+                    let known = ctx.vars.contains_key(n)
+                        || ctx.fns.contains_key(n)
+                        || bridge.as_ref().is_some_and(|b| b.knows_unit(n));
+                    if !known {
+                        continue;
+                    }
+                }
+            },
+            // anything the scalar tokenizer rejects (prose punctuation)
+            _ => continue,
+        }
+        kept.push(t.clone());
+    }
+    if !saw_number {
+        return None;
+    }
+    // the skeleton must parse and evaluate; anything else is prose
+    let stmt = parse(&kept).ok()?;
+    match eval_stmt(&stmt, &[], ctx, bridge) {
+        Ok(Some(num)) => Some(num.outcome()),
+        _ => None,
+    }
 }
 
 /// Sheet date vocabulary (spec.md "Dates"): words that route to the
@@ -416,7 +509,10 @@ fn declined_line(
         }));
     if !routable {
         return match fail {
-            Fail::Err(e) => Outcome::Failed(e),
+            // last resort: the mixed-line skeleton. Pure prose stays
+            // silent; digit-led prose ("2 tickets to the show") can
+            // now answer with its leading math
+            Fail::Err(e) => mixed_line(raw, ctx, bridge).unwrap_or(Outcome::Failed(e)),
             Fail::Reroute => Outcome::Failed(QuireError::new(
                 (0, 0),
                 ErrKind::Unit(NO_UNIT_SUPPORT.into()),
@@ -947,6 +1043,13 @@ mod tests {
     }
 
     #[test]
+    fn unknown_names_in_expressions_demote_to_prose() {
+        // classify-by-failure: the math answers, the words demote
+        assert_eq!(show("2 bloognorch"), "2");
+        assert_eq!(show("2 tickets to the show"), "2");
+    }
+
+    #[test]
     fn trailing_comments_change_nothing() {
         assert_eq!(show("2 + 2 // quick sum"), "4");
         assert_eq!(show("3.5 * 2 //= 7 must not leak"), "7");
@@ -1089,8 +1192,13 @@ total
     #[test]
     fn scalar_engine_stays_alone_without_units() {
         // no unit names anywhere: byte-identical legacy behavior
+        // (unknown-name lines now fall to the mixed skeleton, so the
+        // pure-error case is a bare unbound reference)
         assert_eq!(show("2 + 2"), "4");
-        assert_eq!(err_of("2 bloognorch"), ErrKind::TrailingTokens);
+        assert_eq!(
+            err_of("bloognorch"),
+            ErrKind::UnknownName("bloognorch".into())
+        );
     }
 
     #[test]
@@ -1233,6 +1341,41 @@ loop(1)
             .filter_map(|l| l.outcome.map(|o| o.render()))
             .collect();
         assert_eq!(rendered, vec!["2 kg".to_string(), "6 kg".to_string()]);
+    }
+
+    #[test]
+    fn mixed_lines_evaluate_the_math_and_stay_silent_on_failure() {
+        // word operators map; prose drops; the answer joins the sheet
+        let sheet = "50 apples at 3 each\n2 coffees plus 1 tea\n6 apples minus 1 apple\n";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        assert_eq!(
+            rendered,
+            vec!["150".to_string(), "3".to_string(), "5".to_string()]
+        );
+        // pure prose stays prose: no numbers, no cell
+        let sheet = "this line is only words\n";
+        assert!(
+            evaluate_sheet(sheet)
+                .into_iter()
+                .all(|l| l.outcome.is_none())
+        );
+        // pure prose stays silent, never an error cell
+        let sheet = "apples and pears\n";
+        assert!(
+            evaluate_sheet(sheet)
+                .into_iter()
+                .all(|l| l.outcome.is_none())
+        );
+        // a dangling word operator fails the line: the trailing
+        // tokens are an honest error, never a silent guess
+        let lines = evaluate_sheet("3 pears plus\n");
+        assert!(matches!(
+            &lines[0].outcome,
+            Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::TrailingTokens)
+        ));
     }
 
     #[test]

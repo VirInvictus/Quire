@@ -70,6 +70,13 @@ rate(40) of 90
 90 minutes from now
 6 months ago
 
+## Line references
+&11 * 2
+
+## Mix words with math
+50 apples at 3 each
+2 coffees plus 1 tea
+
 ## Hand-typed price snapshots
 aapl = 10 * 190 @ 2026-10-06 @stocks
 msft = 4 * 410 @ 2026-10-06 @stocks
@@ -84,9 +91,36 @@ whole = total
 // &4 references line 4's answer; the app renumbers as lines shift
 // drag any text file onto the window to open it
 // the menu sets how many decimals answers show
+// errors underline the broken token: hover the red cell for the
+// full message - try uncommenting this one:
+// 3 kg + 5 m
 
 // this sheet is yours - edit it, or start fresh with Ctrl+N
 ";
+
+/// The `&N` tokens of a sheet: (byte range, value) in order.
+fn collect_refs(text: &str) -> Vec<((usize, usize), String)> {
+    let mut out = Vec::new();
+    let mut rest = text;
+    let mut consumed = 0usize;
+    while let Some(rel) = rest.find('&') {
+        let at = consumed + rel;
+        let digits: String = rest[rel + 1..]
+            .chars()
+            .take_while(|c| c.is_ascii_digit())
+            .collect();
+        if digits.is_empty() {
+            rest = &rest[rel + 1..];
+            consumed = at + 1;
+            continue;
+        }
+        out.push(((at, at + 1 + digits.len()), digits.clone()));
+        let skip = rel + 1 + digits.len();
+        rest = &rest[skip..];
+        consumed += skip;
+    }
+    out
+}
 
 pub struct QuirePage {
     pub view: QuireView,
@@ -104,6 +138,11 @@ pub struct QuirePage {
     /// the choice rides the NUMBER, so it shifts with edits until the
     /// stable line-ids gate lands
     formats: RefCell<std::collections::HashMap<u32, answers::LineFormat>>,
+    /// a recorded but not-yet-applied &N shift: (first moved line,
+    /// delta). Structural edits record it; an idle turn applies.
+    pending_ref_shift: RefCell<Option<(usize, i32)>>,
+    /// re-entry guard while the renumbering rewrites the buffer
+    renumbering: std::cell::Cell<bool>,
 }
 
 impl QuirePage {
@@ -139,9 +178,12 @@ impl QuirePage {
             on_reindex: RefCell::new(None),
             answers: RefCell::new(std::collections::HashMap::new()),
             formats: RefCell::new(std::collections::HashMap::new()),
+            pending_ref_shift: RefCell::new(None),
+            renumbering: std::cell::Cell::new(false),
         });
         Self::wire_evaluation(&page, &buffer);
         Self::wire_answer_tooltips(&page);
+        page.wire_ref_renumbering();
         // one delayed repaint: on a very first run the fonts were
         // installed moments ago and the earliest frames can resolve
         // text against a cold font cache; repainting once the map is
@@ -423,6 +465,115 @@ impl QuirePage {
         out
     }
 
+    /// Record structural edits (newline-bearing inserts, multi-line
+    /// deletes) and apply their &N shifts on the next idle turn.
+    /// Single-line typing records nothing: plain typing never
+    /// rewrites a sheet.
+    fn wire_ref_renumbering(&self) {
+        let renumbering = self.renumbering.clone();
+        let pending = self.pending_ref_shift.clone();
+
+        // inserts: newlines at 0-based line L shift refs from
+        // 1-based line L+2 (the first line that moved) by +count
+        self.buffer.connect_insert_text(glib::clone!(
+            #[strong]
+            renumbering,
+            #[strong]
+            pending,
+            move |buffer: &sourceview5::Buffer, location, text: &str| {
+                if renumbering.get() {
+                    return;
+                }
+                let newlines = text.matches('\n').count() as i32;
+                if newlines == 0 {
+                    return;
+                }
+                let from = location.line() as usize + 2;
+                Self::record_shift(&pending, from, newlines);
+                let buffer = buffer.clone();
+                let renumbering = renumbering.clone();
+                let pending = pending.clone();
+                glib::idle_add_local_once(move || {
+                    Self::apply_ref_shift(&buffer, &renumbering, &pending);
+                });
+            }
+        ));
+
+        // deletes: removing 0-based lines [start, end] shifts refs
+        // from 1-based line end+1 (the first survivor) by -removed
+        self.buffer.connect_delete_range(glib::clone!(
+            #[strong]
+            renumbering,
+            #[strong]
+            pending,
+            move |buffer: &sourceview5::Buffer, start, end| {
+                if renumbering.get() {
+                    return;
+                }
+                let removed = end.line() - start.line();
+                if removed == 0 {
+                    return;
+                }
+                let from = end.line() as usize + 1;
+                Self::record_shift(&pending, from, -removed);
+                let buffer = buffer.clone();
+                let renumbering = renumbering.clone();
+                let pending = pending.clone();
+                glib::idle_add_local_once(move || {
+                    Self::apply_ref_shift(&buffer, &renumbering, &pending);
+                });
+            }
+        ));
+    }
+
+    /// Fold a new shift into the pending one. Single-keystroke edits
+    /// apply before the next record in practice; a pile-up composes
+    /// as min(start) over summed deltas.
+    fn record_shift(pending: &RefCell<Option<(usize, i32)>>, from: usize, delta: i32) {
+        let mut slot = pending.borrow_mut();
+        *slot = match *slot {
+            None => Some((from, delta)),
+            Some((old_from, old_delta)) => Some((old_from.min(from), old_delta + delta)),
+        };
+    }
+
+    /// Apply the pending shift: rewrite each moved &N token in place,
+    /// back to front so byte offsets stay valid while editing.
+    fn apply_ref_shift(
+        buffer: &sourceview5::Buffer,
+        renumbering: &std::cell::Cell<bool>,
+        pending: &RefCell<Option<(usize, i32)>>,
+    ) {
+        let Some((from, delta)) = pending.borrow_mut().take() else {
+            return;
+        };
+        let text = buffer
+            .text(&buffer.start_iter(), &buffer.end_iter(), true)
+            .to_string();
+        let updated = Self::renumber_refs(&text, from, delta);
+        if updated == text {
+            return;
+        }
+        // collect the old and new token values in order: they are
+        // equal in count (renumbering never adds or removes refs)
+        let old_refs = collect_refs(&text);
+        let new_refs = collect_refs(&updated);
+        renumbering.set(true);
+        // apply back to front so earlier offsets stay put
+        for ((old_range, _), (_, new_value)) in old_refs.iter().rev().zip(new_refs.iter().rev()) {
+            if text[old_range.0..old_range.1] == *new_value {
+                continue;
+            }
+            let mut start = buffer.start_iter();
+            start.set_offset(old_range.0 as i32);
+            let mut end = buffer.start_iter();
+            end.set_offset(old_range.1 as i32);
+            buffer.delete_interactive(&mut start, &mut end, true);
+            buffer.insert_interactive(&mut start, new_value, true);
+        }
+        renumbering.set(false);
+    }
+
     /// Re-evaluate the whole sheet on change, coalesced to the next
     /// idle turn (the spec's debounce; whole-sheet evaluation is O(n)
     /// on tiny sheets, so one deferred pass per burst is plenty).
@@ -457,6 +608,7 @@ impl QuirePage {
                             crate::settings::answer_decimals(),
                         );
                         page.answers.replace(cells.clone());
+                        page.apply_error_highlights(&cells);
                         page.renderer.set_answers(cells);
                         if let Some(f) = page.on_reindex.borrow().as_ref() {
                             f(&index_sheet(&text));
@@ -613,8 +765,41 @@ impl QuirePage {
             crate::settings::answer_decimals(),
         );
         self.answers.replace(cells.clone());
+        self.apply_error_highlights(&cells);
         self.renderer.set_answers(cells);
         self.renderer.queue_draw();
+    }
+
+    /// The token-level error underline: each failed line's error span
+    /// (the exact token that failed) gets a red underline in the
+    /// sheet. Previous highlights are cleared every pass - the map is
+    /// rebuilt wholesale, so the tags follow.
+    fn apply_error_highlights(&self, cells: &std::collections::HashMap<u32, answers::AnswerCell>) {
+        let tag_table = self.buffer.tag_table();
+        if tag_table.lookup("quire-error-token").is_none() {
+            let tag = gtk4::TextTag::new(Some("quire-error-token"));
+            tag.set_underline(gtk4::pango::Underline::Single);
+            tag.set_underline_rgba(Some(&gtk4::gdk::RGBA::new(0.769, 0.455, 0.431, 1.0)));
+            tag_table.add(&tag);
+        }
+        let start = self.buffer.start_iter();
+        let end = self.buffer.end_iter();
+        self.buffer
+            .remove_tag_by_name("quire-error-token", &start, &end);
+
+        for (line_number, cell) in cells {
+            let Some((char_start, char_end)) = cell.error_span else {
+                continue;
+            };
+            let mut start = self.buffer.start_iter();
+            start.set_line(*line_number as i32 - 1);
+            start.forward_chars(char_start as i32);
+            let mut end = self.buffer.start_iter();
+            end.set_line(*line_number as i32 - 1);
+            end.forward_chars(char_end as i32);
+            self.buffer
+                .apply_tag_by_name("quire-error-token", &start, &end);
+        }
     }
 }
 

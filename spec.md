@@ -158,6 +158,25 @@ The app renumbers `&N` tokens in memory when insertions and
 deletions shift lines, as part of the same edit - the text on disk
 is only ever what the user typed or approved.
 
+## Mixed lines (Phase 7)
+
+A prose line whose words strip out to a complete expression answers
+with that expression - `50 apples at 3 each` is `150`, `2 coffees
+plus 1 tea` is `3`. Word operators map (`at`, `of`, and `times`
+multiply; `plus` adds; `minus` subtracts); unknown names drop as
+prose; everything else composes.
+
+- **Silent by design.** A mixed attempt that does not fully
+  evaluate leaves the line as prose - a missed calculation beats a
+  false error, and mixed lines never grow error cells. A dangling
+  word operator on an otherwise-parseable line still fails honestly
+  (the scalar parse caught it first).
+- **Boundaries.** Reserved words (`total`, `answer`), tags, and
+  line references never enter a mixed skeleton: their structured
+  meaning must not be misread as arithmetic.
+- **Results.** A mixed line's value joins `answer`, totals, and
+  tags like any expression result.
+
 ## Tags (Phase 8)
 
 An Expression line may end with one or more tags: `@` immediately

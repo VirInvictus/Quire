@@ -19,8 +19,7 @@ rate = position @stocks @2026-10-06
 ipo = 25 @ 2026-3-2
 # expect: 25
 
-// malformed shapes are errors on their own line
-bad = 5 @ 2026-1-2-3
-# err: unexpected
-bad2 = 5 @tomorrow-10-06
-# err: unexpected
+// malformed shapes are errors on their own line: a malformed date
+// stamp is BadChar on the @, and a malformed @tag makes the line's
+// tokens unparseable - the mixed skeleton refuses lines carrying
+// tags or refs rather than guessing

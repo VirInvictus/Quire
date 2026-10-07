@@ -10,6 +10,10 @@ use quire_eval::Outcome;
 pub struct AnswerCell {
     pub text: String,
     pub is_error: bool,
+    /// The error's token span in CHAR offsets within the line, for
+    /// the in-sheet red underline. None for values and for errors
+    /// without a token position.
+    pub error_span: Option<(usize, usize)>,
 }
 
 /// Per-line answer formats, cycled with Alt+Up/Down (Phase 7).
@@ -48,6 +52,13 @@ pub fn compute(sheet: &str) -> HashMap<u32, AnswerCell> {
     compute_with_formats(sheet, &Default::default(), None)
 }
 
+/// The error span as CHAR offsets within the line: token spans are
+/// byte offsets, and TextIters count chars.
+fn char_span(line_raw: &str, span: (usize, usize)) -> Option<(usize, usize)> {
+    let clamp = |b: usize| line_raw.get(..b).map(|s| s.chars().count());
+    Some((clamp(span.0)?, clamp(span.1)?))
+}
+
 pub fn compute_with_formats(
     sheet: &str,
     formats: &HashMap<u32, LineFormat>,
@@ -57,8 +68,10 @@ pub fn compute_with_formats(
         .into_iter()
         .filter_map(|line| {
             let format = formats.get(&(line.number as u32)).copied();
+            let line_raw = sheet.lines().nth(line.number - 1).unwrap_or("");
             let cell = match line.outcome? {
                 Outcome::Value(v) => AnswerCell {
+                    error_span: None,
                     text: match format {
                         None | Some(LineFormat::Standard) => match max_decimals {
                             Some(cap) => quire_eval::format_number_with(v, cap),
@@ -81,12 +94,14 @@ pub fn compute_with_formats(
                 // Display is the cell text, spec.md "Unit expressions");
                 // format cycling does not apply to them
                 Outcome::Quantity(v) => AnswerCell {
+                    error_span: None,
                     text: v.to_string(),
                     is_error: false,
                 },
                 Outcome::Failed(e) => AnswerCell {
                     text: e.kind.to_string(),
                     is_error: true,
+                    error_span: char_span(line_raw, e.span),
                 },
             };
             Some((line.number as u32, cell))

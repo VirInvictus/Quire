@@ -2,6 +2,34 @@
 
 Newest first.
 
+## v0.6.0 (2026-10-07)
+
+- Self-updating line references: `&N` follows its target when lines
+  shift. Insert, delete, or paste above a reference and the token is
+  rewritten in place so it still names its line; a ref whose target
+  line is deleted follows the line that takes its place; undo and
+  redo revert cleanly. Loading a sheet never rewrites anything (refs
+  read as authored until a line actually moves), and the `&N` text
+  inside comments, prose, and function bodies is never touched: only
+  refs the engine resolves participate. Menu toggle: "Follow line
+  references", on by default; off restores the purely positional
+  reading.
+- How it works (the fourth attempt; the first three cascaded into
+  `&11 -> &111 -> &1112` and were stripped in 0.5.1): every
+  referenced line carries an invisible right-gravity GtkTextMark
+  that rides every edit inside the buffer's btree, so the sheet's
+  structure is tracked by the editor itself, never by diffing text.
+  The debounced pass reads the marks and renumbers only what
+  drifted, in one batched splice with the evaluation handler
+  blocked and the edit marked irreversible: the pipeline cannot
+  re-read its own output, and undo or redo of the user's edit
+  converges the digits back instead of fighting the rewrite. The
+  convergence logic is a GTK-free pure module (refs.rs, 20 table
+  tests: inserts, deletes, pastes, chained refs, colliding marks,
+  forward refs, hand-retyped digits, the undo round-trip).
+- The welcome sheet's reference tour line reflects the new
+  behavior.
+
 ## v0.5.1 (2026-10-07)
 
 - The &N renumber cascade fix: pressing Enter or Backspace near a

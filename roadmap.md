@@ -323,6 +323,12 @@ the work lands, with the current recommendation recorded here.
     no recursion - depth-capped, arity-checked, no answer cell on
     the def line. Scalar-engine citizens in v1; corpus
     `tests/scripts/functions.quire`.)
+  - [x] **[D]** Stable line references (2026-10-07): `&N` visible
+    references, lines above only, with the app renumbering tokens
+    in memory as lines shift (Brandon's pick from three shapes;
+    NoteCalc's invisible ids need a binary format, and a sheet's
+    refs must be visible text). Poisoning follows the failed-line
+    rule; function bodies cannot use refs. spec "Line references".
   - [ ] Token-level error highlighting in the editor.
   - [ ] Ctrl+click a math line opens a popover with its step-by-step
     breakdown (Apostrophe's inline-preview popover pattern, minus the

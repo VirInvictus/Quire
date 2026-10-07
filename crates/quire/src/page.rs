@@ -134,6 +134,7 @@ impl QuirePage {
             formats: RefCell::new(std::collections::HashMap::new()),
         });
         Self::wire_evaluation(&page, &buffer);
+        Self::wire_answer_tooltips(&page);
         // one delayed repaint: on a very first run the fonts were
         // installed moments ago and the earliest frames can resolve
         // text against a cold font cache; repainting once the map is
@@ -414,6 +415,26 @@ impl QuirePage {
                 ));
             }
         ));
+    }
+
+    /// Hovering a line shows that line's cell FULL text in a
+    /// tooltip: the column clips long errors (numbat's messages) and
+    /// long answers, and a clipped error is a useless error. The
+    /// whole line is the hover target - sheet text included - so the
+    /// tooltip never depends on landing inside the narrow column.
+    fn wire_answer_tooltips(page: &Rc<Self>) {
+        let page = page.clone();
+        let view = page.view.clone();
+        view.set_has_tooltip(true);
+        view.connect_query_tooltip(move |view, x, y, _keyboard, tooltip| {
+            let (_, buffer_y) = view.window_to_buffer_coords(gtk4::TextWindowType::Widget, x, y);
+            let (line_iter, _) = view.line_at_y(buffer_y);
+            let Some(cell) = page.answer_for_line(line_iter.line() as u32 + 1) else {
+                return false;
+            };
+            tooltip.set_text(Some(&cell.text));
+            true
+        });
     }
 
     /// Register the callback fired with a fresh sheet index after

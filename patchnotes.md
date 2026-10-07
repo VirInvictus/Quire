@@ -4,6 +4,11 @@ Newest first.
 
 ## Unreleased
 
+- Hovering a line shows its answer in full: the answers column clips
+  long text, and a clipped error is a useless error - numbat's
+  messages never fit. The tooltip is the whole cell text (errors and
+  long answers alike), the whole line is the hover target, and the
+  column keeps its size.
 - Currency, offline-first: `50 USD -> EUR` converts through the
   unit engine, backed by an ECB daily reference-rate snapshot.
   The app fetches the ECB XML on demand (attohttpc, rustls - the

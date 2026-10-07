@@ -244,9 +244,12 @@ sheet's structure shifts.
 - **Two-crate workspace.** `quire-eval` is the engine: sheet model,
   tokenizer, parser, evaluator. No GTK, no I/O dependencies; it is a
   standalone Rust library by design. `quire` is the GTK4 application.
-- **Toolchain.** Rust 2024 (floor 1.85); `gtk4` 0.11 and `sourceview5`
+- **Toolchain.** Rust 2024 (floor 1.88); `gtk4` 0.11 and `sourceview5`
   0.11 from Phase 2; plain GTK4, no libadwaita, styled through
-  `vir-gtk` with the house Kanagawa Dragon palette.
+  `vir-gtk` with the house Kanagawa Dragon palette. `numbat`
+  (default features off) is the unit engine; `attohttpc` (rustls,
+  the same client numbat's own fetch uses) backs the ECB currency
+  fetch.
 - **Editing surface.** GtkSourceView. Markdown highlighting for
   structure; math lines are ordinary text the engine re-reads.
 - **Live evaluation.** The whole sheet re-evaluates on every buffer

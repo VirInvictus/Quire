@@ -27,6 +27,13 @@
       <description>Cap on decimal places in scalar answers; -1 is
         the full 12-significant-digit rendering.</description>
     </key>
+    <key name="currency-refresh-hours" type="i">
+      <default>24</default>
+      <range min="1" max="720"/>
+      <summary>Currency refresh interval</summary>
+      <description>Hours between ECB reference-rate fetches. The
+        cached snapshot always works offline regardless.</description>
+    </key>
     <key name="recent-files" type="as">
       <default>[]</default>
       <summary>Recent sheets</summary>

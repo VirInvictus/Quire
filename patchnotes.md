@@ -4,6 +4,18 @@ Newest first.
 
 ## Unreleased
 
+- Currency, offline-first: `50 USD -> EUR` converts through the
+  unit engine, backed by an ECB daily reference-rate snapshot.
+  The app fetches the ECB XML on demand (attohttpc, rustls - the
+  same client numbat's own fetch uses), caches it under
+  `~/.cache/quire/ecb.xml`, and seeds the engine from the cache at
+  startup: once fetched, currency works offline forever after. The
+  refresh interval is a GSettings key (24h default) with a menu
+  item to force a fetch; the engine's rates are set-once per
+  process, so a refresh applies from the next launch. A sheet
+  without rates sees unknown names, never a hang - and the
+  starter sheet carries the syntax as an uncomment line so an
+  offline first run stays error-free.
 - An answer-decimals setting: the menu's "Answer decimals" radio
   (Full, 0-4) fixes how many decimal places scalar answers show,
   persisted in GSettings and applied live - `14.5` at two places

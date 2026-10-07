@@ -12,4 +12,9 @@ gtk4 = { version = "0.11", features = ["v4_10"] }
 # no version-gated features: the renderer needs nothing past the
 # base API, and CI's Ubuntu runner ships GtkSourceView 5.12
 sourceview5 = "0.11"
+# the ECB reference-rate fetch (the same client numbat's own fetch
+# uses: blocking, rustls webpki roots, no tokio)
+attohttpc = { version = "0.27", default-features = false, features = [
+    "tls-rustls-webpki-roots",
+] }
 vir-gtk = { git = "https://github.com/VirInvictus/vir-gtk.git", branch = "main" }

@@ -30,7 +30,34 @@ fn build_master() -> Option<Context> {
     if ctx.interpret("use prelude", CodeSource::Internal).is_err() {
         return None;
     }
+    // the currency module loads lazily, only when a sheet names a
+    // currency AND rates exist (spec.md "Unit expressions": the app
+    // seeds rates from its ECB cache before currency is used)
+    ctx.load_currency_module_on_demand(true);
     Some(ctx)
+}
+
+thread_local! {
+    static RATES_SEEDED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Seed the engine's exchange-rate cache from an ECB XML snapshot
+/// (the app's `~/.cache/quire/ecb.xml`). Set-once per process -
+/// numbat's rates cache cannot be replaced after the first read, so
+/// a refresh applies from the next launch (spec.md "Currency").
+/// Thread-safe: the fetch thread calls this as freely as startup.
+pub fn set_exchange_rates(xml: &str) {
+    RATES_SEEDED.with(|seeded| {
+        if !seeded.get() {
+            Context::set_exchange_rates(xml);
+            seeded.set(true);
+        }
+    });
+}
+
+/// Install numbat's test rates (every currency at 1.0). Test-only.
+pub fn use_test_rates() {
+    Context::use_test_exchange_rates();
 }
 
 /// The unit engine for one evaluation pass. `None` results (a
@@ -138,6 +165,14 @@ mod tests {
         let mut b = bridge();
         let err = b.eval("3 kg + 5 m").expect_err("must fail");
         assert!(err.contains("Mass") && err.contains("Length"), "{err}");
+    }
+
+    #[test]
+    fn currency_converts_once_rates_exist() {
+        use_test_rates();
+        let mut b = bridge();
+        let v = b.eval("50 USD -> EUR").expect("converts with rates");
+        assert_eq!(render(&v), "50 \u{20ac}");
     }
 
     #[test]

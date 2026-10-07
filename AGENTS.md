@@ -28,9 +28,13 @@ menu (crates/quire/src/templates.rs + resources/templates/), tag
 sums are sheet-wide (headings never clear them - spec Tags
 boundaries), user functions are in (inline bodies, call
 frames with param shadowing, depth-capped recursion - spec
-Functions), and the answer-decimals GSettings key caps scalar
+Functions), the answer-decimals GSettings key caps scalar
 answer rendering (menu radio; the lossy-guard keeps sub-cap
-values honest). Next: currency implementation, dates, result-format
+values honest), and the currency layer is live: ECB XML fetched
+with attohttpc, cached at ~/.cache/quire/ecb.xml, seeded through
+quire_eval::set_exchange_rates (set-once per process - a refresh
+applies next launch; currency-refresh-hours GSettings key, menu
+item forces a fetch). Next: currency implementation, dates, result-format
 cycling, then Brandon's display passes.
 
 ## Stack

@@ -3,6 +3,7 @@
 //! Plain GTK4, Kanagawa Dragon through vir-gtk, engine in quire-eval.
 
 mod answers;
+mod currency;
 mod fonts;
 mod lists;
 mod page;
@@ -56,6 +57,10 @@ fn main() -> gtk4::glib::ExitCode {
     // fonts land before GTK builds its font map inside run(), so a
     // first run renders in JetBrains Mono without a restart
     fonts::ensure_installed();
+
+    // seed the ECB reference rates (cache first, background refresh)
+    // before any sheet can name a currency
+    currency::ensure();
 
     let app = gtk4::Application::builder()
         .application_id("io.github.virinvictus.Quire")

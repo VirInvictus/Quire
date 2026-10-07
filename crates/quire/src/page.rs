@@ -60,6 +60,10 @@ double(21)
 rate(x) = x / 100
 rate(40) of 90
 
+## Currency, offline-first
+// uncomment once rates are loaded (menu: Refresh currency rates):
+// 50 USD -> EUR   // 46.5 €
+
 ## Hand-typed price snapshots
 aapl = 10 * 190 @ 2026-10-06 @stocks
 msft = 4 * 410 @ 2026-10-06 @stocks

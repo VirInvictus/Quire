@@ -50,6 +50,12 @@ pub fn answer_decimals() -> Option<u32> {
     }
 }
 
+/// The currency refresh interval in hours (the ECB publishes daily;
+/// 24 is the default).
+pub fn currency_refresh_hours() -> i32 {
+    get().int("currency-refresh-hours")
+}
+
 /// Prepends `path` to the recent-files list, deduplicating and
 /// capping at eight entries.
 pub fn push_recent(path: &str) {

@@ -144,6 +144,14 @@ impl QuireWindow {
         save_as_action.connect_activate(move |_, _| win.action_save_as());
         self.window.add_action(&save_as_action);
 
+        // fire-and-forget ECB refresh: lands in the cache, applies
+        // to currency lines from the next launch (set-once engine)
+        let refresh_action = gio::SimpleAction::new("refresh-currency", None);
+        refresh_action.connect_activate(move |_, _| {
+            crate::currency::spawn_fetch();
+        });
+        self.window.add_action(&refresh_action);
+
         // stateful answer-decimals radio: the cap as its string state
         // (-1 = full); a change persists and repaints the sheet
         let win = self.clone();
@@ -232,6 +240,7 @@ impl QuireWindow {
 
         let view_section = gio::Menu::new();
         view_section.append(Some("Line numbers"), Some("win.line-numbers"));
+        view_section.append(Some("Refresh currency rates"), Some("win.refresh-currency"));
         menu.append_section(None, &view_section);
 
         let template_section = gio::Menu::new();

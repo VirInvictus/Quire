@@ -324,9 +324,10 @@ the work lands, with the current recommendation recorded here.
   - [ ] Task-list checkbox toggling: the one GFM extra worth
     revisiting, since a notepad is a natural checklist.
   - [x] Answer-decimals setting (2026-10-06): a menu radio (Full,
-    0-4 decimals) capping the standard rendering's decimal places,
-    persisted in GSettings; a cap that would zero a value out keeps
-    the full rendering. Companion to format cycling.
+    0-4 decimals) fixing the standard rendering's decimal places -
+    exact places, padded (14.5 at two reads 14.50), persisted in
+    GSettings; a setting that would zero a value out keeps the full
+    rendering. Companion to format cycling.
   - [x] Alt+Up/Down cycles a line's result format (2026-10-06:
     standard, fixed two decimals, hex, bin - the fixed-decimals stop
     is what makes allocation lines readable. View-only state keyed

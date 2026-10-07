@@ -2,18 +2,32 @@
 //! with `,`; up to 12 significant digits; trailing zeros trimmed;
 //! whole results print without a decimal part.
 
-/// Format with a cap on decimal places (the app's answer-decimals
-/// setting): the value rounds to `max_decimals` places, then runs
-/// the standard pipeline. A value the cap would zero out keeps the
-/// 12-significant rendering instead (the guard against lossy
-/// display: `1/3` with a zero-decimal cap must not read as zero).
+/// Format with exactly `max_decimals` decimal places (the app's
+/// answer-decimals setting): the value rounds to that many places
+/// and the rendering PADS to all of them - `14.5` at two places
+/// reads `14.50`, `7` reads `7.00`. A value the setting would zero
+/// out keeps the 12-significant rendering instead (the guard
+/// against lossy display: `1/3` with a zero-decimal setting must
+/// not read as zero).
 pub fn format_number_with(x: f64, max_decimals: u32) -> String {
     let scale = 10f64.powi(max_decimals.min(12) as i32);
     let rounded = (x * scale).round() / scale;
     if x != 0.0 && rounded == 0.0 {
-        format_number(x)
+        return format_number(x);
+    }
+    let body = format!("{:.*}", max_decimals as usize, rounded.abs());
+    let (int_part, frac_part) = match body.split_once('.') {
+        Some((int_part, frac_part)) => (int_part, Some(frac_part)),
+        None => (body.as_str(), None),
+    };
+    let out = match frac_part {
+        Some(frac) => format!("{}.{frac}", group(int_part)),
+        None => group(int_part),
+    };
+    if rounded < 0.0 {
+        format!("-{out}")
     } else {
-        format_number(rounded)
+        out
     }
 }
 
@@ -108,12 +122,17 @@ mod tests {
     }
 
     #[test]
-    fn decimal_caps_round_and_stay_grouped() {
+    fn decimal_places_round_pad_and_stay_grouped() {
+        // Brandon's rule: set to 2, and 14.5 reads 14.50
+        assert_eq!(fw(14.5, 2), "14.50");
+        assert_eq!(fw(7.0, 2), "7.00");
         assert_eq!(fw(41.4519906323, 2), "41.45");
-        assert_eq!(fw(8540.0 / 40.0, 2), "213.5");
+        assert_eq!(fw(8540.0 / 40.0, 2), "213.50");
         assert_eq!(fw(1234567.891, 2), "1,234,567.89");
-        assert_eq!(fw(7.0, 2), "7");
-        // the lossy guard: a cap that would zero the value out
+        assert_eq!(fw(-14.5, 2), "-14.50");
+        // zero places: integers only
+        assert_eq!(fw(14.5, 0), "15");
+        // the lossy guard: a setting that would zero the value out
         // keeps the full rendering
         assert_eq!(fw(1.0 / 3.0, 0), "0.333333333333");
     }

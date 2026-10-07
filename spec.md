@@ -141,6 +141,23 @@ Date words are sheet vocabulary, case-insensitive:
 - **Engine scope.** Datetimes are unit-engine values: scalar
   arithmetic on them routes to the bridge like quantities.
 
+## Line references (Phase 7)
+
+`&N` in an expression references the result of sheet line N. Lines
+above only: a reference to the current line or below fails the
+referencing line. A reference to a failed line poisons the
+referencing line with that error; a reference to a line with no
+result (prose, heading, comment) fails with "has no result".
+
+References are sheet vocabulary: they work in scalar and unit
+expressions alike, and their results join `answer`, totals, and
+tags like any expression result. Function bodies cannot use them
+(sheet-positional, like `total`).
+
+The app renumbers `&N` tokens in memory when insertions and
+deletions shift lines, as part of the same edit - the text on disk
+is only ever what the user typed or approved.
+
 ## Tags (Phase 8)
 
 An Expression line may end with one or more tags: `@` immediately

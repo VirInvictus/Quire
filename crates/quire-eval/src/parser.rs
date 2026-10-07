@@ -41,6 +41,8 @@ pub enum Expr {
     /// `name(arg, ...)`. Functions are defined by statement form
     /// `FnDef` (spec.md "Functions").
     Call(String, Vec<Expr>, Span),
+    /// `&N`: the result of sheet line N (spec.md "Line references").
+    LineRef(u32, Span),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -263,6 +265,7 @@ impl<'t> P<'t> {
         };
         match &t.tok {
             Tok::Num(v) => Ok(Expr::Num(*v)),
+            Tok::LineRef(n) => Ok(Expr::LineRef(*n, t.span)),
             Tok::Ident(n) if self.peek().map(|p| p.tok.clone()) == Some(Tok::LParen) => {
                 // a call: consume the paren and the argument list
                 let name = n.clone();

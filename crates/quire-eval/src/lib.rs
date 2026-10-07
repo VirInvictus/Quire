@@ -183,6 +183,8 @@ fn is_expression(t: &str) -> bool {
         b'(' => true,
         b'.' | b'$' => b.get(1).is_some_and(|&c| c.is_ascii_digit()),
         b'+' | b'-' => b.get(1).is_some_and(|&c| !c.is_ascii_whitespace()),
+        // a line reference (&N, digits glued to the &) is an expression
+        b'&' => b.get(1).is_some_and(|&c| c.is_ascii_digit()),
         _ => is_word_expression(t),
     }
 }
@@ -262,6 +264,8 @@ mod tests {
             ("(1 + 2) * 3", K::Expression),
             ("-5", K::Expression),
             ("+7", K::Expression),
+            ("&1 + 1", K::Expression),
+            ("&", K::Text),
             ("total", K::Expression),
             ("total * 2", K::Expression),
             ("rate = 12", K::Expression),

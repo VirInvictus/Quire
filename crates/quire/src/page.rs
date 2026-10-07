@@ -81,6 +81,7 @@ whole = total
 // Tab completes a variable name; Ctrl+C copies the answer
 // Ctrl+B jumps to a definition; Ctrl+L toggles line numbers
 // Alt+Up/Down cycles a line's format (fixed decimals, hex, bin)
+// &4 references line 4's answer; the app renumbers as lines shift
 // drag any text file onto the window to open it
 // the menu sets how many decimals answers show
 

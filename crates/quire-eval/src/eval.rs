@@ -136,6 +136,12 @@ struct Ctx {
     /// Live function-call depth, for the recursion cap (spec.md
     /// "Functions": a cycle fails the calling line).
     depth: u8,
+    /// Line outcomes so far, for `&N` resolution (spec.md "Line
+    /// references"): populated as the sheet evaluates, so a ref can
+    /// only ever see lines above it.
+    outcomes: HashMap<usize, Outcome>,
+    /// The one-based line being evaluated.
+    line: usize,
 }
 
 /// Split trailing tags off an Expression line: `lunch = 12.50 @food
@@ -213,6 +219,7 @@ pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
     let mut bridge = Bridge::new();
     let mut out = Vec::new();
     for line in parse_sheet_lines(text) {
+        ctx.line = line.number;
         let outcome = match line.kind {
             LineKind::Expression => eval_line(&line.raw, &mut ctx, &mut bridge),
             LineKind::Reference => eval_reference(&line.raw, &mut ctx, &mut bridge),
@@ -224,6 +231,9 @@ pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
             }
             _ => None,
         };
+        if let Some(outcome) = &outcome {
+            ctx.outcomes.insert(line.number, outcome.clone());
+        }
         out.push(LineOutcome {
             number: line.number,
             kind: line.kind,
@@ -398,10 +408,12 @@ fn declined_line(
     let routable = !toks
         .iter()
         .any(|t| matches!(t.tok, Tok::Total | Tok::Answer | Tok::Of | Tok::Percent))
-        && bridge.as_ref().is_some_and(|b| {
+        && (toks.iter().any(
+            |t| matches!(&t.tok, Tok::LineRef(n) if ctx.outcomes.contains_key(&(*n as usize))),
+        ) || bridge.as_ref().is_some_and(|b| {
             toks.iter()
                 .any(|t| matches!(&t.tok, Tok::Ident(n) if b.knows_unit(n) || is_date_word(n)))
-        });
+        }));
     if !routable {
         return match fail {
             Fail::Err(e) => Outcome::Failed(e),
@@ -435,6 +447,37 @@ fn bridge_eval(
             ErrKind::Unit(NO_UNIT_SUPPORT.into()),
         ));
     };
+
+    // `&N` refs translate to the referenced line's rendered value
+    let mut translated = raw.to_string();
+    let mut scan = 0usize;
+    while let Some(at) = translated[scan..].find('&') {
+        let at = scan + at;
+        let digits: String = translated[at + 1..]
+            .chars()
+            .take_while(|c| c.is_ascii_digit())
+            .collect();
+        if digits.is_empty() {
+            scan = at + 1;
+            continue;
+        }
+        let end = at + 1 + digits.len();
+        let n: u32 = digits.parse().unwrap_or(u32::MAX);
+        let replacement = match ctx.outcomes.get(&(n as usize)) {
+            Some(Outcome::Value(v)) => Some(format!("{v}")),
+            Some(Outcome::Quantity(v)) => Some(crate::units::render(v)),
+            _ => None,
+        };
+        let Some(replacement) = replacement else {
+            return Outcome::Failed(QuireError::new(
+                (at, end),
+                ErrKind::BadLineRef(format!("line {n} has no result")),
+            ));
+        };
+        translated.replace_range(at..end, &replacement);
+        scan = at + replacement.len();
+    }
+    let raw = &translated;
 
     // The engine's comment character is `#`, the sheet's is `//`:
     // the scalar tokenizer strips comments before parsing, so the
@@ -552,7 +595,7 @@ fn numbat_source(expr: &Expr) -> Option<String> {
     Some(match expr {
         Expr::Num(n) => format!("{n}"),
         Expr::Name(n, _) => n.clone(),
-        Expr::Total(_) | Expr::Answer(_) => return None,
+        Expr::Total(_) | Expr::Answer(_) | Expr::LineRef(..) => return None,
         Expr::Neg(_, inner) => format!("(-{})", numbat_source(inner)?),
         Expr::Pct(_, inner) => format!("(({}) / 100)", numbat_source(inner)?),
         Expr::Bin(op, l, r, _) => format!(
@@ -737,6 +780,8 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
                 subtotal: Sum::S(0.0),
                 tag_sums: Default::default(),
                 depth: ctx.depth,
+                outcomes: ctx.outcomes.clone(),
+                line: ctx.line,
             };
             for (param, arg) in params.iter().zip(args) {
                 let value = eval_expr(arg, ctx)?;
@@ -751,6 +796,27 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
             .get(n)
             .cloned()
             .ok_or_else(|| QuireError::new(*span, ErrKind::UnknownName(n.clone())))?,
+        Expr::LineRef(n, span) => {
+            if (*n as usize) >= ctx.line {
+                return Err(Fail::Err(QuireError::new(
+                    *span,
+                    ErrKind::BadLineRef(format!(
+                        "line {n} is at or below this line; references point up"
+                    )),
+                )));
+            }
+            match ctx.outcomes.get(&(*n as usize)) {
+                Some(Outcome::Value(v)) => Num::S(*v),
+                Some(Outcome::Quantity(v)) => Num::Q(v.clone()),
+                Some(Outcome::Failed(e)) => return Err(Fail::Err(e.clone())),
+                None => {
+                    return Err(Fail::Err(QuireError::new(
+                        *span,
+                        ErrKind::BadLineRef(format!("line {n} has no result")),
+                    )));
+                }
+            }
+        }
         Expr::Total(_) => match &ctx.subtotal {
             Sum::S(s) => Num::S(*s),
             Sum::Q(_) => return Err(Fail::Reroute),
@@ -1132,6 +1198,41 @@ loop(1)
             .filter_map(|l| l.outcome.map(|o| o.render()))
             .collect();
         assert_eq!(rendered, vec!["4 kg".to_string(), "6 kg".to_string()]);
+    }
+
+    #[test]
+    fn line_refs_resolve_above_only() {
+        let sheet = "5 + 5\n&1 * 3\n";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        assert_eq!(rendered, vec!["10".to_string(), "30".to_string()]);
+        // below or self: an error on the referencing line
+        let sheet = "&2 + 1\n5\n";
+        let lines = evaluate_sheet(sheet);
+        assert!(matches!(
+            &lines[0].outcome,
+            Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::BadLineRef(_))
+        ));
+    }
+
+    #[test]
+    fn line_refs_poison_and_bridge() {
+        // a failed referenced line poisons the referencing line
+        let sheet = "1 / 0\n&1 + 1\n";
+        let lines = evaluate_sheet(sheet);
+        assert!(matches!(
+            &lines[1].outcome,
+            Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::DivideByZero)
+        ));
+        // quantities resolve through the bridge
+        let sheet = "2 kg\n&1 * 3\n";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        assert_eq!(rendered, vec!["2 kg".to_string(), "6 kg".to_string()]);
     }
 
     #[test]

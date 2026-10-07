@@ -39,6 +39,9 @@ pub enum ErrKind {
     Unit(String),
     /// A function definition repeating a parameter name.
     DuplicateParam(String),
+    /// `&N` pointing at a line with no result (prose, heading) or
+    /// at/below the referencing line.
+    BadLineRef(String),
     /// A call passing the wrong number of arguments.
     CallArity {
         name: String,
@@ -70,6 +73,7 @@ impl fmt::Display for ErrKind {
             ErrKind::DuplicateParam(p) => {
                 write!(f, "duplicate parameter `{p}`")
             }
+            ErrKind::BadLineRef(message) => f.write_str(message),
             ErrKind::CallArity {
                 name,
                 expected,
@@ -122,6 +126,7 @@ pub fn describe(tok: &crate::tokens::Tok) -> String {
         Tok::DateStamp(d) => format!("`@{d}`"),
         Tok::Equals => "`=`".to_string(),
         Tok::Comma => "`,`".to_string(),
+        Tok::LineRef(n) => format!("`&{n}`"),
         Tok::Arrow => "`->`".to_string(),
     }
 }

@@ -24,6 +24,9 @@ pub enum Tok {
     Equals,
     /// Argument separator in a call (`f(a, b)`).
     Comma,
+    /// `&N`: a reference to sheet line N's result (spec.md "Line
+    /// references"). Lines above only.
+    LineRef(u32),
     /// `@name` trailing an expression line (spec.md "Tags").
     Tag(String),
     /// `@YYYY-MM-DD` trailing an assignment (spec.md "Dated
@@ -107,6 +110,28 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, QuireError> {
             b'*' => push(&mut out, &mut i, Tok::Star),
             b'^' => push(&mut out, &mut i, Tok::Caret),
             b'%' => push(&mut out, &mut i, Tok::Percent),
+            b'&' => {
+                let start = i;
+                i += 1;
+                let digits = i;
+                while i < b.len() && b[i].is_ascii_digit() {
+                    i += 1;
+                }
+                if i == digits {
+                    let ch = src[start..].chars().next().unwrap();
+                    return Err(QuireError::new(
+                        (start, start + ch.len_utf8()),
+                        ErrKind::BadChar(ch),
+                    ));
+                }
+                let n: u32 = src[digits..i]
+                    .parse()
+                    .map_err(|_| QuireError::new((start, i), ErrKind::BadNumber))?;
+                out.push(Token {
+                    tok: Tok::LineRef(n),
+                    span: (start, i),
+                });
+            }
             b',' => push(&mut out, &mut i, Tok::Comma),
             b'(' => push(&mut out, &mut i, Tok::LParen),
             b')' => push(&mut out, &mut i, Tok::RParen),

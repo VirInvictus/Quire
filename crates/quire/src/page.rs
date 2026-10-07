@@ -169,6 +169,10 @@ pub struct QuirePage {
     /// the sheet text as of the last evaluation pass: diffed against
     /// the current text to detect line shifts for &N renumbering
     baseline: RefCell<String>,
+    /// re-entry guard: blocks the evaluation pass while the renumber
+    /// edits are mid-application (each edit fires changed, which would
+    /// otherwise cascade into another renumber)
+    renumbering: Cell<bool>,
     /// per-line answer formats (Alt+Up/Down), keyed by line number;
     /// the choice rides the NUMBER, so it shifts with edits until the
     /// stable line-ids gate lands
@@ -208,6 +212,7 @@ impl QuirePage {
             on_reindex: RefCell::new(None),
             answers: RefCell::new(std::collections::HashMap::new()),
             baseline: RefCell::new(String::new()),
+            renumbering: std::cell::Cell::new(false),
             formats: RefCell::new(std::collections::HashMap::new()),
         });
         Self::wire_evaluation(&page, &buffer);
@@ -524,6 +529,9 @@ impl QuirePage {
                         );
                         let text = text.to_string();
 
+                        if page.renumbering.get() {
+                            return;
+                        }
                         // &N renumbering: diff the current text against
                         // the baseline. A pure line shift rewrites the
                         // refs with targeted in-place edits - never a
@@ -535,6 +543,7 @@ impl QuirePage {
                         {
                             let updated = QuirePage::renumber_refs(&text, from, delta);
                             if updated != text {
+                                page.renumbering.set(true);
                                 page.baseline.replace(updated.clone());
                                 // apply per-token edits back to front so
                                 // earlier byte offsets stay valid
@@ -553,6 +562,7 @@ impl QuirePage {
                                     page.buffer.delete_interactive(&mut start, &mut end, true);
                                     page.buffer.insert_interactive(&mut start, new_value, true);
                                 }
+                                page.renumbering.set(false);
                                 // the re-triggered pass evaluates
                                 return;
                             }

@@ -2,7 +2,7 @@
 
 Newest first.
 
-## Unreleased
+## v0.2.0 (2026-10-07)
 
 - Hovering a line shows its answer in full: the answers column clips
   long text, and a clipped error is a useless error - numbat's

@@ -369,7 +369,7 @@ fn translate_date_phrases(body: &str) -> String {
         (" from now", "now() + {expr}"),
         (" ago", "today() - {expr}"),
     ] {
-        if let Some(expr) = lower.strip_suffix(tail) {
+        if lower.strip_suffix(tail).is_some() {
             let head = &trimmed[..trimmed.len() - tail.len()];
             return template.replace("{expr}", head.trim());
         }

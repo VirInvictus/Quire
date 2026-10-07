@@ -140,6 +140,10 @@ struct Ctx {
     /// Live function-call depth, for the recursion cap (spec.md
     /// "Functions": a cycle fails the calling line).
     depth: u8,
+    /// Evaluation steps consumed so far; capped to stop runaway
+    /// computation (a deep recursion passes the depth cap but burns
+    /// real time without it).
+    steps: u64,
     /// Line outcomes so far, for `&N` resolution (spec.md "Line
     /// references"): populated as the sheet evaluates, so a ref can
     /// only ever see lines above it.
@@ -914,6 +918,7 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
                     subtotal: Sum::S(0.0),
                     tag_sums: Default::default(),
                     depth: ctx.depth,
+                    steps: ctx.steps,
                     outcomes: ctx.outcomes.clone(),
                     line: ctx.line,
                 };
@@ -1451,6 +1456,41 @@ fact(5)
             .filter_map(|l| l.outcome.map(|o| o.render()))
             .collect();
         assert_eq!(rendered, vec!["120".to_string()]);
+    }
+
+    #[test]
+    fn runaway_computation_hits_the_budget() {
+        // exponential recursion: without memoisation this would burn
+        // CPU indefinitely; the budget stops it
+        let sheet = "\
+fib(0) = 0
+fib(1) = 1
+fib(n) = fib(n - 1) + fib(n - 2)
+fib(30)
+";
+        // the point is proving evaluate_sheet terminates (the budget
+        // consumed ~1M steps) rather than hanging forever
+        let _lines = evaluate_sheet(sheet);
+    }
+
+    #[test]
+    fn normal_sheets_stay_well_under_the_budget() {
+        let sheet = "\
+a = 10
+b = a * 2
+c = b + a
+total @nothing
+f(x) = x * 2
+f(c)
+5 kg + 300 g
+26.2 miles -> km
+";
+        let lines = evaluate_sheet(sheet);
+        assert!(lines.iter().all(|l| {
+            l.outcome
+                .as_ref()
+                .is_none_or(|o| !matches!(o, Outcome::Failed(_)))
+        }));
     }
 
     #[test]

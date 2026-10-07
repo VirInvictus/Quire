@@ -39,6 +39,8 @@ pub enum ErrKind {
     Unit(String),
     /// A function definition repeating a parameter name.
     DuplicateParam(String),
+    /// The evaluation budget was consumed (a runaway computation).
+    BudgetExceeded,
     /// `&N` pointing at a line with no result (prose, heading) or
     /// at/below the referencing line.
     BadLineRef(String),
@@ -73,6 +75,7 @@ impl fmt::Display for ErrKind {
             ErrKind::DuplicateParam(p) => {
                 write!(f, "duplicate parameter `{p}`")
             }
+            ErrKind::BudgetExceeded => f.write_str("computation budget exceeded"),
             ErrKind::BadLineRef(message) => f.write_str(message),
             ErrKind::CallArity {
                 name,

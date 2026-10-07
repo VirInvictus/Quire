@@ -107,6 +107,7 @@ whole = total
 /// moved 1-based line, delta)) when k lines were inserted or
 /// removed at a single point; None when the line count is unchanged
 /// or the change is not a clean tail shift.
+#[allow(dead_code)]
 pub(crate) fn line_shift(old: &str, new: &str) -> Option<(usize, i32)> {
     let old_lines: Vec<&str> = old.lines().collect();
     let new_lines: Vec<&str> = new.lines().collect();
@@ -131,6 +132,7 @@ pub(crate) fn line_shift(old: &str, new: &str) -> Option<(usize, i32)> {
 }
 
 /// The `&N` tokens of a sheet: (byte range, value) in order.
+#[allow(dead_code)]
 fn collect_refs(text: &str) -> Vec<((usize, usize), String)> {
     let mut out = Vec::new();
     let mut rest = text;
@@ -166,10 +168,6 @@ pub struct QuirePage {
     on_reindex: RefCell<Option<ReindexCallback>>,
     /// the live answers map, for copy-answer and friends
     answers: RefCell<std::collections::HashMap<u32, answers::AnswerCell>>,
-    /// re-entry guard: blocks the evaluation pass while the renumber
-    /// edits are mid-application (each edit fires changed, which would
-    /// otherwise cascade into another renumber)
-    renumbering: Cell<bool>,
     /// per-line answer formats (Alt+Up/Down), keyed by line number;
     /// the choice rides the NUMBER, so it shifts with edits until the
     /// stable line-ids gate lands
@@ -208,7 +206,6 @@ impl QuirePage {
             loading: Cell::new(false),
             on_reindex: RefCell::new(None),
             answers: RefCell::new(std::collections::HashMap::new()),
-            renumbering: std::cell::Cell::new(false),
             formats: RefCell::new(std::collections::HashMap::new()),
         });
         Self::wire_evaluation(&page, &buffer);
@@ -454,9 +451,6 @@ impl QuirePage {
     /// Rewrite `&N` reference tokens when lines shift: `from` is the
     // WIRING PENDING: insert_text/delete_range call this (see the
     // 0.4.0 todo); until then clippy's dead-code is expected.
-    #[allow(dead_code)]
-    /// Rewrite `&N` reference tokens when lines shift: `from` is the
-
     /// Re-evaluate the whole sheet on change, coalesced to the next
     /// idle turn (the spec's debounce; whole-sheet evaluation is O(n)
     /// on tiny sheets, so one deferred pass per burst is plenty).
@@ -487,10 +481,6 @@ impl QuirePage {
                             true,
                         );
                         let text = text.to_string();
-
-                        if page.renumbering.get() {
-                            return;
-                        }
 
                         let cells = answers::compute_with_formats(
                             &text,

@@ -288,9 +288,13 @@ the work lands, with the current recommendation recorded here.
     refresh applies from the next launch. Currency lines:
     `50 USD -> EUR`. Tour carries the syntax as an uncomment line
     (offline first-runs must stay error-free).
-  - [ ] Dates ride numbat's jiff-backed module (`datetime()`,
-    `now()`, `calendar_add`, `-> tz(...)`); a classification pass
-    for date-shaped prose comes with them.
+  - [x] Dates ride numbat's jiff-backed module (2026-10-07): bare
+    date vocabulary (`today`, `now`, `tomorrow`, `yesterday`) and
+    Soulver-style phrases (`3 weeks from today`, `90 minutes from
+    now`, `6 months ago`) translate to datetime calls and answer as
+    datetimes rendered `YYYY-MM-DD HH:MM UTC-offset`. Case-
+    insensitive; composes with tags, totals, and functions. spec
+    "Dates" section.
   - [ ] Completion source: numbat's `variable_names()` /
     `unit_names()` / `get_completions_for()` feed the existing Tab
     completion once unit lines exist to complete.

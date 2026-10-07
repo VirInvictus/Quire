@@ -110,9 +110,13 @@ impl Bridge {
 }
 
 /// The displayed form of a unit value, which is also its parseable
-/// source (`5.3 kg` reads back as `5.3 kg`).
+/// source (`5.3 kg` reads back as `5.3 kg`). Datetimes render
+/// human-readable instead: `2026-10-28 00:00 +02:00`.
 pub fn render(v: &Value) -> String {
-    v.to_string()
+    match v {
+        Value::DateTime(dt) => dt.strftime("%Y-%m-%d %H:%M %Z").to_string(),
+        other => other.to_string(),
+    }
 }
 
 /// A scalar binding seeded into the unit engine as a plain number.

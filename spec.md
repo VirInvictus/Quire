@@ -123,6 +123,24 @@ contract for the unit layer; currency and dates have not landed yet.
 - **Toolchain.** The numbat dependency raises the workspace floor
   from Rust 1.85 to numbat's 1.88.
 
+## Dates (Phase 6)
+
+Date arithmetic rides the unit engine's jiff-backed datetime module.
+Date words are sheet vocabulary, case-insensitive:
+
+- **Bare words.** `today`, `now`, `tomorrow`, and `yesterday` on
+  their own line answer as datetimes (`tomorrow` is midnight of the
+  next day). `today` anchors to midnight; `now` carries the time.
+- **Phrases.** `<amount> <time-unit> from today` (or `from now`)
+  adds; `<amount> <time-unit> ago` subtracts: `3 weeks from today`,
+  `90 minutes from now`, `6 months ago`. Any time unit the engine
+  knows works.
+- **Results.** A datetime renders as `YYYY-MM-DD HH:MM UTC-offset`.
+  Datetime arithmetic composes with everything else: `tomorrow -
+  today` answers a duration; tagging and totals work as anywhere.
+- **Engine scope.** Datetimes are unit-engine values: scalar
+  arithmetic on them routes to the bridge like quantities.
+
 ## Tags (Phase 8)
 
 An Expression line may end with one or more tags: `@` immediately

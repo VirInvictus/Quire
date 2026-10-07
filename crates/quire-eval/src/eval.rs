@@ -274,7 +274,26 @@ fn eval_reference(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Opti
         return None;
     }
     let num = match &toks[0].tok {
-        Tok::Ident(name) => ctx.vars.get(name)?.clone(),
+        Tok::Ident(name) => match ctx.vars.get(name) {
+            Some(num) => num.clone(),
+            None if bridge.is_some() && is_date_word(name) => {
+                // bare date vocabulary answers through the engine
+                let source = translate_date_phrases(name);
+                return match bridge.as_mut().unwrap().eval(&source) {
+                    Ok(v) => {
+                        let num = Num::Q(v);
+                        ctx.answer = Some(num.clone());
+                        ctx.subtotal.push(num.clone());
+                        Some(num.outcome())
+                    }
+                    Err(message) => Some(Outcome::Failed(QuireError::new(
+                        (0, 0),
+                        ErrKind::Unit(message),
+                    ))),
+                };
+            }
+            None => return None,
+        },
         Tok::Answer => ctx.answer.clone()?,
         _ => return None,
     };
@@ -330,6 +349,40 @@ fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<Ou
     })
 }
 
+/// Sheet date vocabulary (spec.md "Dates"): words that route to the
+/// unit engine even though no unit shares their name.
+fn is_date_word(name: &str) -> bool {
+    matches!(
+        name.to_lowercase().as_str(),
+        "today" | "now" | "tomorrow" | "yesterday"
+    )
+}
+
+/// Soulver-style date phrases translate to numbat datetime calls:
+/// `3 weeks from today` is `today() + 3 weeks`. Case-insensitive
+/// tails; anything unmatched returns the line unchanged.
+fn translate_date_phrases(body: &str) -> String {
+    let trimmed = body.trim();
+    let lower = trimmed.to_lowercase();
+    for (tail, template) in [
+        (" from today", "today() + {expr}"),
+        (" from now", "now() + {expr}"),
+        (" ago", "today() - {expr}"),
+    ] {
+        if let Some(expr) = lower.strip_suffix(tail) {
+            let head = &trimmed[..trimmed.len() - tail.len()];
+            return template.replace("{expr}", head.trim());
+        }
+    }
+    match lower.as_str() {
+        "tomorrow" => "today() + 1 day".to_string(),
+        "yesterday" => "today() - 1 day".to_string(),
+        "today" => "today()".to_string(),
+        "now" => "now()".to_string(),
+        _ => trimmed.to_string(),
+    }
+}
+
 /// A line the scalar path declined: the unit bridge takes it when the
 /// grammar permits (no `total`/`answer`/percent tokens and at least
 /// one known unit name), and otherwise the original failure stands
@@ -347,7 +400,7 @@ fn declined_line(
         .any(|t| matches!(t.tok, Tok::Total | Tok::Answer | Tok::Of | Tok::Percent))
         && bridge.as_mut().is_some_and(|b| {
             toks.iter()
-                .any(|t| matches!(&t.tok, Tok::Ident(n) if b.knows_unit(n)))
+                .any(|t| matches!(&t.tok, Tok::Ident(n) if b.knows_unit(n) || is_date_word(n)))
         });
     if !routable {
         return match fail {
@@ -420,8 +473,11 @@ fn bridge_eval(
     // sheet wants the stored quantity as the line's result.
     let assignment = split_assignment(raw);
     match &assignment {
-        Some((name, rest)) => source.push_str(&format!("let {name} = {rest}\n{name}")),
-        None => source.push_str(raw),
+        Some((name, rest)) => source.push_str(&format!(
+            "let {name} = {}\n{name}",
+            translate_date_phrases(rest)
+        )),
+        None => source.push_str(&translate_date_phrases(raw)),
     }
 
     match bridge.eval(&source) {
@@ -950,6 +1006,24 @@ loop(1)
             .filter_map(|l| l.outcome.map(|o| o.render()))
             .collect();
         assert_eq!(rendered, vec!["50 \u{20ac}".to_string()]);
+    }
+
+    #[test]
+    fn date_phrases_translate_and_answer() {
+        let sheet = "tomorrow\n3 weeks from today\n90 minutes from now\n6 months ago\n";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        // every phrase answers a datetime render (dates vary with
+        // the clock; pin the SHAPE, not the value)
+        assert_eq!(rendered.len(), 4, "{rendered:?}");
+        for text in &rendered {
+            assert!(
+                text.starts_with("20") && text.len() >= 16,
+                "not a datetime render: {text:?} in {rendered:?}"
+            );
+        }
     }
 
     #[test]

@@ -64,6 +64,11 @@ rate(40) of 90
 // uncomment once rates are loaded (menu: Refresh currency rates):
 // 50 USD -> EUR   // 46.5 €
 
+## Dates
+3 weeks from today
+90 minutes from now
+6 months ago
+
 ## Hand-typed price snapshots
 aapl = 10 * 190 @ 2026-10-06 @stocks
 msft = 4 * 410 @ 2026-10-06 @stocks

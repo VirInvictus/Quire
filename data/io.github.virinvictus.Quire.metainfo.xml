@@ -63,6 +63,12 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.5.1" date="2026-10-07">
+      <description>
+        <p>The &amp;N renumber cascade fix: references renumber in
+        place without viewport jumps or ref corruption.</p>
+      </description>
+    </release>
     <release version="0.5.0" date="2026-10-07">
       <description>
         <p>Mixed-line evaluation, recursive multi-clause functions,

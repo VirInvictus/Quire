@@ -113,9 +113,14 @@ jobs:
       - name: Create the Release from the tag's verbatim message
         env:
           GH_TOKEN: ${{ github.token }}
+        # --notes-from-tag has proven unreliable inside Actions (the
+        # v0.2.0 body came out as the commit message even with the
+        # full checkout), so the tag message is extracted locally and
+        # passed explicitly. Deterministic: the body IS the entry.
         run: |
+          git tag -l "$GITHUB_REF_NAME" --format='%(contents)' > tag-notes.md
           gh release create "$GITHUB_REF_NAME" \
             "quire-${GITHUB_REF_NAME}-x86_64.tar.zst" \
-            --notes-from-tag \
+            --notes-file tag-notes.md \
             --verify-tag \
             --title "$GITHUB_REF_NAME"

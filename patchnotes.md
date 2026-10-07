@@ -2,7 +2,7 @@
 
 Newest first.
 
-## Unreleased
+## v0.3.0 (2026-10-07)
 
 - Functions reach the unit engine: unit lines call user functions
   and numbat dimension-checks them - `twice(x) = x * 2` makes

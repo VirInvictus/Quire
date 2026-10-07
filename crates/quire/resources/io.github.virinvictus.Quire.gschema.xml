@@ -7,6 +7,13 @@
       <description>Show line numbers in the left gutter. Default off:
         the answers column is the sheet's numbering.</description>
     </key>
+    <key name="follow-refs" type="b">
+      <default>true</default>
+      <summary>References follow their lines</summary>
+      <description>Rewrite &amp;N line-reference tokens when lines are
+        inserted or deleted, so each still names its target line.
+        Off leaves refs purely positional.</description>
+    </key>
     <key name="window-width" type="i">
       <default>940</default>
       <summary>Window width</summary>

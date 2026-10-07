@@ -25,7 +25,7 @@ use crate::{styles, view::QuireView};
 /// First-run content: the tour. Every computational line must
 /// evaluate (pinned by the test below) - a welcome sheet with an
 /// error cell is a broken first impression.
-const WELCOME_SHEET: &str = "\
+pub(crate) const WELCOME_SHEET: &str = "\
 # Welcome to Quire
 
 // notes, lists, and math share one plain-text sheet, and every
@@ -93,7 +93,7 @@ whole = total
 // Tab completes a variable name; Ctrl+C copies the answer
 // Ctrl+B jumps to a definition; Ctrl+L toggles line numbers
 // Alt+Up/Down cycles a line's format (fixed decimals, hex, bin)
-// &N references line N's answer (adjust N when lines shift)
+// &N references line N's answer and follows it when lines shift
 // drag any text file onto the window to open it
 // the menu sets how many decimals answers show
 // errors underline the broken token: hover the red cell for the
@@ -102,59 +102,6 @@ whole = total
 
 // this sheet is yours - edit it, or start fresh with Ctrl+N
 ";
-
-/// The net line shift between two sheet versions: Some((first
-/// moved 1-based line, delta)) when k lines were inserted or
-/// removed at a single point; None when the line count is unchanged
-/// or the change is not a clean tail shift.
-#[allow(dead_code)]
-pub(crate) fn line_shift(old: &str, new: &str) -> Option<(usize, i32)> {
-    let old_lines: Vec<&str> = old.lines().collect();
-    let new_lines: Vec<&str> = new.lines().collect();
-    let delta = new_lines.len() as i32 - old_lines.len() as i32;
-    if delta == 0 {
-        return None;
-    }
-    let i = old_lines
-        .iter()
-        .zip(new_lines.iter())
-        .position(|(a, b)| a != b)
-        .unwrap_or(old_lines.len().min(new_lines.len()));
-    let tail_matches = if delta > 0 {
-        old_lines[i..] == new_lines[i + delta as usize..]
-    } else {
-        old_lines[i + (-delta) as usize..] == new_lines[i..]
-    };
-    if !tail_matches {
-        return None;
-    }
-    Some((i + 1, delta))
-}
-
-/// The `&N` tokens of a sheet: (byte range, value) in order.
-#[allow(dead_code)]
-fn collect_refs(text: &str) -> Vec<((usize, usize), String)> {
-    let mut out = Vec::new();
-    let mut rest = text;
-    let mut consumed = 0usize;
-    while let Some(rel) = rest.find('&') {
-        let at = consumed + rel;
-        let digits: String = rest[rel + 1..]
-            .chars()
-            .take_while(|c| c.is_ascii_digit())
-            .collect();
-        if digits.is_empty() {
-            rest = &rest[rel + 1..];
-            consumed = at + 1;
-            continue;
-        }
-        out.push(((at, at + 1 + digits.len()), digits.clone()));
-        let skip = rel + 1 + digits.len();
-        rest = &rest[skip..];
-        consumed += skip;
-    }
-    out
-}
 
 pub struct QuirePage {
     pub view: QuireView,
@@ -172,6 +119,15 @@ pub struct QuirePage {
     /// the choice rides the NUMBER, so it shifts with edits until the
     /// stable line-ids gate lands
     formats: RefCell<std::collections::HashMap<u32, answers::LineFormat>>,
+    /// self-updating &N refs: one invisible right-gravity mark per
+    /// referenced line, keyed by label (the digits displayed). The
+    /// bool is the clamped flag (a forward reference waiting for its
+    /// line; see refs.rs). Marks ride every edit inside the buffer's
+    /// btree; the idle pass reads them and renumbers what drifted.
+    ref_marks: RefCell<std::collections::HashMap<u32, (gtk4::TextMark, bool)>>,
+    /// the evaluation handler id, blocked while the renumber splices
+    /// apply so the pipeline never sees its own output
+    changed_handler: RefCell<Option<glib::SignalHandlerId>>,
 }
 
 impl QuirePage {
@@ -207,6 +163,8 @@ impl QuirePage {
             on_reindex: RefCell::new(None),
             answers: RefCell::new(std::collections::HashMap::new()),
             formats: RefCell::new(std::collections::HashMap::new()),
+            ref_marks: RefCell::new(std::collections::HashMap::new()),
+            changed_handler: RefCell::new(None),
         });
         Self::wire_evaluation(&page, &buffer);
         Self::wire_answer_tooltips(&page);
@@ -251,6 +209,7 @@ impl QuirePage {
     pub fn load(self: &Rc<Self>, text: &str, file: Option<gio::File>) {
         self.loading.set(true);
         self.buffer.set_text(text);
+        self.rebuild_ref_marks(text);
         self.buffer.set_modified(false);
         self.loading.set(false);
         *self.file.borrow_mut() = file.clone();
@@ -448,18 +407,18 @@ impl QuirePage {
         }
     }
 
-    /// Rewrite `&N` reference tokens when lines shift: `from` is the
-    // WIRING PENDING: insert_text/delete_range call this (see the
-    // 0.4.0 todo); until then clippy's dead-code is expected.
     /// Re-evaluate the whole sheet on change, coalesced to the next
     /// idle turn (the spec's debounce; whole-sheet evaluation is O(n)
     /// on tiny sheets, so one deferred pass per burst is plenty).
-    /// Before evaluating, &N refs are renumbered if the diff against
-    /// the baseline shows a pure line shift - the ONE place this
-    /// happens, so signal cascades are impossible.
+    /// With follow-refs on, the same pass first converges the `&N`
+    /// tokens against the mark table (refs.rs): the renumber splices
+    /// run with this handler blocked inside an irreversible action,
+    /// so the pipeline never reads its own output and the rewrite is
+    /// not an undo unit - the two properties every earlier attempt
+    /// lacked (the history is in refs.rs).
     fn wire_evaluation(page: &Rc<Self>, buffer: &sourceview5::Buffer) {
         let pending = Rc::new(Cell::new(false));
-        buffer.connect_changed(glib::clone!(
+        let handler = buffer.connect_changed(glib::clone!(
             #[weak]
             page,
             #[strong]
@@ -475,6 +434,11 @@ impl QuirePage {
                     pending,
                     move || {
                         pending.set(false);
+                        if crate::settings::follow_refs() {
+                            page.converge_refs_step();
+                        } else if !page.ref_marks.borrow().is_empty() {
+                            page.drop_ref_marks();
+                        }
                         let text = page.buffer.text(
                             &page.buffer.start_iter(),
                             &page.buffer.end_iter(),
@@ -497,6 +461,115 @@ impl QuirePage {
                 ));
             }
         ));
+        *page.changed_handler.borrow_mut() = Some(handler);
+    }
+
+    /// One convergence pass for the self-updating refs: read the
+    /// mark table, renumber the drifted `&N` digits, and report
+    /// whether the text changed (the caller evaluates the final
+    /// text in the same pass).
+    fn converge_refs_step(&self) -> bool {
+        let text = self
+            .buffer
+            .text(&self.buffer.start_iter(), &self.buffer.end_iter(), true)
+            .to_string();
+        let line_count = text.lines().count() as u32;
+        let table = self.ref_marks.borrow();
+        let marks: Vec<crate::refs::MarkState> = table
+            .iter()
+            .map(|(label, (_, clamped))| crate::refs::MarkState {
+                label: *label,
+                clamped: *clamped,
+            })
+            .collect();
+        let positions: Vec<(u32, u32)> = table
+            .iter()
+            .map(|(label, (mark, _))| (*label, self.buffer.iter_at_mark(mark).line() as u32 + 1))
+            .collect();
+        drop(table);
+        let plan = crate::refs::converge(&text, &marks, &positions);
+        if !plan.has_work() {
+            return false;
+        }
+        self.apply_ref_plan(&plan, line_count);
+        !plan.edits.is_empty()
+    }
+
+    /// Apply a convergence plan: the table changes first (drops free
+    /// labels, relabels move, creations anchor), then the digit
+    /// splices land in ONE batched pass with the evaluation handler
+    /// blocked and inside an irreversible action.
+    fn apply_ref_plan(&self, plan: &crate::refs::Converge, line_count: u32) {
+        for label in &plan.drop {
+            if let Some((mark, _)) = self.ref_marks.borrow_mut().remove(label) {
+                self.buffer.delete_mark(&mark);
+            }
+        }
+        for (old, new) in &plan.relabel {
+            // bind first: edition 2024 keeps the scrutinee temporary
+            // alive through the if-let body, so borrowing again
+            // inside would panic ("RefCell already borrowed")
+            let entry = self.ref_marks.borrow_mut().remove(old);
+            if let Some((mark, _)) = entry {
+                self.ref_marks.borrow_mut().insert(*new, (mark, false));
+            }
+        }
+        for state in &plan.create {
+            // a clamped forward reference anchors at the last line
+            // until its line is born (refs.rs)
+            let anchor = if state.clamped {
+                line_count.max(1)
+            } else {
+                state.label
+            };
+            let mut iter = self.buffer.start_iter();
+            iter.set_line(anchor.saturating_sub(1) as i32);
+            let mark = self.buffer.create_mark(None::<&str>, &iter, false);
+            self.ref_marks
+                .borrow_mut()
+                .insert(state.label, (mark, state.clamped));
+        }
+        if plan.edits.is_empty() {
+            return;
+        }
+        let Some(guard) = RefSpliceGuard::new(self) else {
+            return;
+        };
+        for edit in &plan.edits {
+            // byte spans within the line, the same coordinates the
+            // pure plan was computed in; digits are ASCII, so the
+            // span end is exact
+            let Some(mut start) = self
+                .buffer
+                .iter_at_line_index(edit.line as i32 - 1, edit.span_in_line.0 as i32)
+            else {
+                continue;
+            };
+            let mut end = start;
+            end.set_line_index(edit.span_in_line.1 as i32);
+            self.buffer.delete(&mut start, &mut end);
+            self.buffer.insert(&mut start, &edit.digits);
+        }
+        drop(guard);
+    }
+
+    /// Load/reload: refs read as authored. The old mark set dies
+    /// (set_text collapses every mark to offset 0) and a fresh one
+    /// anchors at the parsed numbers.
+    fn rebuild_ref_marks(&self, text: &str) {
+        self.drop_ref_marks();
+        if !crate::settings::follow_refs() {
+            return;
+        }
+        let plan = crate::refs::converge(text, &[], &[]);
+        self.apply_ref_plan(&plan, text.lines().count() as u32);
+    }
+
+    /// Toggle-off (or reset): remove every tracked mark.
+    fn drop_ref_marks(&self) {
+        for (_, (mark, _)) in self.ref_marks.borrow_mut().drain() {
+            self.buffer.delete_mark(&mark);
+        }
     }
 
     /// Hovering a line shows that line's cell FULL text in a
@@ -679,6 +752,34 @@ impl QuirePage {
             end.forward_chars(char_end as i32);
             self.buffer
                 .apply_tag_by_name("quire-error-token", &start, &end);
+        }
+    }
+}
+
+/// Blocks the evaluation handler and opens an irreversible action
+/// around the renumber splices; both restored on drop, so a panic
+/// mid-splice cannot leave the sheet blocked forever.
+struct RefSpliceGuard<'a> {
+    page: &'a QuirePage,
+}
+
+impl<'a> RefSpliceGuard<'a> {
+    fn new(page: &'a QuirePage) -> Option<Self> {
+        {
+            let borrowed = page.changed_handler.borrow();
+            let handler = borrowed.as_ref()?;
+            page.buffer.block_signal(handler);
+        }
+        page.buffer.begin_irreversible_action();
+        Some(Self { page })
+    }
+}
+
+impl Drop for RefSpliceGuard<'_> {
+    fn drop(&mut self) {
+        self.page.buffer.end_irreversible_action();
+        if let Some(handler) = self.page.changed_handler.borrow().as_ref() {
+            self.page.buffer.unblock_signal(handler);
         }
     }
 }

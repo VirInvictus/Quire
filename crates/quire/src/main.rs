@@ -7,6 +7,7 @@ mod currency;
 mod fonts;
 mod lists;
 mod page;
+mod refs;
 mod renderer;
 mod settings;
 mod styles;

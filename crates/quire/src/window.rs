@@ -219,6 +219,22 @@ impl QuireWindow {
         });
         self.window.add_action(&goto_action);
 
+        // stateful follow-refs toggle: the renumber pass reads the
+        // GSettings key each turn, so flipping it only persists
+        let initial = settings::get().boolean("follow-refs");
+        let follow_refs =
+            gio::SimpleAction::new_stateful("follow-refs", None, &initial.to_variant());
+        {
+            let settings = settings::get().clone();
+            follow_refs.connect_activate(move |action, _| {
+                let state = action.state().and_then(|v| v.get::<bool>()).unwrap_or(true);
+                let state = !state;
+                action.set_state(&state.to_variant());
+                let _ = settings.set_boolean("follow-refs", state);
+            });
+        }
+        self.window.add_action(&follow_refs);
+
         self.app.set_accels_for_action("win.new", &["<Primary>n"]);
         self.app.set_accels_for_action("win.open", &["<Primary>o"]);
         self.app.set_accels_for_action("win.save", &["<Primary>s"]);
@@ -240,6 +256,7 @@ impl QuireWindow {
 
         let view_section = gio::Menu::new();
         view_section.append(Some("Line numbers"), Some("win.line-numbers"));
+        view_section.append(Some("Follow line references"), Some("win.follow-refs"));
         view_section.append(Some("Refresh currency rates"), Some("win.refresh-currency"));
         menu.append_section(None, &view_section);
 

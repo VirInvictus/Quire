@@ -40,6 +40,8 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
   views, and units with dimension-checked math (`5 kg + 300 g`,
   `26.2 miles -> km`)
 - Line references (`&4 + 1` answers with line 4's result plus 1)
+  that follow their line when the sheet shifts (a menu toggle,
+  on by default)
 - Dates: `tomorrow`, `90 minutes from now`, `3 weeks from today`
 - Currency conversion (offline-first): `50 USD -> EUR` against cached
   ECB daily rates

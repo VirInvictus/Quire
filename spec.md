@@ -159,12 +159,18 @@ line, above or below.
   tags like any expression result. Function bodies cannot use them
   (sheet-positional, like `total`).
 
-The app does not auto-renumber `&N` tokens when lines shift - refs
-are positional (`&11` means the 11th physical line, period). Adjust
-refs manually when lines move. (Auto-renumbering was attempted three
-times; each attempt cascaded because the renumber edits triggered
-the same changed signal that caused them. Stripped in commit
-2ab2932.)
+**Self-updating.** The app keeps `&N` tokens pointing at their line:
+when lines are inserted, deleted, or pasted so that a referenced line
+moves, the app rewrites the affected tokens (in place, as one edit)
+so each still names the line it targeted. The rewritten number is
+always the referenced line's true position; a ref whose target line
+is deleted entirely follows the line that takes its place. Loading a
+sheet never rewrites anything - refs read exactly as authored until a
+line actually moves. Only refs the engine resolves participate: the
+`&N` text inside comments, prose, and function bodies is the user's
+text and is never touched. The behavior is a setting (`follow-refs`,
+default on); with it off, refs are purely positional (`&11` means the
+11th physical line, period), and the user adjusts them manually.
 
 ## Mixed lines (Phase 7)
 

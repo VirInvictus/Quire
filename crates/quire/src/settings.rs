@@ -50,6 +50,13 @@ pub fn answer_decimals() -> Option<u32> {
     }
 }
 
+/// Whether `&N` references follow their target lines (spec.md
+/// "Line references", the self-updating behavior). Off restores the
+/// purely positional reading.
+pub fn follow_refs() -> bool {
+    get().boolean("follow-refs")
+}
+
 /// The currency refresh interval in hours (the ECB publishes daily;
 /// 24 is the default).
 pub fn currency_refresh_hours() -> i32 {

@@ -324,11 +324,21 @@ the work lands, with the current recommendation recorded here.
     the def line. Scalar-engine citizens in v1; corpus
     `tests/scripts/functions.quire`.)
   - [x] **[D]** Stable line references (2026-10-07): `&N` visible
-    references, lines above only, with the app renumbering tokens
-    in memory as lines shift (Brandon's pick from three shapes;
-    NoteCalc's invisible ids need a binary format, and a sheet's
-    refs must be visible text). Poisoning follows the failed-line
-    rule; function bodies cannot use refs. spec "Line references".
+    references, any line above or below. Poisoning follows the
+    failed-line rule; function bodies cannot use refs. spec "Line
+    references".
+  - [x] Self-updating refs (2026-10-07): tokens rewritten in place
+    when lines shift, behind the follow-refs GSettings toggle
+    (default on). The research sprint (five agents: spreadsheets,
+    NoteCalc source, LSP/rope position mapping, Rust/GTK
+    primitives, synthesis) converged on GtkTextMark identity with
+    one batched blocked+irreversible splice pass in the debounced
+    evaluation; the convergence logic is the GTK-free refs.rs
+    module (20 table tests). Deleted targets follow the successor
+    line; forward refs wait inert until their line is born; loaded
+    sheets never rewrite. The three cascade-stripped attempts died
+    because rewrites re-entered the changed pipeline and text diffs
+    cannot distinguish undo from shift; marks have neither problem.
   - [x] Token-level error highlighting (2026-10-07): each failed
     line underlines the exact failing token in red in the sheet
     (engine spans, cleared and reapplied per pass), pairing with

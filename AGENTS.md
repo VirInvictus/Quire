@@ -9,26 +9,27 @@ Quire: a Soulver-style notepad calculator for Linux. Plain-text
 sheets, per-line live results in a right-hand column. Portfolio piece,
 public, MIT.
 
-## Where this stands (updated 2026-10-07)
+## Where this stands (updated 2026-10-07, v0.6.0)
 
-v0.5.1 shipped and tagged. All core features are live and on the
+v0.6.0 shipped and tagged. All core features are live and on the
 starter page: arithmetic, percents, variables, totals, tags, mixed
 lines, functions with recursion and multi-clause matching, line
-references (positional &N — auto-renumbering was stripped after
-three failed attempts), dates (jiff-backed), currency (ECB,
-offline-first), units (numbat embed), dated snapshots, templates,
-answer-decimals setting, format cycling, hover tooltips, token-level
-error highlighting, and the line-ref renumbering (stripped — refs
-stay positional). The app renders sheets at 20px JetBrains Mono in
-Kanagawa Dragon/Lotus through vir-gtk, with the custom `quire`
-language spec, scheme pair, renderer-drawn answers column, token-
-level error underlining, and hover tooltips. Packaging: Meson
-wrapper, desktop file, AppStream metainfo, hicolor icons, mime
-package, tag-gated release CI with server-side verbatim notes.
+references that follow their target lines (the follow-refs toggle,
+default on; GtkTextMark identity plus the pure refs.rs convergence
+module: the fourth attempt, after three cascade-stripped ones), dates
+(jiff-backed), currency (ECB, offline-first), units (numbat embed),
+dated snapshots, templates, answer-decimals setting, format cycling,
+hover tooltips, and token-level error highlighting. The app renders
+sheets at 20px JetBrains Mono in Kanagawa Dragon/Lotus through
+vir-gtk, with the custom `quire` language spec, scheme pair,
+renderer-drawn answers column, token-level error underlining, and
+hover tooltips. Packaging: Meson wrapper, desktop file, AppStream
+metainfo, hicolor icons, mime package, tag-gated release CI with
+server-side verbatim notes.
 
-Next: dates depth, budget/portfolio depth, the &N self-updating
-redesign (see the research-sprint brief in session memory), and
-Brandon's display passes.
+Next: dates depth, budget/portfolio depth, recurrence phrases,
+reverse percents, implicit multiplication, and Brandon's display
+passes.
 
 ## Stack
 
@@ -140,6 +141,14 @@ accumulating under Unreleased.
   the fire-and-forget build-wire-present-drop shape (what the close
   guard does) shipped dead buttons. 1.4.3 anchors the state to the
   dialog window; dropping the Alert value after `present` is safe.
+- Programmatic sheet-text rewrites have exactly one sanctioned
+  shape (the self-updating refs in refs.rs + page.rs): identity in
+  GtkTextMarks, never text diffs; splices applied with the
+  evaluation handler blocked inside begin_irreversible_action. A
+  rewrite that fires `changed` re-enters this pipeline and cascades
+  (three stripped attempts prove it). set_text collapses every mark
+  to offset 0: every load path must rebuild the mark set (load()
+  does).
 - Every landed chunk updates the docs (see "Docs flow"): patchnotes
   bullet, roadmap ticks, spec on semantics, README on user-facing
   reality, this file on agent-facing reality. All five were current

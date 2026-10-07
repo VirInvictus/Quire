@@ -381,6 +381,10 @@ impl QuirePage {
     }
 
     /// Rewrite `&N` reference tokens when lines shift: `from` is the
+    // WIRING PENDING: insert_text/delete_range call this (see the
+    // 0.4.0 todo); until then clippy's dead-code is expected.
+    #[allow(dead_code)]
+    /// Rewrite `&N` reference tokens when lines shift: `from` is the
     /// one-based line the shift starts at (the first line that
     /// moved), `delta` is how many lines it moved by. Pure text
     /// surgery on the in-memory sheet; disk only ever sees what the

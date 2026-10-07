@@ -102,6 +102,10 @@ impl Sum {
 enum Fail {
     Err(QuireError),
     Reroute,
+    /// A `&N` reference with no result yet (spec.md "Line
+    /// references"): the whole line answers blank until the target
+    /// produces a value.
+    Null,
 }
 
 impl From<QuireError> for Fail {
@@ -127,7 +131,7 @@ pub struct LineOutcome {
 #[derive(Default)]
 struct Ctx {
     vars: HashMap<String, Num>,
-    fns: HashMap<String, (Vec<String>, Expr)>,
+    fns: HashMap<String, Vec<(Vec<String>, Expr)>>,
     answer: Option<Num>,
     subtotal: Sum,
     /// Per-tag sums behind `total @tag` (spec.md "Tags"): sheet-wide,
@@ -338,30 +342,35 @@ fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<Ou
     }
     let stmt = match parse(&toks) {
         Ok(s) => s,
-        Err(e) => {
-            return Some(declined_line(raw, &toks, &tags, ctx, bridge, Fail::Err(e)));
-        }
+        Err(e) => return declined_line(raw, &toks, &tags, ctx, bridge, Fail::Err(e)),
     };
     Some(match eval_stmt(&stmt, &tags, ctx, bridge) {
         Ok(Some(num)) => num.outcome(),
         Ok(None) => return None, // a function definition: no cell
+        // a blank &N ref: the line answers nothing until the target
+        // produces a value (spec.md "Line references")
+        Err(Fail::Null) => return None,
         // classify-by-failure: an unknown name may be prose, and the
         // prose-stripped skeleton may still answer
         Err(Fail::Err(e)) if matches!(e.kind, ErrKind::UnknownName(_)) => {
             mixed_line(raw, ctx, bridge).unwrap_or(Outcome::Failed(e))
         }
         Err(Fail::Err(e)) => Outcome::Failed(e),
-        Err(Fail::Reroute) => declined_line(
-            raw,
-            &toks,
-            &tags,
-            ctx,
-            bridge,
-            Fail::Err(QuireError::new(
-                (0, 0),
-                ErrKind::Unit(NO_UNIT_SUPPORT.into()),
-            )),
-        ),
+        Err(Fail::Reroute) => {
+            // the unit bridge refused; the mixed skeleton gets one
+            // more shot before the honest error stands
+            declined_line(
+                raw,
+                &toks,
+                &tags,
+                ctx,
+                bridge,
+                Fail::Err(QuireError::new(
+                    (0, 0),
+                    ErrKind::Unit(NO_UNIT_SUPPORT.into()),
+                )),
+            )?
+        }
     })
 }
 
@@ -486,10 +495,11 @@ fn translate_date_phrases(body: &str) -> String {
     }
 }
 
-/// A line the scalar path declined: the unit bridge takes it when the
-/// grammar permits (no `total`/`answer`/percent tokens and at least
-/// one known unit name), and otherwise the original failure stands
-/// (spec: a missed calculation beats a false error).
+/// A line the scalar path declined: routing happens in order - a
+/// blank &N ref answers nothing yet; the unit bridge takes unit and
+/// date lines; the mixed-line skeleton takes prose with embedded
+/// math; everything else keeps the original failure (spec: a missed
+/// calculation beats a false error).
 fn declined_line(
     raw: &str,
     toks: &[crate::tokens::Token],
@@ -497,7 +507,11 @@ fn declined_line(
     ctx: &mut Ctx,
     bridge: &mut Option<Bridge>,
     fail: Fail,
-) -> Outcome {
+) -> Option<Outcome> {
+    if matches!(fail, Fail::Null) {
+        // a blank &N ref: the line answers nothing yet
+        return None;
+    }
     let routable = !toks
         .iter()
         .any(|t| matches!(t.tok, Tok::Total | Tok::Answer | Tok::Of | Tok::Percent))
@@ -507,30 +521,28 @@ fn declined_line(
             toks.iter()
                 .any(|t| matches!(&t.tok, Tok::Ident(n) if b.knows_unit(n) || is_date_word(n)))
         }));
-    if !routable {
-        return match fail {
-            // last resort: the mixed-line skeleton. Pure prose stays
-            // silent; digit-led prose ("2 tickets to the show") can
-            // now answer with its leading math
-            Fail::Err(e) => mixed_line(raw, ctx, bridge).unwrap_or(Outcome::Failed(e)),
-            Fail::Reroute => Outcome::Failed(QuireError::new(
-                (0, 0),
-                ErrKind::Unit(NO_UNIT_SUPPORT.into()),
-            )),
-        };
+    if routable {
+        return Some(match bridge_eval(raw, toks, ctx, bridge) {
+            Outcome::Quantity(v) => {
+                record_tags(ctx, tags, Num::Q(v.clone()));
+                Outcome::Quantity(v)
+            }
+            other => other,
+        });
     }
-    match bridge_eval(raw, toks, ctx, bridge) {
-        Outcome::Quantity(v) => {
-            record_tags(ctx, tags, Num::Q(v.clone()));
-            Outcome::Quantity(v)
-        }
-        other => other,
+    match fail {
+        // last resort: the mixed-line skeleton. Pure prose stays
+        // silent; digit-led prose ("2 tickets to the show") can now
+        // answer with its leading math
+        Fail::Err(e) => Some(mixed_line(raw, ctx, bridge).unwrap_or(Outcome::Failed(e))),
+        Fail::Reroute => Some(Outcome::Failed(QuireError::new(
+            (0, 0),
+            ErrKind::Unit(NO_UNIT_SUPPORT.into()),
+        ))),
+        Fail::Null => None,
     }
 }
 
-/// Compile the line for the unit engine (seed `let`s for the bound
-/// names it references, assignment as a numbat `let`), evaluate, and
-/// bind the result like any expression result.
 fn bridge_eval(
     raw: &str,
     toks: &[crate::tokens::Token],
@@ -609,18 +621,22 @@ fn bridge_eval(
         if !expanded.insert(name.clone()) {
             continue;
         }
-        if let Some((_, body)) = ctx.fns.get(&name) {
-            collect_callees(body, &mut needed);
+        if let Some(clauses) = ctx.fns.get(&name) {
+            for (_, body) in clauses {
+                collect_callees(body, &mut needed);
+            }
         }
     }
     for name in &expanded {
-        if let Some((params, body)) = ctx.fns.get(name)
-            && let Some(body_source) = numbat_source(body)
-        {
-            source.push_str(&format!(
-                "fn {name}({}) = {body_source}\n",
-                params.join(", ")
-            ));
+        if let Some(clauses) = ctx.fns.get(name) {
+            for (params, body) in clauses {
+                if let Some(body_source) = numbat_source(body) {
+                    source.push_str(&format!(
+                        "fn {name}({}) = {body_source}\n",
+                        params.join(", ")
+                    ));
+                }
+            }
         }
     }
     let mut referenced = std::collections::BTreeSet::new();
@@ -747,7 +763,14 @@ fn eval_stmt(
             // definitions are visible below, produce no cell, and
             // never touch answer, subtotal, or tags (spec.md
             // "Functions")
-            ctx.fns.insert(name.clone(), (params.clone(), body.clone()));
+            let entry = ctx.fns.entry(name.clone()).or_default();
+            // a clause with the same param signature replaces its
+            // predecessor (redefinition wins below, like variables)
+            if let Some(slot) = entry.iter_mut().find(|(existing, _)| existing == params) {
+                *slot = (params.clone(), body.clone());
+            } else {
+                entry.push((params.clone(), body.clone()));
+            }
             Ok(None)
         }
         Stmt::Assign(name, _, e) => {
@@ -845,47 +868,80 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
     let num = match e {
         Expr::Num(n) => Num::S(*n),
         Expr::Call(name, args, span) => {
-            let Some((params, body)) = ctx.fns.get(name).cloned() else {
+            let Some(clauses) = ctx.fns.get(name).cloned() else {
                 return Err(Fail::Err(QuireError::new(
                     *span,
                     ErrKind::UnknownName(name.clone()),
                 )));
             };
-            if args.len() != params.len() {
-                return Err(Fail::Err(QuireError::new(
-                    *span,
-                    ErrKind::CallArity {
-                        name: name.clone(),
-                        expected: params.len(),
-                        got: args.len(),
-                    },
-                )));
-            }
             ctx.depth += 1;
-            if ctx.depth > 64 {
+            if ctx.depth > 200 {
                 ctx.depth -= 1;
                 return Err(Fail::Err(QuireError::new(*span, ErrKind::NestTooDeep)));
             }
-            // the call frame: params shadow sheet variables; the body
-            // sees the sheet's variables, functions, and answer, but
-            // a zero subtotal (`total` in a body reads zero, spec)
-            let mut frame = Ctx {
-                vars: ctx.vars.clone(),
-                fns: ctx.fns.clone(),
-                answer: ctx.answer.clone(),
-                subtotal: Sum::S(0.0),
-                tag_sums: Default::default(),
-                depth: ctx.depth,
-                outcomes: ctx.outcomes.clone(),
-                line: ctx.line,
-            };
-            for (param, arg) in params.iter().zip(args) {
-                let value = eval_expr(arg, ctx)?;
-                frame.vars.insert(param.clone(), value);
+            // evaluate the arguments once
+            let arg_values: Vec<Num> = args
+                .iter()
+                .map(|a| eval_expr(a, ctx))
+                .collect::<Result<_, _>>()?;
+            // clause selection: literal-param clauses (the param string
+            // parses as a number and the arg matches it) before
+            // variable-param clauses, in definition order
+            let mut result = None;
+            for (params, body) in &clauses {
+                if params.len() != args.len() {
+                    continue;
+                }
+                let literal_match =
+                    params
+                        .iter()
+                        .zip(&arg_values)
+                        .all(|(p, v)| match p.parse::<f64>() {
+                            Ok(literal) => matches!(v, Num::S(x) if *x == literal),
+                            Err(_) => true,
+                        });
+                if !literal_match {
+                    continue;
+                }
+                // the call frame: params shadow sheet variables; the
+                // body sees the sheet's variables, functions, and
+                // answer, but a zero subtotal (`total` in a body reads
+                // zero, spec)
+                let mut frame = Ctx {
+                    vars: ctx.vars.clone(),
+                    fns: ctx.fns.clone(),
+                    answer: ctx.answer.clone(),
+                    subtotal: Sum::S(0.0),
+                    tag_sums: Default::default(),
+                    depth: ctx.depth,
+                    outcomes: ctx.outcomes.clone(),
+                    line: ctx.line,
+                };
+                for (param, value) in params.iter().zip(&arg_values) {
+                    if param.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+                        continue; // literal pattern: nothing to bind
+                    }
+                    frame.vars.insert(param.clone(), value.clone());
+                }
+                result = Some(eval_expr(body, &mut frame)?);
+                break;
             }
-            let num = eval_expr(&body, &mut frame)?;
             ctx.depth -= 1;
-            num
+            match result {
+                Some(n) => n,
+                None => {
+                    // no clause matched on arity: report the mismatch
+                    let expected = clauses.first().map(|(p, _)| p.len());
+                    let kind = expected.map_or(ErrKind::UnknownName(name.clone()), |arity| {
+                        ErrKind::CallArity {
+                            name: name.clone(),
+                            expected: arity,
+                            got: args.len(),
+                        }
+                    });
+                    return Err(Fail::Err(QuireError::new(*span, kind)));
+                }
+            }
         }
         Expr::Name(n, span) => ctx
             .vars
@@ -893,11 +949,11 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
             .cloned()
             .ok_or_else(|| QuireError::new(*span, ErrKind::UnknownName(n.clone())))?,
         Expr::LineRef(n, span) => {
-            if (*n as usize) >= ctx.line {
+            if (*n as usize) == ctx.line {
                 return Err(Fail::Err(QuireError::new(
                     *span,
                     ErrKind::BadLineRef(format!(
-                        "line {n} is at or below this line; references point up"
+                        "line {n} is this line; a reference must point elsewhere"
                     )),
                 )));
             }
@@ -905,12 +961,7 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
                 Some(Outcome::Value(v)) => Num::S(*v),
                 Some(Outcome::Quantity(v)) => Num::Q(v.clone()),
                 Some(Outcome::Failed(e)) => return Err(Fail::Err(e.clone())),
-                None => {
-                    return Err(Fail::Err(QuireError::new(
-                        *span,
-                        ErrKind::BadLineRef(format!("line {n} has no result")),
-                    )));
-                }
+                None => return Err(Fail::Null),
             }
         }
         Expr::Total(_) => match &ctx.subtotal {
@@ -1316,31 +1367,6 @@ loop(1)
             .filter_map(|l| l.outcome.map(|o| o.render()))
             .collect();
         assert_eq!(rendered, vec!["10".to_string(), "30".to_string()]);
-        // below or self: an error on the referencing line
-        let sheet = "&2 + 1\n5\n";
-        let lines = evaluate_sheet(sheet);
-        assert!(matches!(
-            &lines[0].outcome,
-            Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::BadLineRef(_))
-        ));
-    }
-
-    #[test]
-    fn line_refs_poison_and_bridge() {
-        // a failed referenced line poisons the referencing line
-        let sheet = "1 / 0\n&1 + 1\n";
-        let lines = evaluate_sheet(sheet);
-        assert!(matches!(
-            &lines[1].outcome,
-            Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::DivideByZero)
-        ));
-        // quantities resolve through the bridge
-        let sheet = "2 kg\n&1 * 3\n";
-        let rendered: Vec<_> = evaluate_sheet(sheet)
-            .into_iter()
-            .filter_map(|l| l.outcome.map(|o| o.render()))
-            .collect();
-        assert_eq!(rendered, vec!["2 kg".to_string(), "6 kg".to_string()]);
     }
 
     #[test]
@@ -1376,6 +1402,55 @@ loop(1)
             &lines[0].outcome,
             Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::TrailingTokens)
         ));
+    }
+
+    #[test]
+    fn forward_refs_answer_blank_until_the_target_exists() {
+        // a ref to a line below is null: the referencing line shows
+        // no cell until the target answers
+        let sheet = "&2 + 1\n10\n";
+        let lines = evaluate_sheet(sheet);
+        // line 1: blank (target not yet answered)
+        assert_eq!(lines[0].outcome, None);
+        // line 2: 10, and now line 1 can see it
+        assert_eq!(
+            lines[1].outcome.as_ref().map(|o| o.render()),
+            Some("10".to_string())
+        );
+    }
+
+    #[test]
+    fn line_refs_poison_and_bridge() {
+        // a failed referenced line poisons the referencing line
+        let sheet = "1 / 0\n&1 + 1\n";
+        let lines = evaluate_sheet(sheet);
+        assert!(matches!(
+            &lines[1].outcome,
+            Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::DivideByZero)
+        ));
+        // quantities resolve through the bridge
+        let sheet = "2 kg\n&1 * 3\n";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        assert_eq!(rendered, vec!["2 kg".to_string(), "6 kg".to_string()]);
+    }
+
+    #[test]
+    fn recursive_functions_with_literal_clauses() {
+        // literal clauses match before general ones; recursion is
+        // depth-capped so a missing base case fails instead of hanging
+        let sheet = "\
+fact(0) = 1
+fact(n) = n * fact(n - 1)
+fact(5)
+";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        assert_eq!(rendered, vec!["120".to_string()]);
     }
 
     #[test]

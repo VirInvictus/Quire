@@ -1115,7 +1115,7 @@ dependencies = [
 
 [[package]]
 name = "quire"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "attohttpc",
  "gtk4",
@@ -1126,7 +1126,7 @@ dependencies = [
 
 [[package]]
 name = "quire-eval"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "numbat",
 ]

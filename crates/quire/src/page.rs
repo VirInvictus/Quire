@@ -61,6 +61,11 @@ twice(21)
 rate(x) = x / 100
 rate(40) of 90
 
+## Recursion
+fact(0) = 1
+fact(n) = n * fact(n - 1)
+fact(6)
+
 ## Currency, offline-first
 // uncomment once rates are loaded (menu: Refresh currency rates):
 // 50 USD -> EUR   // 46.5 €

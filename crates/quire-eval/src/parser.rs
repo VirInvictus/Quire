@@ -94,12 +94,23 @@ pub fn parse(tokens: &[Token]) -> Result<Stmt, QuireError> {
             }
             let mut params = Vec::new();
             for t in &tokens[2..close] {
-                if let Tok::Ident(p) = &t.tok {
-                    if params.iter().any(|existing| existing == p) {
-                        return Err(QuireError::new(t.span, ErrKind::DuplicateParam(p.clone())));
+                let p = match &t.tok {
+                    Tok::Ident(p) => p.clone(),
+                    // numeric literals are pattern params: `fact(0) = 1`
+                    Tok::Num(v) => {
+                        let text = format!("{v}");
+                        if params.contains(&text) {
+                            return Err(QuireError::new(t.span, ErrKind::DuplicateParam(text)));
+                        }
+                        params.push(text.clone());
+                        continue;
                     }
-                    params.push(p.clone());
+                    _ => continue,
+                };
+                if params.contains(&p) {
+                    return Err(QuireError::new(t.span, ErrKind::DuplicateParam(p)));
                 }
+                params.push(p);
             }
             let mut p = P {
                 toks: tokens,

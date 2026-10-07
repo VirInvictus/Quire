@@ -143,16 +143,20 @@ Date words are sheet vocabulary, case-insensitive:
 
 ## Line references (Phase 7)
 
-`&N` in an expression references the result of sheet line N. Lines
-above only: a reference to the current line or below fails the
-referencing line. A reference to a failed line poisons the
-referencing line with that error; a reference to a line with no
-result (prose, heading, comment) fails with "has no result".
+`&N` in an expression references the result of sheet line N - any
+line, above or below.
 
-References are sheet vocabulary: they work in scalar and unit
-expressions alike, and their results join `answer`, totals, and
-tags like any expression result. Function bodies cannot use them
-(sheet-positional, like `total`).
+- **Blank default.** A reference whose target has no result yet
+  (prose, heading, an empty line, or simply a line below that has
+  not produced a value) is null: the referencing line shows no cell
+  at all until the target answers. Whole-sheet re-evaluation fills
+  these in naturally as the sheet grows.
+- **Poisoning.** A reference to a FAILED line propagates that error
+  to the referencing line.
+- **Sheet vocabulary.** References work in scalar and unit
+  expressions alike, and their results join `answer`, totals, and
+  tags like any expression result. Function bodies cannot use them
+  (sheet-positional, like `total`).
 
 The app renumbers `&N` tokens in memory when insertions and
 deletions shift lines, as part of the same edit - the text on disk
@@ -234,6 +238,12 @@ line-model sheet, where every line evaluates on its own.
 - **Recursion.** A function cannot call itself (directly or in a
   cycle): call depth past a small cap fails the calling line rather
   than looping.
+- **Recursion and clauses.** A function may be defined in multiple
+  clauses, and clauses with LITERAL arguments match before general
+  ones: `fact(0) = 1` then `fact(n) = n * fact(n - 1)` is a working
+  factorial - recursive calls are allowed and depth-capped (a
+  runaway recursion fails the calling line, never a hang). Clause
+  selection is nearest-definition-first, literals before variables.
 - **Engine scope.** Functions work on both engines: the scalar
   path evaluates them directly, and unit lines seed their
   definitions into the unit engine, where dimension checking

@@ -2,6 +2,21 @@
 
 Newest first.
 
+## v0.5.1 (2026-10-07)
+
+- The &N renumber cascade fix: pressing Enter or Backspace near a
+  `&N` reference caused the refs to cascade into garbage (`&11`
+  becoming `&111`, then `&1112`, then merging with the next line).
+  Two bugs compounded: the renumber pass used `buffer.set_text()`
+  (replacing the entire buffer, resetting scroll and cursor), and
+  the re-entry guard was missing (each targeted edit fired
+  `changed`, which queued another renumber pass on the intermediate
+  text). The fix: targeted per-token edits (only the shifted refs
+  are rewritten, in place, back to front) and a re-entry guard that
+  blocks the evaluation pass during application. Verified live:
+  inserting a header above `&1 * 3` renumbers to `&2 * 3` with the
+  viewport stable.
+
 ## v0.5.0 (2026-10-07)
 
 - Mixed-line evaluation: prose lines whose words strip to a

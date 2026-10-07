@@ -380,6 +380,45 @@ impl QuirePage {
         }
     }
 
+    /// Rewrite `&N` reference tokens when lines shift: `from` is the
+    /// one-based line the shift starts at (the first line that
+    /// moved), `delta` is how many lines it moved by. Pure text
+    /// surgery on the in-memory sheet; disk only ever sees what the
+    /// user typed or approved.
+    fn renumber_refs(text: &str, from: usize, delta: i32) -> String {
+        // the shift applies to the REFERENCED line: a ref moves when
+        // its target sits at or after the edit point. Deletions clamp
+        // refs whose target was removed to the successor position, so
+        // they keep pointing at the line that took its place.
+        let mut out = String::with_capacity(text.len());
+        let mut rest = text;
+        while let Some(rel) = rest.find('&') {
+            let before = &rest[..rel + 1];
+            out.push_str(before);
+            let after = &rest[rel + 1..];
+            let digits: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
+            if digits.is_empty() {
+                rest = after;
+                continue;
+            }
+            let n: i64 = digits.parse().unwrap_or(0);
+            let moved = if n >= from as i64 {
+                let moved = n + delta as i64;
+                if delta < 0 {
+                    moved.max(from as i64)
+                } else {
+                    moved.max(1)
+                }
+            } else {
+                n
+            };
+            out.push_str(&moved.to_string());
+            rest = &after[digits.len()..];
+        }
+        out.push_str(rest);
+        out
+    }
+
     /// Re-evaluate the whole sheet on change, coalesced to the next
     /// idle turn (the spec's debounce; whole-sheet evaluation is O(n)
     /// on tiny sheets, so one deferred pass per burst is plenty).
@@ -582,6 +621,32 @@ mod tests {
     /// The tour must evaluate clean: an error cell on the starter
     /// page is a broken first impression, and a silent regression in
     /// the engine would land exactly here.
+    #[test]
+    fn renumber_refs_shifts_refs_after_the_edit_point() {
+        use super::QuirePage;
+        let sheet = "5 + 5\n&1 * 3\n&2 - 1\n";
+        // an insert at line 1 shifts every ref down one
+        assert_eq!(
+            QuirePage::renumber_refs(sheet, 1, 1),
+            "5 + 5\n&2 * 3\n&3 - 1\n"
+        );
+        // deleting line 1: &1 targeted it, so it clamps to the
+        // successor (&1); &2 moves up to &1
+        assert_eq!(
+            QuirePage::renumber_refs(sheet, 1, -1),
+            "5 + 5\n&1 * 3\n&1 - 1\n"
+        );
+        // deleting line 2: &1 is above the edit, untouched; &2
+        // targeted the deleted line, so it clamps to the successor
+        assert_eq!(
+            QuirePage::renumber_refs(sheet, 2, -1),
+            "5 + 5\n&1 * 3\n&2 - 1\n"
+        );
+        // refs at or before the edit point are untouched
+        let sheet = "5 + 5\n&1 * 3\n";
+        assert_eq!(QuirePage::renumber_refs(sheet, 1, 0), sheet);
+    }
+
     #[test]
     fn welcome_sheet_has_no_error_cells() {
         for (line, cell) in crate::answers::compute(WELCOME_SHEET) {

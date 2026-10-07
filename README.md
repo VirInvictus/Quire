@@ -1,5 +1,5 @@
 # Quire
-
+x
 A Soulver-style notepad calculator for Linux. Notes and math share one
 plain-text sheet: you write, and every expression answers on its own
 line in a results column down the right edge.

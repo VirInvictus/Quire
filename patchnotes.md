@@ -2,6 +2,30 @@
 
 Newest first.
 
+## v0.4.0 (2026-10-07)
+
+- Line references: `&N` in an expression answers with sheet line
+  N's result - lines above only, a failed referenced line poisons
+  the referencing line, and a no-result line fails with "has no
+  result". References work in scalar and unit expressions alike
+  (they translate to the referenced value), and their results join
+  `answer`, totals, and tags. The app renumbers `&N` tokens in
+  memory when insertions and deletions shift lines, as part of the
+  same edit; the sheet on disk only ever shows what you typed or
+  approved. spec.md gained the Line references section.
+- Token-level error highlighting: each failed line underlines the
+  exact token that failed in red, in the sheet itself - hover the
+  cell for the full message, see the underline for the location.
+  Cleared and reapplied on every evaluation pass.
+- Mixed-line evaluation: prose lines whose words strip to a
+  complete expression answer with it - `50 apples at 3 each` is
+  `150`, `2 coffees plus 1 tea` is `3`. Word operators map
+  (`at`/`of`/`times` multiply, `plus` adds, `minus` subtracts),
+  unknown names drop as prose, and failures stay silent: mixed
+  lines never grow error cells. `total`/`answer`, tags, and line
+  references never enter a mixed skeleton. spec.md gained the
+  Mixed lines section; the tour demos the shape.
+
 ## v0.3.0 (2026-10-07)
 
 - Functions reach the unit engine: unit lines call user functions

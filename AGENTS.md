@@ -11,31 +11,24 @@ public, MIT.
 
 ## Where this stands (updated 2026-10-07)
 
-v0.5.1 shipped and tagged. The engine covers the full Semantics
-section of spec.md (Phase 1) plus the sheet line model, "Unit
-expressions" (numbat embed), "Line references" (&N, positional),
-"Mixed lines" (prose + math), "Dates" (jiff-backed), "Currency"
-(ECB, offline-first), and "Functions" (inline bodies, multi-clause
-with literal-pattern matching, recursion with depth+budget caps).
-The app renders sheets at 20px JetBrains Mono in Kanagawa
-Dragon/Lotus through vir-gtk, with the custom `quire` language spec,
-scheme pair, renderer-drawn answers column, token-level error
-underlining, and hover tooltips (Phase 2-3). Document backbone and
-editing UX: open/save with dirty guard, recents, file monitoring,
-outline popover, Tab completion, Ctrl+C answer copy, Ctrl+B
-definition jump, drag-and-drop open, line-numbers toggle, auto list
-continuation, answer-decimals setting, Alt+Up/Down format cycling
-(Phase 4). Packaging: Meson wrapper, desktop file, AppStream
-metainfo, hicolor icons, mime package, tag-gated release CI with
-server-side verbatim notes (Phase 5). The &N auto-renumbering was
-stripped after three failed attempts (any text rewrite inside the
-changed handler cascades); refs stay positional. Currency is live
-(ECB fetch, offline-first, attohttpc + ~/.cache/quire/ecb.xml,
-set-once per process; currency-refresh-hours GSettings key).
+v0.5.1 shipped and tagged. All core features are live and on the
+starter page: arithmetic, percents, variables, totals, tags, mixed
+lines, functions with recursion and multi-clause matching, line
+references (positional &N — auto-renumbering was stripped after
+three failed attempts), dates (jiff-backed), currency (ECB,
+offline-first), units (numbat embed), dated snapshots, templates,
+answer-decimals setting, format cycling, hover tooltips, token-level
+error highlighting, and the line-ref renumbering (stripped — refs
+stay positional). The app renders sheets at 20px JetBrains Mono in
+Kanagawa Dragon/Lotus through vir-gtk, with the custom `quire`
+language spec, scheme pair, renderer-drawn answers column, token-
+level error underlining, and hover tooltips. Packaging: Meson
+wrapper, desktop file, AppStream metainfo, hicolor icons, mime
+package, tag-gated release CI with server-side verbatim notes.
 
-Next: the &N auto-renumbering redesign (5 research agents scoped),
-then dates depth, budget/portfolio depth, and Brandon's display
-passes.
+Next: dates depth, budget/portfolio depth, the &N self-updating
+redesign (see the research-sprint brief in session memory), and
+Brandon's display passes.
 
 ## Stack
 

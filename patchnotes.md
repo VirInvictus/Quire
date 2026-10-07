@@ -36,21 +36,6 @@ Newest first.
   Mixed lines section and the Functions recursion-and-clauses
   clause; the tour gained a Recursion section.
 
-## v0.4.1 (2026-10-07) `fact(0) = 1`
-  and `fact(n) = n * fact(n - 1)` make recursive functions work -
-  clauses with literal parameters match before variable ones, and
-  redefining a clause replaces its predecessor (like variables).
-  Forward line references: `&N` pointing below or at a not-yet-
-  answered line is blank (no cell) instead of erroring - the line
-  fills in when the target produces a value. Mixed-line evaluation:
-  prose lines whose words strip to a complete expression answer with
-  it - `50 apples at 3 each` is `150`, `2 coffees plus 1 tea` is `3`.
-  Word operators map (`at`/`of`/`times` multiply, `plus` adds,
-  `minus` subtracts); failures stay silent: mixed lines never grow
-  error cells. spec.md gained the Mixed lines section and the
-  Functions recursion-and-clauses clause; the tour gained
-  a Recursion section.
-
 ## v0.4.1 (2026-10-07)
 
 - The &N renumbering wiring lands: 0.4.0 shipped the renumber

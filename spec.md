@@ -89,8 +89,9 @@ errors on its own line.
 
 Expression lines may carry physical units, powered by an embedded
 [numbat](https://numbat.dev) context (MIT OR Apache-2.0, built with
-its network-fetching and plotting features off). This section is the
-contract for the unit layer; currency and dates have not landed yet.
+its network-fetching and plotting features off). Currency and dates
+have also landed on the same engine (see the Currency and Dates
+sections).
 
 - **Routing.** A line evaluates on the scalar engine exactly as
   before, byte for byte. The numbat path takes an Expression line
@@ -158,9 +159,12 @@ line, above or below.
   tags like any expression result. Function bodies cannot use them
   (sheet-positional, like `total`).
 
-The app renumbers `&N` tokens in memory when insertions and
-deletions shift lines, as part of the same edit - the text on disk
-is only ever what the user typed or approved.
+The app does not auto-renumber `&N` tokens when lines shift - refs
+are positional (`&11` means the 11th physical line, period). Adjust
+refs manually when lines move. (Auto-renumbering was attempted three
+times; each attempt cascaded because the renumber edits triggered
+the same changed signal that caused them. Stripped in commit
+2ab2932.)
 
 ## Mixed lines (Phase 7)
 
@@ -331,8 +335,10 @@ sheet's structure shifts.
 - **Fonts.** Bundled (OFL-licensed) for the numeric surface, with
   generic fallbacks. Nothing may assume an installed font. Exact faces
   are the Phase 3 typography decision.
-- **Currency, units, dates.** Out of v1. Own implementation vs
-  embedding `numbat` is the recorded Phase 6 decision.
+- **Currency, units, dates.** The numbat embed powers units and
+  dates; currency converts against ECB daily snapshots (offline-first).
+  These are IN, not out — the original "out of v1" note is
+  superseded by Phase 6 completion.
 
 ## Testing
 

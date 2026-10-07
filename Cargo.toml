@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/quire-eval", "crates/quire"]
 
 [workspace.package]
-version = "0.4.1"
+version = "0.5.0"
 edition = "2024"
 license = "MIT"
 authors = ["Brandon LaRocque"]

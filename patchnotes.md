@@ -2,9 +2,26 @@
 
 Newest first.
 
-## Unreleased
+## v0.5.0 (2026-10-07)
 
+- Mixed-line evaluation: prose lines whose words strip to a
+  complete expression answer with it - `50 apples at 3 each` is
+  `150`, `2 coffees plus 1 tea` is `3`. Word operators map
+  (`at`/`of`/`times` multiply, `plus` adds, `minus` subtracts),
+  unknown names drop as prose, and failures stay silent: mixed
+  lines never grow error cells. spec.md gained the Mixed lines
+  section; the tour demos the shape.
 - Multi-clause functions with literal-pattern matching: `fact(0) = 1`
+  and `fact(n) = n * fact(n - 1)` make recursive functions work -
+  clauses with literal parameters match before variable ones, and
+  redefining a clause replaces its predecessor (like variables).
+  Forward line references: `&N` pointing below or at a not-yet-
+  answered line is blank (no cell) instead of erroring - the line
+  fills in when the target produces a value. spec.md gained the
+  Mixed lines section and the Functions recursion-and-clauses
+  clause; the tour gained a Recursion section.
+
+## v0.4.1 (2026-10-07) `fact(0) = 1`
   and `fact(n) = n * fact(n - 1)` make recursive functions work -
   clauses with literal parameters match before variable ones, and
   redefining a clause replaces its predecessor (like variables).

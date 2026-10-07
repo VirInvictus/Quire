@@ -63,6 +63,14 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.2.0" date="2026-10-07">
+      <description>
+        <p>The productivity wave: units, currency, dates, tags,
+        functions, dated price snapshots, shipped portfolio and
+        budget templates, the answer-decimals setting, and result
+        format cycling.</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-10-06">
       <description>
         <p>First tagged release: the quire-eval engine (arithmetic,

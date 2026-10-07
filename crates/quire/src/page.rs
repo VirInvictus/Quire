@@ -166,9 +166,6 @@ pub struct QuirePage {
     on_reindex: RefCell<Option<ReindexCallback>>,
     /// the live answers map, for copy-answer and friends
     answers: RefCell<std::collections::HashMap<u32, answers::AnswerCell>>,
-    /// the sheet text as of the last evaluation pass: diffed against
-    /// the current text to detect line shifts for &N renumbering
-    baseline: RefCell<String>,
     /// re-entry guard: blocks the evaluation pass while the renumber
     /// edits are mid-application (each edit fires changed, which would
     /// otherwise cascade into another renumber)
@@ -211,7 +208,6 @@ impl QuirePage {
             loading: Cell::new(false),
             on_reindex: RefCell::new(None),
             answers: RefCell::new(std::collections::HashMap::new()),
-            baseline: RefCell::new(String::new()),
             renumbering: std::cell::Cell::new(false),
             formats: RefCell::new(std::collections::HashMap::new()),
         });
@@ -460,43 +456,6 @@ impl QuirePage {
     // 0.4.0 todo); until then clippy's dead-code is expected.
     #[allow(dead_code)]
     /// Rewrite `&N` reference tokens when lines shift: `from` is the
-    /// one-based line the shift starts at (the first line that
-    /// moved), `delta` is how many lines it moved by. Pure text
-    /// surgery on the in-memory sheet; disk only ever sees what the
-    /// user typed or approved.
-    fn renumber_refs(text: &str, from: usize, delta: i32) -> String {
-        // the shift applies to the REFERENCED line: a ref moves when
-        // its target sits at or after the edit point. Deletions clamp
-        // refs whose target was removed to the successor position, so
-        // they keep pointing at the line that took its place.
-        let mut out = String::with_capacity(text.len());
-        let mut rest = text;
-        while let Some(rel) = rest.find('&') {
-            let before = &rest[..rel + 1];
-            out.push_str(before);
-            let after = &rest[rel + 1..];
-            let digits: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
-            if digits.is_empty() {
-                rest = after;
-                continue;
-            }
-            let n: i64 = digits.parse().unwrap_or(0);
-            let moved = if n >= from as i64 {
-                let moved = n + delta as i64;
-                if delta < 0 {
-                    moved.max(from as i64)
-                } else {
-                    moved.max(1)
-                }
-            } else {
-                n
-            };
-            out.push_str(&moved.to_string());
-            rest = &after[digits.len()..];
-        }
-        out.push_str(rest);
-        out
-    }
 
     /// Re-evaluate the whole sheet on change, coalesced to the next
     /// idle turn (the spec's debounce; whole-sheet evaluation is O(n)
@@ -532,42 +491,6 @@ impl QuirePage {
                         if page.renumbering.get() {
                             return;
                         }
-                        // &N renumbering: diff the current text against
-                        // the baseline. A pure line shift rewrites the
-                        // refs with targeted in-place edits - never a
-                        // full-text replacement, so the scroll and
-                        // cursor never jump.
-                        let baseline = page.baseline.borrow().clone();
-                        if let Some((from, delta)) = line_shift(&baseline, &text)
-                            && !collect_refs(&text).is_empty()
-                        {
-                            let updated = QuirePage::renumber_refs(&text, from, delta);
-                            if updated != text {
-                                page.renumbering.set(true);
-                                page.baseline.replace(updated.clone());
-                                // apply per-token edits back to front so
-                                // earlier byte offsets stay valid
-                                let old_refs = collect_refs(&text);
-                                let new_refs = collect_refs(&updated);
-                                for ((old_range, _), (_, new_value)) in
-                                    old_refs.iter().rev().zip(new_refs.iter().rev())
-                                {
-                                    if text[old_range.0..old_range.1] == *new_value {
-                                        continue;
-                                    }
-                                    let mut start = page.buffer.start_iter();
-                                    start.set_offset(old_range.0 as i32);
-                                    let mut end = page.buffer.start_iter();
-                                    end.set_offset(old_range.1 as i32);
-                                    page.buffer.delete_interactive(&mut start, &mut end, true);
-                                    page.buffer.insert_interactive(&mut start, new_value, true);
-                                }
-                                page.renumbering.set(false);
-                                // the re-triggered pass evaluates
-                                return;
-                            }
-                        }
-                        page.baseline.replace(text.clone());
 
                         let cells = answers::compute_with_formats(
                             &text,
@@ -777,31 +700,6 @@ mod tests {
     /// The tour must evaluate clean: an error cell on the starter
     /// page is a broken first impression, and a silent regression in
     /// the engine would land exactly here.
-    #[test]
-    fn renumber_refs_shifts_refs_after_the_edit_point() {
-        use super::QuirePage;
-        let sheet = "5 + 5\n&1 * 3\n&2 - 1\n";
-        // an insert at line 1 shifts every ref down one
-        assert_eq!(
-            QuirePage::renumber_refs(sheet, 1, 1),
-            "5 + 5\n&2 * 3\n&3 - 1\n"
-        );
-        // deleting line 1: &1 targeted it, so it clamps to the
-        // successor (&1); &2 moves up to &1
-        assert_eq!(
-            QuirePage::renumber_refs(sheet, 1, -1),
-            "5 + 5\n&1 * 3\n&1 - 1\n"
-        );
-        // deleting line 2: &1 is above the edit, untouched; &2
-        // targeted the deleted line, so it clamps to the successor
-        assert_eq!(
-            QuirePage::renumber_refs(sheet, 2, -1),
-            "5 + 5\n&1 * 3\n&2 - 1\n"
-        );
-        // refs at or before the edit point are untouched
-        let sheet = "5 + 5\n&1 * 3\n";
-        assert_eq!(QuirePage::renumber_refs(sheet, 1, 0), sheet);
-    }
 
     #[test]
     fn welcome_sheet_has_no_error_cells() {

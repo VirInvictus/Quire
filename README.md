@@ -32,33 +32,39 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
   its value), `answer`, and `total` for running subtotals
 - Percentage forms that match how they are spoken: `200 + 15%` is 230,
   `15% of 200` is 30
+- Mixed lines: prose and math on the same line — `50 apples at 3 each`
+  evaluates the math and drops the words
+- Functions with recursion: `fact(0) = 1`, `fact(n) = n * fact(n - 1)`,
+  `fact(6)` → 720
+- Tags (`@housing`, `total @housing`) that group lines into sheet-wide
+  views, and units with dimension-checked math (`5 kg + 300 g`,
+  `26.2 miles -> km`)
+- Line references (`&4 + 1` answers with line 4's result plus 1)
+- Dates: `tomorrow`, `90 minutes from now`, `3 weeks from today`
+- Currency conversion (offline-first): `50 USD -> EUR` against cached
+  ECB daily rates
+- Hand-typed price snapshots with dates (`aapl = 10 * 190 @
+  2026-10-06`) — portfolio and budget sheets ship as templates in the
+  menu
 - Markdown structure (headings, lists, emphasis, `//` comments) as
   styled text; documents are plain UTF-8, no lock-in
-- Tags (`@housing`, `total @housing`) that group lines into
-  sheet-wide views, and units with dimension-checked math (`5 kg +
-  300 g`, `26.2 miles -> km`)
-- Hand-typed price snapshots with dates (`aapl = 10 * 190 @
-  2026-10-06`) - portfolio and budget sheets ship as templates in
-  the menu
+- Errors show a red underline on the exact failing token; hover the
+  red cell for the full message
 - Wayland-native GTK4, no libadwaita, Kanagawa-themed through
   [vir-gtk](https://github.com/VirInvictus/vir-gtk), bundled JetBrains
   Mono
 
 ## Status
 
-Early development, moving fast. Phases 0-4 of the roadmap are
-shipped: the evaluation engine (arithmetic, percents, variables,
-totals, span-carrying errors), the GTK4 window with the live answers
-column, the sheet typography and highlighting, and the document and
-editing backbone (open/save with a dirty guard, recents, file
-monitoring, outline, Tab completion, copy-answer, list
-continuation). Phase 5 packaging just landed: the desktop entry,
-AppStream metadata, hicolor icon set, and the Meson install. The
-first tagged release (v0.1.0) is next.
+Active development. v0.5.1 shipped the core calculator (arithmetic,
+percents, variables, totals, functions with recursion, tags, mixed
+lines, line references, dates, currency, units), the GTK4 editor with
+the live answers column, document management, and desktop packaging.
+The roadmap's next phase focuses on budget and portfolio depth.
 
 ## Building
 
-Rust 1.85+ and the GTK 4 + GtkSourceView 5 development packages
+Rust 1.88+ and the GTK 4 + GtkSourceView 5 development packages
 (`gtk4-devel` and `gtksourceview5-devel` on Fedora,
 `libgtk-4-dev` and `libgtksourceview-5-dev` on Debian/Ubuntu).
 

@@ -9,42 +9,33 @@ Quire: a Soulver-style notepad calculator for Linux. Plain-text
 sheets, per-line live results in a right-hand column. Portfolio piece,
 public, MIT.
 
-## Where this stands (updated 2026-10-06)
+## Where this stands (updated 2026-10-07)
 
-Phases 0-5 shipped and tagged (v0.1.0); Phase 6 is open with the
-unit layer landed (the numbat embed, additive shape). The engine
-covers the whole Semantics section of spec.md (Phase 1) plus the
-sheet line model with Reference lines and the "Unit expressions"
-section (Phase 6 chunk 1). The app renders sheets at 20px JetBrains
-Mono in Kanagawa Dragon/Lotus through vir-gtk (Phase 2), with the
-custom `quire` language spec, scheme pair, and renderer-drawn
-answers column (Phase 3), the document backbone and editing UX
-(Phase 4), and the packaging set: Meson wrapper, desktop file,
-AppStream metainfo, hicolor icons, mime package, tag-gated release
-CI (Phase 5). Currency is live
-(ECB fetch layer, offline-first, attohttpc + ~/.cache/quire/ecb.xml);
-dates are in (bare date words and `N <unit> from today|now` / `ago`
-phrases translate to numbat datetime calls - spec Dates section).
-The portfolio/budget templates ship behind the New-from-template
-menu (crates/quire/src/templates.rs + resources/templates/), tag
-sums are sheet-wide (headings never clear them - spec Tags
-boundaries), user functions are in (inline bodies, call
-frames with param shadowing, depth-capped recursion - spec
-Functions), the answer-decimals GSettings key caps scalar
-answer rendering (menu radio; the lossy-guard keeps sub-cap
-values honest), and the currency layer is live: ECB XML fetched
-with attohttpc, cached at ~/.cache/quire/ecb.xml, seeded through
-quire_eval::set_exchange_rates (set-once per process - a refresh
-applies next launch; currency-refresh-hours GSettings key, menu
-item forces a fetch). Error/answer cells show their FULL text as a
-tooltip on line hover (wire_answer_tooltips in page.rs; the column
-stays narrow by ruling). Unit lines call user functions through the
-bridge: the bridge is stateless (fresh master clone per evaluation -
-numbat forbids redefinition in a shared context), and only
-transitively-called fns seed, with numbat_source translating pure
-arithmetic bodies (eval.rs; total/answer/percent bodies stay
-scalar-only). Next: currency implementation, dates, result-format
-cycling, then Brandon's display passes.
+v0.5.1 shipped and tagged. The engine covers the full Semantics
+section of spec.md (Phase 1) plus the sheet line model, "Unit
+expressions" (numbat embed), "Line references" (&N, positional),
+"Mixed lines" (prose + math), "Dates" (jiff-backed), "Currency"
+(ECB, offline-first), and "Functions" (inline bodies, multi-clause
+with literal-pattern matching, recursion with depth+budget caps).
+The app renders sheets at 20px JetBrains Mono in Kanagawa
+Dragon/Lotus through vir-gtk, with the custom `quire` language spec,
+scheme pair, renderer-drawn answers column, token-level error
+underlining, and hover tooltips (Phase 2-3). Document backbone and
+editing UX: open/save with dirty guard, recents, file monitoring,
+outline popover, Tab completion, Ctrl+C answer copy, Ctrl+B
+definition jump, drag-and-drop open, line-numbers toggle, auto list
+continuation, answer-decimals setting, Alt+Up/Down format cycling
+(Phase 4). Packaging: Meson wrapper, desktop file, AppStream
+metainfo, hicolor icons, mime package, tag-gated release CI with
+server-side verbatim notes (Phase 5). The &N auto-renumbering was
+stripped after three failed attempts (any text rewrite inside the
+changed handler cascades); refs stay positional. Currency is live
+(ECB fetch, offline-first, attohttpc + ~/.cache/quire/ecb.xml,
+set-once per process; currency-refresh-hours GSettings key).
+
+Next: the &N auto-renumbering redesign (5 research agents scoped),
+then dates depth, budget/portfolio depth, and Brandon's display
+passes.
 
 ## Stack
 

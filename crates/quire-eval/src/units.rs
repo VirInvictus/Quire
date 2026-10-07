@@ -113,7 +113,7 @@ impl Bridge {
     /// back as their first message line, ready for an error cell.
     pub fn eval(&self, source: &str) -> Result<Value, String> {
         MASTER.with(|master| {
-            let mut ctx = master.as_ref().map(|m| m.clone()).unwrap();
+            let mut ctx = master.clone().unwrap();
             match ctx.interpret(source, CodeSource::Internal) {
                 Ok((_, numbat::InterpreterResult::Value(v))) => Ok(v),
                 Ok((_, numbat::InterpreterResult::Continue)) => {
@@ -182,7 +182,7 @@ mod tests {
 
     #[test]
     fn dimension_mismatch_is_an_error_message() {
-        let mut b = bridge();
+        let b = bridge();
         let err = b.eval("3 kg + 5 m").expect_err("must fail");
         assert!(err.contains("Mass") && err.contains("Length"), "{err}");
     }
@@ -190,14 +190,14 @@ mod tests {
     #[test]
     fn currency_converts_once_rates_exist() {
         use_test_rates();
-        let mut b = bridge();
+        let b = bridge();
         let v = b.eval("50 USD -> EUR").expect("converts with rates");
         assert_eq!(render(&v), "50 \u{20ac}");
     }
 
     #[test]
     fn scalars_seed_as_plain_numbers() {
-        let mut b = bridge();
+        let b = bridge();
         let v = b.eval("let milk = 3.5\nmilk * 2 kg").expect("evaluates");
         assert_eq!(render(&v), "7 kg");
     }

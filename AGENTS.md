@@ -99,7 +99,10 @@ From the repo root:
 `VERSION` at the repo root and the workspace `version` in `Cargo.toml`
 are one version carried twice: bump both in the same commit. Releases
 tag `vX.Y.Z` with the matching patchnotes entry as the tag message,
-verbatim, via `--cleanup=verbatim`.
+verbatim, via `--cleanup=verbatim`. **Tag as you go** (Brandon,
+2026-10-07, after 0.1.0 sat frozen through ten shipped features):
+landed features bump minor, fixes bump patch - never leave value
+accumulating under Unreleased.
 
 ## Docs flow (keep this in every landed chunk)
 

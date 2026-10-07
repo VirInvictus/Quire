@@ -526,7 +526,9 @@ impl QuirePage {
 
                         // &N renumbering: diff the current text against
                         // the baseline. A pure line shift rewrites the
-                        // refs and triggers a second pass to evaluate.
+                        // refs with targeted in-place edits - never a
+                        // full-text replacement, so the scroll and
+                        // cursor never jump.
                         let baseline = page.baseline.borrow().clone();
                         if let Some((from, delta)) = line_shift(&baseline, &text)
                             && !collect_refs(&text).is_empty()
@@ -534,8 +536,25 @@ impl QuirePage {
                             let updated = QuirePage::renumber_refs(&text, from, delta);
                             if updated != text {
                                 page.baseline.replace(updated.clone());
-                                page.buffer.set_text(&updated);
-                                return; // the re-triggered pass evaluates
+                                // apply per-token edits back to front so
+                                // earlier byte offsets stay valid
+                                let old_refs = collect_refs(&text);
+                                let new_refs = collect_refs(&updated);
+                                for ((old_range, _), (_, new_value)) in
+                                    old_refs.iter().rev().zip(new_refs.iter().rev())
+                                {
+                                    if text[old_range.0..old_range.1] == *new_value {
+                                        continue;
+                                    }
+                                    let mut start = page.buffer.start_iter();
+                                    start.set_offset(old_range.0 as i32);
+                                    let mut end = page.buffer.start_iter();
+                                    end.set_offset(old_range.1 as i32);
+                                    page.buffer.delete_interactive(&mut start, &mut end, true);
+                                    page.buffer.insert_interactive(&mut start, new_value, true);
+                                }
+                                // the re-triggered pass evaluates
+                                return;
                             }
                         }
                         page.baseline.replace(text.clone());

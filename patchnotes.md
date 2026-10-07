@@ -2,6 +2,16 @@
 
 Newest first.
 
+## v0.4.1 (2026-10-07)
+
+- The &N renumbering wiring lands: 0.4.0 shipped the renumber
+  primitive and claimed references follow their targets, but the
+  primitive had no caller - the claim was premature. The buffer now
+  diffs every change against the previous text and rewrites moved
+  refs in place, verified live (a header inserted above `&1 * 3`
+  renumbers to `&2 * 3`, answer unchanged). The rewrite also keeps
+  the `&` prefix (an early live test produced bare `3 * 3`).
+
 ## v0.4.0 (2026-10-07)
 
 - Line references: `&N` in an expression answers with sheet line

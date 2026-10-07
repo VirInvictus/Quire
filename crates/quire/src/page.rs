@@ -55,8 +55,9 @@ total
 26.2 miles -> km
 
 ## Functions
-double(x) = x * 2
-double(21)
+twice(x) = x * 2
+twice(21)
+2 kg + twice(2 kg)
 rate(x) = x / 100
 rate(40) of 90
 

@@ -63,22 +63,27 @@ pub fn use_test_rates() {
 /// The unit engine for one evaluation pass. `None` results (a
 /// prelude that failed to load) simply leave the scalar engine
 /// alone: sheets evaluate exactly as before, minus the unit path.
+///
+/// The bridge holds no context of its own: every evaluation clones
+/// the pristine master, so seeds (variables, function definitions)
+/// from one line never leak into the next and mid-sheet
+/// redefinitions apply (numbat forbids re-defining in a shared
+/// context; a fresh clone has nothing to clash with).
 pub struct Bridge {
-    ctx: Context,
     units: HashSet<String>,
 }
 
 impl Bridge {
     pub fn new() -> Option<Self> {
         MASTER.with(|master| {
-            let ctx = master.as_ref()?.clone();
-            let units: HashSet<String> = ctx
+            let units: HashSet<String> = master
+                .as_ref()?
                 .unit_names()
                 .iter()
                 .flatten()
                 .map(|n| n.to_string())
                 .collect();
-            Some(Bridge { ctx, units })
+            Some(Bridge { units })
         })
     }
 
@@ -88,24 +93,37 @@ impl Bridge {
     /// combinations, so the engine's own parse of a bare `1 name`
     /// probe is the only truth. The probe is an expression statement:
     /// success binds nothing, failure rolls the typechecker back.
-    pub fn knows_unit(&mut self, name: &str) -> bool {
+    pub fn knows_unit(&self, name: &str) -> bool {
         self.units.contains(name)
-            || self
-                .ctx
-                .interpret(&format!("1 {name}"), CodeSource::Internal)
-                .is_ok()
+            || MASTER.with(|master| {
+                master
+                    .as_ref()
+                    .and_then(|m| {
+                        let mut probe = m.clone();
+                        probe
+                            .interpret(&format!("1 {name}"), CodeSource::Internal)
+                            .ok()
+                            .map(|_| ())
+                    })
+                    .is_some()
+            })
     }
 
     /// Interpret one compiled line, returning its value. Errors come
     /// back as their first message line, ready for an error cell.
-    pub fn eval(&mut self, source: &str) -> Result<Value, String> {
-        match self.ctx.interpret(source, CodeSource::Internal) {
-            Ok((_, numbat::InterpreterResult::Value(v))) => Ok(v),
-            Ok((_, numbat::InterpreterResult::Continue)) => {
-                Err("the line produced no value".into())
+    pub fn eval(&self, source: &str) -> Result<Value, String> {
+        MASTER.with(|master| {
+            let Some(mut ctx) = master.as_ref().map(|m| m.clone()) else {
+                return Err("the unit engine is unavailable".into());
+            };
+            match ctx.interpret(source, CodeSource::Internal) {
+                Ok((_, numbat::InterpreterResult::Value(v))) => Ok(v),
+                Ok((_, numbat::InterpreterResult::Continue)) => {
+                    Err("the line produced no value".into())
+                }
+                Err(e) => Err(first_line(&e.to_string())),
             }
-            Err(e) => Err(first_line(&e.to_string())),
-        }
+        })
     }
 }
 

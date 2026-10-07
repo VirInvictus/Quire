@@ -198,8 +198,15 @@ line-model sheet, where every line evaluates on its own.
 - **Recursion.** A function cannot call itself (directly or in a
   cycle): call depth past a small cap fails the calling line rather
   than looping.
-- **Engine scope.** Functions are scalar-engine citizens in v1;
-  unit lines cannot call them yet.
+- **Engine scope.** Functions work on both engines: the scalar
+  path evaluates them directly, and unit lines seed their
+  definitions into the unit engine, where dimension checking
+  applies (`twice(2 kg)` is `4 kg`; a body like `x + 1` refuses a
+  Mass argument). Definitions whose bodies use `total`, `answer`,
+  or percent stay scalar-only. A function named after a unit-engine
+  builtin (say `double`, which numbat claims as a constant) fails
+  on the unit path with a clash error - only for lines that call
+  it.
 - **Zero-parameter functions** are allowed and behave like named
   constants.
 

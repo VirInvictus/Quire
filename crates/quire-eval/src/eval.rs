@@ -398,7 +398,7 @@ fn declined_line(
     let routable = !toks
         .iter()
         .any(|t| matches!(t.tok, Tok::Total | Tok::Answer | Tok::Of | Tok::Percent))
-        && bridge.as_mut().is_some_and(|b| {
+        && bridge.as_ref().is_some_and(|b| {
             toks.iter()
                 .any(|t| matches!(&t.tok, Tok::Ident(n) if b.knows_unit(n) || is_date_word(n)))
         });
@@ -451,6 +451,39 @@ fn bridge_eval(
         ));
     }
     let mut source = String::new();
+    // function definitions seed as numbat `fn`s, but ONLY the ones
+    // the line calls (transitively): seeding everything would let a
+    // single fn named after a numbat builtin poison every routed
+    // line. Bodies must be pure arithmetic (no `total`/`answer`),
+    // and numbat's dimension checking makes them work on quantities
+    // for free (spec.md "Functions": engine scope)
+    let mut needed: std::collections::BTreeSet<String> = toks
+        .iter()
+        .filter_map(|t| match &t.tok {
+            Tok::Ident(n) if ctx.fns.contains_key(n) => Some(n.clone()),
+            _ => None,
+        })
+        .collect();
+    let mut expanded: std::collections::BTreeSet<String> = Default::default();
+    while let Some(name) = needed.iter().next().cloned() {
+        needed.remove(&name);
+        if !expanded.insert(name.clone()) {
+            continue;
+        }
+        if let Some((_, body)) = ctx.fns.get(&name) {
+            collect_callees(body, &mut needed);
+        }
+    }
+    for name in &expanded {
+        if let Some((params, body)) = ctx.fns.get(name)
+            && let Some(body_source) = numbat_source(body)
+        {
+            source.push_str(&format!(
+                "fn {name}({}) = {body_source}\n",
+                params.join(", ")
+            ));
+        }
+    }
     let mut referenced = std::collections::BTreeSet::new();
     for t in toks {
         if let Tok::Ident(n) = &t.tok
@@ -492,6 +525,56 @@ fn bridge_eval(
         }
         Err(message) => Outcome::Failed(QuireError::new((0, 0), ErrKind::Unit(message))),
     }
+}
+
+/// The names a function body calls, for transitive fn seeding.
+fn collect_callees(expr: &Expr, out: &mut std::collections::BTreeSet<String>) {
+    match expr {
+        Expr::Call(name, args, _) => {
+            out.insert(name.clone());
+            for arg in args {
+                collect_callees(arg, out);
+            }
+        }
+        Expr::Neg(_, inner) | Expr::Pct(_, inner) => collect_callees(inner, out),
+        Expr::Bin(_, l, r, _) => {
+            collect_callees(l, out);
+            collect_callees(r, out);
+        }
+        _ => {}
+    }
+}
+
+/// Render a function body as numbat source, when it translates:
+/// arithmetic, names, and calls do; `total` and `answer` do not
+/// (their meaning is sheet-positional, numbat has none).
+fn numbat_source(expr: &Expr) -> Option<String> {
+    Some(match expr {
+        Expr::Num(n) => format!("{n}"),
+        Expr::Name(n, _) => n.clone(),
+        Expr::Total(_) | Expr::Answer(_) => return None,
+        Expr::Neg(_, inner) => format!("(-{})", numbat_source(inner)?),
+        Expr::Pct(_, inner) => format!("(({}) / 100)", numbat_source(inner)?),
+        Expr::Bin(op, l, r, _) => format!(
+            "({} {} {})",
+            numbat_source(l)?,
+            match op {
+                BinOp::Add => "+",
+                BinOp::Sub => "-",
+                BinOp::Mul => "*",
+                BinOp::Div => "/",
+                BinOp::Pow => "^",
+            },
+            numbat_source(r)?
+        ),
+        Expr::Call(name, args, _) => format!(
+            "{name}({})",
+            args.iter()
+                .map(numbat_source)
+                .collect::<Option<Vec<_>>>()?
+                .join(", ")
+        ),
+    })
 }
 
 /// The `name = rest` split of an assignment line. Classification
@@ -1024,6 +1107,31 @@ loop(1)
                 "not a datetime render: {text:?} in {rendered:?}"
             );
         }
+    }
+
+    #[test]
+    fn unit_lines_call_user_functions() {
+        // `twice`, not `double`: numbat's prelude claims `double` as
+        // a constant, and the spec's sharp edge applies to function
+        // names too
+        let sheet = "twice(x) = x * 2\ntwice(2 kg)\n";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        assert_eq!(rendered, vec!["4 kg".to_string()]);
+    }
+
+    #[test]
+    fn unit_lines_see_mid_sheet_redefinitions() {
+        // the redefinition is dimension-sound (x + 1 would refuse a
+        // Mass argument - numbat checks bridged functions)
+        let sheet = "twice(x) = x * 2\ntwice(2 kg)\ntwice(x) = x * 3\ntwice(2 kg)\n";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        assert_eq!(rendered, vec!["4 kg".to_string(), "6 kg".to_string()]);
     }
 
     #[test]

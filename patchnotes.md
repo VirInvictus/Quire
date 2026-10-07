@@ -2,6 +2,18 @@
 
 Newest first.
 
+## Unreleased
+
+- Functions reach the unit engine: unit lines call user functions
+  and numbat dimension-checks them - `twice(x) = x * 2` makes
+  `twice(2 kg)` answer `4 kg`. Only the functions a line calls are
+  seeded, definitions whose bodies use `total`/`answer`/percent
+  stay scalar-only, and function names colliding with numbat
+  builtins (`double` is a prelude constant) fail just the calling
+  lines. The bridge also went stateless: every unit evaluation
+  clones the pristine master context, so mid-sheet redefinitions of
+  functions and variables apply immediately.
+
 ## v0.2.0 (2026-10-07)
 
 - Hovering a line shows its answer in full: the answers column clips

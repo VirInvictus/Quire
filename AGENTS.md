@@ -38,7 +38,12 @@ quire_eval::set_exchange_rates (set-once per process - a refresh
 applies next launch; currency-refresh-hours GSettings key, menu
 item forces a fetch). Error/answer cells show their FULL text as a
 tooltip on line hover (wire_answer_tooltips in page.rs; the column
-stays narrow by ruling). Next: currency implementation, dates, result-format
+stays narrow by ruling). Unit lines call user functions through the
+bridge: the bridge is stateless (fresh master clone per evaluation -
+numbat forbids redefinition in a shared context), and only
+transitively-called fns seed, with numbat_source translating pure
+arithmetic bodies (eval.rs; total/answer/percent bodies stay
+scalar-only). Next: currency implementation, dates, result-format
 cycling, then Brandon's display passes.
 
 ## Stack

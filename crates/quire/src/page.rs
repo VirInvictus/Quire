@@ -648,14 +648,12 @@ impl QuirePage {
                             &page.formats.borrow(),
                             crate::settings::answer_decimals(),
                         );
-                        let error_count =
-                            cells.values().filter(|c| c.is_error).count();
+                        let error_count = cells.values().filter(|c| c.is_error).count();
                         page.answers.replace(cells.clone());
                         page.apply_error_highlights(&cells);
                         page.renderer.set_answers(cells);
                         if debug {
-                            let (lines, stats) =
-                                quire_eval::evaluate_sheet_stats(&text);
+                            let (lines, stats) = quire_eval::evaluate_sheet_stats(&text);
                             let (width, over) = page.renderer.debug_info();
                             eprintln!(
                                 "[quire] {} lines, {} passes{}, column {} px, \

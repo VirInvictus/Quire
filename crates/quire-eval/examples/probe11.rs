@@ -2,9 +2,9 @@ use quire_eval::{evaluate_sheet, parse_sheet};
 
 fn main() {
     for name in ["mortgage", "invoice"] {
-        let sheet = std::fs::read_to_string(
-            format!("/home/bdkl/.gitrepos/Quire/crates/quire/resources/templates/{name}.quire"),
-        )
+        let sheet = std::fs::read_to_string(format!(
+            "/home/bdkl/.gitrepos/Quire/crates/quire/resources/templates/{name}.quire"
+        ))
         .unwrap();
         println!("=== {name} ===");
         for line in evaluate_sheet(&sheet) {

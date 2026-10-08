@@ -32,6 +32,7 @@ pub(crate) const WELCOME_SHEET: &str = "\
 // expression answers on its own line - live, as you type.
 
 - lists read as markdown; Enter continues them
+- [ ] checklists tick with Ctrl+click
 - math just calculates
 - edit anything below and the answers follow
 
@@ -101,8 +102,10 @@ total @stocks
 whole = total
 
 ## Editing
+// Ctrl+click a math line for its step-by-step breakdown
 // Tab completes a variable or unit name; Ctrl+C copies the answer
 // Ctrl+B jumps to a definition; Ctrl+L toggles line numbers
+// the Outline button lists headings and every defined name
 // Alt+Up/Down cycles a line's format (fixed decimals, hex, bin)
 // &N references line N's answer and follows it when lines shift
 // drag any text file onto the window to open it
@@ -371,6 +374,96 @@ impl QuirePage {
             glib::Propagation::Proceed
         });
         self.view.add_controller(controller);
+    }
+
+    /// Ctrl+click on a line inspects it: a task-list item's checkbox
+    /// toggles, a math line opens its step-by-step breakdown
+    /// (spec.md "The breakdown"). Plain clicks are never touched.
+    pub fn wire_clicks(self: &Rc<Self>) {
+        let click = gtk4::GestureClick::new();
+        click.set_button(gtk4::gdk::BUTTON_PRIMARY);
+        let page = Rc::downgrade(self);
+        click.connect_released(move |gesture, _n, x, y| {
+            let Some(page) = page.upgrade() else {
+                return;
+            };
+            if !gesture
+                .current_event_state()
+                .contains(gtk4::gdk::ModifierType::CONTROL_MASK)
+            {
+                return;
+            }
+            let (wx, wy) =
+                page.view
+                    .window_to_buffer_coords(gtk4::TextWindowType::Widget, x as i32, y as i32);
+            let Some(iter) = page.view.iter_at_location(wx, wy) else {
+                return;
+            };
+            let line = iter.line();
+            let Some(start) = page.buffer.iter_at_line(line) else {
+                return;
+            };
+            let mut end = start;
+            end.forward_to_line_end();
+            let raw = page.buffer.text(&start, &end, true).to_string();
+
+            if crate::lists::toggle_task(&raw).is_some() {
+                page.toggle_task_at(line, &raw);
+                return;
+            }
+            let kind = quire_eval::parse_sheet(&raw).first().map(|l| l.kind);
+            if kind == Some(quire_eval::LineKind::Expression) {
+                page.show_breakdown(line as usize + 1, x as i32, y as i32);
+            }
+        });
+        self.view.add_controller(click);
+    }
+
+    /// Flip the checkbox on a task line: one character replaced, as
+    /// a user action so undo reverses it.
+    fn toggle_task_at(&self, line: i32, raw: &str) {
+        let Some((at, checked)) = crate::lists::task_box(raw) else {
+            return;
+        };
+        let box_char = raw[..at + 1].chars().count() - 1;
+        let Some(mut start) = self.buffer.iter_at_line(line) else {
+            return;
+        };
+        start.forward_chars(box_char as i32);
+        let mut end = start;
+        if !end.forward_char() {
+            return;
+        }
+        self.buffer.begin_user_action();
+        let replacement = if checked { " " } else { "x" };
+        self.buffer.delete_interactive(&mut start, &mut end, true);
+        self.buffer
+            .insert_interactive(&mut start, replacement, true);
+        self.buffer.end_user_action();
+    }
+
+    /// Open the breakdown popover at a click: the line's operations,
+    /// bottom-up, from the engine.
+    fn show_breakdown(&self, line_no: usize, x: i32, y: i32) {
+        let text = self
+            .buffer
+            .text(&self.buffer.start_iter(), &self.buffer.end_iter(), true);
+        let Some(steps) = quire_eval::explain_sheet_line(&text, line_no) else {
+            return;
+        };
+        let label = gtk4::Label::new(Some(&steps.join("\n")));
+        label.add_css_class("monospace");
+        label.set_halign(gtk4::Align::Start);
+        label.set_margin_top(6);
+        label.set_margin_bottom(6);
+        label.set_margin_start(8);
+        label.set_margin_end(8);
+        let pop = gtk4::Popover::new();
+        pop.set_child(Some(&label));
+        pop.set_pointing_to(Some(&gtk4::gdk::Rectangle::new(x, y, 1, 1)));
+        pop.set_parent(&self.view);
+        pop.connect_closed(|pop| pop.unparent());
+        pop.popup();
     }
 
     /// Continue the list on the cursor's line: insert the next
@@ -812,18 +905,21 @@ mod tests {
         let cells = crate::answers::compute(WELCOME_SHEET);
         let texts: Vec<&str> = cells.values().map(|c| c.text.as_str()).collect();
         for expected in [
-            "230",
-            "216",
-            "12",
-            "24",
+            // the percents region has one decimal (0.15), so its
+            // integers pad to the shared dot column
+            "230   ",
+            "216   ",
+            "12   ",
+            "24   ",
             "42",
             "36",
+            "200   ",
+            "0.15",
+            // 2pi brings a five-fraction region
+            "27      ",
             "1,420",
             "1,270",
             "150",
-            "200",
-            "0.15",
-            "27",
             "950 /month",
             "60 /quarter",
             "11400",

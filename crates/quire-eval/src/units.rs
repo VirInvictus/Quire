@@ -78,6 +78,7 @@ pub fn use_test_rates() {
 /// context; a fresh clone has nothing to clash with).
 pub struct Bridge {
     units: HashSet<String>,
+    fns: HashSet<String>,
 }
 
 impl Bridge {
@@ -90,13 +91,18 @@ impl Bridge {
                 .flatten()
                 .map(|n| n.to_string())
                 .collect();
-            Some(Bridge { units })
+            let fns: HashSet<String> = master
+                .as_ref()?
+                .function_names()
+                .map(|n| n.to_string())
+                .collect();
+            Some(Bridge { units, fns })
         })
     }
 
     /// Whether this identifier acts as a unit in the engine. Registry
     /// names (`g`, `meter`) are in the preloaded set; prefixed forms
-    /// (`kg`, `mm`) are not names at all but parse-time prefix+unit
+    /// (`kg`) are not names at all but parse-time prefix+unit
     /// combinations, so the engine's own parse of a bare `1 name`
     /// probe is the only truth. The probe is an expression statement:
     /// success binds nothing, failure rolls the typechecker back.
@@ -114,6 +120,13 @@ impl Bridge {
                     })
                     .is_some()
             })
+    }
+
+    /// Whether this identifier is a prelude function the bridge can
+    /// evaluate (`sqrt`, `log10`, `sin`, `abs`, and friends): the
+    /// routing key that lets `sqrt(144)` leave the scalar path.
+    pub fn knows_function(&self, name: &str) -> bool {
+        self.fns.contains(name)
     }
 
     /// Interpret one compiled line, returning its value. Errors come

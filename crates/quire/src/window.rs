@@ -81,12 +81,17 @@ impl QuireWindow {
         win.wire_drop_target();
         win.wire_outline();
         page.wire_editing_keys();
+        page.wire_clicks();
 
         window.present();
         win
     }
 
     /// Rebuild the outline menu whenever the sheet is re-indexed.
+    /// Headings structure the jump list; the sheet's assignments ride
+    /// beneath them as the definition sheet's name column (spec.md
+    /// "Definition sheets"): pick a name, land on its line, and the
+    /// answers column and any trailing comment carry the rest.
     fn wire_outline(&self) {
         let win = self.clone();
         self.page.set_on_reindex(move |index| {
@@ -97,8 +102,21 @@ impl QuireWindow {
                     Some(&format!("win.goto-heading({line})")),
                 );
             }
+            if !index.assignments.is_empty() {
+                let defs = gio::Menu::new();
+                for (line, name) in &index.assignments {
+                    defs.append(Some(name), Some(&format!("win.goto-heading({line})")));
+                }
+                let label = if index.headings.is_empty() {
+                    None
+                } else {
+                    Some("Definitions")
+                };
+                menu.append_section(label, &defs);
+            }
+            let empty = index.headings.is_empty() && index.assignments.is_empty();
             win.outline_button.set_menu_model(Some(&menu));
-            win.outline_button.set_visible(!index.headings.is_empty());
+            win.outline_button.set_visible(!empty);
         });
     }
 

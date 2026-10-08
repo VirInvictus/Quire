@@ -1,0 +1,53 @@
+# Complex Sample
+
+// A scientist's worksheet: units carry the dimensional checking,
+// the engine's functions do the math, functions compose, and every
+// derivation answers on its own line - live, with the algebra shown.
+
+## The system
+// ideal gas in a 2 L vessel: PV = nRT
+n = 0.08 mol
+temp = 300 K
+vol = 2 L
+press = n * 8.314 J/(mol K) * temp / vol
+
+## Arrhenius
+// activation energy from two rate constants:
+// Ea = R ln(k2/k1) / (1/T1 - 1/T2)
+k1 = 0.05 / s
+k2 = 0.15 / s
+temp1 = 300 K
+temp2 = 310 K
+Ea = 8.314 J/(mol K) * ln(k2 / k1) / (1 / temp1 - 1 / temp2)
+
+## Triplicate weighs
+w1 = 0.101 g
+w2 = 0.098 g
+w3 = 0.103 g
+mean_w = (w1 + w2 + w3) / 3
+std_w = sqrt(((w1 - mean_w)^2 + (w2 - mean_w)^2 + (w3 - mean_w)^2) / 2)
+rsd = std_w / mean_w * 100
+
+## Dilution
+// C1 V1 = C2 V2
+C1 = 2 mol/L
+V1 = 25 mL
+C2 = 0.1 mol/L
+V2 = C1 * V1 / C2
+
+## Henderson-Hasselbalch
+pKa = 4.76
+c_acid = 0.5 mol/L
+c_base = 0.25 mol/L
+ph = pKa + log10(c_base / c_acid)
+
+## Projectile
+launch = 35 deg
+speed = 25 m/s
+gravity = 9.81 m/s^2
+dist = speed^2 * sin(2 * launch) / gravity
+
+## Counting states
+fact(0) = 1
+fact(n) = n * fact(n - 1)
+ways = fact(10) / (fact(3) * fact(7))

@@ -11,6 +11,11 @@ pub const TEMPLATES: &[(&str, &str)] = &[
         "Budget",
         include_str!("../resources/templates/budget.quire"),
     ),
+    ("Trip", include_str!("../resources/templates/trip.quire")),
+    (
+        "Complex Sample",
+        include_str!("../resources/templates/complex.quire"),
+    ),
 ];
 
 #[cfg(test)]
@@ -42,11 +47,38 @@ mod tests {
         let texts: Vec<&str> = budget.values().map(|c| c.text.as_str()).collect();
         // rate renderings keep the written period (`950 /month`);
         // sums over mixed periods display in the largest involved,
-        // so the /year income line reads its totals in /yr
-        for expected in ["33000 /yr", "1115 /month", "12900 /yr"] {
+        // so the /year lines read in /yr. The tagged views cover
+        // planned and actual together; the paired *_actual
+        // variables drive the variance section
+        for expected in ["2248 /month", "-540.0 /yr", "18 /month", "384 /yr"] {
             assert!(
                 texts.contains(&expected),
                 "budget lost {expected}: {texts:?}"
+            );
+        }
+        let trip = crate::answers::compute(TEMPLATES[2].1);
+        let texts: Vec<&str> = trip.values().map(|c| c.text.as_str()).collect();
+        // rate x duration is a plain amount; the total divides back
+        // into a per-day rate
+        for expected in ["990 €", "198 €/day"] {
+            assert!(texts.contains(&expected), "trip lost {expected}: {texts:?}");
+        }
+        let complex = crate::answers::compute(TEMPLATES[3].1);
+        let texts: Vec<&str> = complex.values().map(|c| c.text.as_str()).collect();
+        // the scientist sheet: dimensional algebra, engine functions,
+        // statistics, and recursion all answer cleanly
+        for expected in [
+            "99.768 J/L",    // ideal gas law
+            "84944.9 J/mol", // Arrhenius activation energy
+            "0.00251661 g",  // sample standard deviation
+            "500 mL",        // dilution
+            "4.45897",       // Henderson-Hasselbalch pH
+            "59.8683 m",     // projectile range
+            "120",           // combinatorics through recursion
+        ] {
+            assert!(
+                texts.contains(&expected),
+                "complex sample lost {expected}: {texts:?}"
             );
         }
     }

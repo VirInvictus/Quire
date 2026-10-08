@@ -262,7 +262,8 @@ the work lands, with the current recommendation recorded here.
     2026-10-06; the roadmap recommendation accepted). Its own
     decision when the gate opens.
 
-- [ ] **Phase 6: Currency, units, dates.**
+- [x] **Phase 6: Currency, units, dates.** (Complete 2026-10-08:
+  both completion boxes landed.)
   - [x] **[D]** The gate: own implementation vs embedding numbat.
     Decided 2026-10-06, embed in the additive shape: the live gate
     prompt went unanswered, so the roadmap's recorded recommendation
@@ -316,11 +317,8 @@ the work lands, with the current recommendation recorded here.
     the `&N` rule; Completion documents its three unreachable
     candidates.
 
-- [ ] **Phase 7 (post-0.1.0): Soulver-depth semantics.**
-  - [ ] **[D]** Stable line references: NoteCalc's `&[line-id]` model
-    with a picker UI vs `answer` only; line numbers shift on insert,
-    so true references need stable ids. Recommendation: stable ids
-    with the interactive chooser.
+- [x] **Phase 7 (post-0.1.0): Soulver-depth semantics.** (Complete
+  2026-10-08.)
   - [x] Mixed-line evaluation (NoteCalc's classify-by-failure):
     `50 apples at 3 each` evaluates the math and demotes the words
     (shipped v0.4.0-v0.5.0; the word operators map, failures stay
@@ -384,11 +382,16 @@ the work lands, with the current recommendation recorded here.
     (engine spans, cleared and reapplied per pass), pairing with
     the hover tooltip - full message on hover, location in the
     sheet.
-  - [ ] Ctrl+click a math line opens a popover with its step-by-step
-    breakdown (Apostrophe's inline-preview popover pattern, minus the
-    latex subprocesses).
-  - [ ] Task-list checkbox toggling: the one GFM extra worth
-    revisiting, since a notepad is a natural checklist.
+  - [x] Ctrl+click a math line opens a popover with its step-by-step
+    breakdown (2026-10-08): the engine's explain_sheet_line records
+    each scalar operation bottom-up in full sheet context (`3 * 4 =
+    12`, then the sum; a relative percent reads `200 + 15% (of 200)
+    = 230`), and the popover anchors at the click. Unit lines,
+    definitions, and prose do not break down. spec "The breakdown".
+  - [x] Task-list checkbox toggling (2026-10-08): GFM `- [ ]` /
+    `- [x]` on list lines stays prose for the engine; Ctrl+clicking
+    the box toggles one character as a user action undo reverses.
+    spec "Task lists"; decisions in lists.rs with table tests.
   - [x] Answer-decimals setting (2026-10-06): a menu radio (Full,
     0-4 decimals) fixing the standard rendering's decimal places -
     exact places, padded (14.5 at two reads 14.50), persisted in
@@ -400,13 +403,15 @@ the work lands, with the current recommendation recorded here.
     by line number, shifting with edits until the stable-ids gate;
     unit values and errors keep their rendering. The portfolio
     template invites trying it on the pct lines.)
-  - [ ] Region model: decimal-point-aligned answers per heading region
-    (NoteCalc's renderer alignment).
+  - [x] Region model (2026-10-08): decimal-point-aligned answers
+    per heading region - integer answers pad on the right so their
+    implied dot sits where the region's fractional dots are, and the
+    column's right alignment lines every dot up. Quantities, errors,
+    hex and bin keep their shapes. spec "Results".
 
-- [ ] **Phase 8 (post-0.1.0): functions and tags.** The Soulver
-  parity core that budgets and portfolios stand on. Pulled to the
-  front of the queue 2026-10-06 (Brandon: "I want the cool shit" -
-  functions and portfolios before currency/dates polish).
+- [x] **Phase 8 (post-0.1.0): functions and tags.** (Complete
+  2026-10-08; pulled to the front of the queue 2026-10-06 - Brandon:
+  "I want the cool shit".)
   - [x] **[D]** Tag syntax gate: `@tag` glued to the end of an
     expression line, summed by `total @tag` (2026-10-06). Tagged
     results count toward the plain total too; `total @a @b` sums the
@@ -430,30 +435,39 @@ the work lands, with the current recommendation recorded here.
     display path (fixing datetime cells, which showed the engine's
     debug form since 0.6.0). spec "Recurring amounts"; corpus
     `tests/scripts/recurrence.quire`.
-  - [ ] Definition-sheet ergonomics: a variable reference section at
-    the top of a sheet (name, value, note) that reads like a table.
-- [ ] **Phase 9: budgets and portfolios (all offline).** Sheet
-  primitives first per Brandon's pick: no structured views until the
-  primitives stabilize. The plugin question was asked and ruled
-  2026-10-06: budgets/portfolios are engine primitives, NOT a plugin
-  system - the spec's no-plugin non-goal stands (a plugin surface is
-  months of platform tax before one feature ships, and numbat's
-  module system is already the unit-layer extension seam); revisit
-  only if a real extension need appears post-1.0.
+  - [x] Definition-sheet ergonomics (2026-10-08): the outline
+    popover lists every bound name beneath the headings (pick one,
+    land on its line) while the answers column carries the values
+    and trailing comments the notes - the definition block reads as
+    a table. Ctrl+B and Tab completion already served it; spec
+    "Definition sheets".
+- [x] **Phase 9: budgets and portfolios (all offline).** (Complete
+  2026-10-08; sheet primitives first per Brandon's pick. The plugin
+  question was asked and ruled 2026-10-06: engine primitives, NOT a
+  plugin system.)
   - [x] Manual price snapshots: `AAPL = 190` with an optional dated
     form (`AAPL = 190 @ 2026-10-06`); portfolio sheets are variables
     (shares) times snapshot prices, summed and allocated by percent.
     (2026-10-06: the dated syntax, and the portfolio + budget sheet
     templates shipped behind a "New from template" menu section -
     the templates are the worked examples, pinned by tests.)
-  - [ ] Budget sheets: category sections with heading-bounded
-    subtotals, recurrence phrases (shipped in v0.7.0), budget-vs-
-    actual as paired variables. NO live prices, ever (spec
+  - [x] Budget sheets (2026-10-08): category sections with
+    heading-bounded subtotals, recurrence phrases (v0.7.0), and
+    budget-vs-actual as paired variables - every category carries a
+    `*_actual` twin and the variance section is plain subtraction
+    (positive = under budget). NO live prices, ever (spec
     Non-goals): prices and rates enter sheets as manually typed
-    snapshots. (The migrated budget template ships; budget-vs-actual
-    lines remain.)
-  - [ ] Sheet templates shipped with the app (budget, portfolio,
-    trip - Soulver 4's trip planning is a recipe, not a feature).
+    snapshots. The migrated budget template is the worked example.
+  - [x] Sheet templates shipped with the app (2026-10-08): budget
+    (with actuals), portfolio, trip (dates + rates + currency, the
+    Soulver 4 recipe), and a Complex Sample - a scientist's
+    worksheet: ideal gas law, Arrhenius, triplicate statistics with
+    sqrt, dilution, Henderson-Hasselbalch, projectile range, and
+    combinatorics through recursive functions. The sample forced one
+    primitive: the engine's math functions (sqrt, log10, ln, sin,
+    abs, and the prelude) route to the unit engine - spec "Math
+    functions" - and quantity totals finish inside expressions
+    (`whole = total` over money).
 - [ ] **Phase 10 (post-1.0, gated): rendered preview, if ever.**
   - [ ] **[D]** The gate itself. Research read (2026-10-05): Quire's
     answers column IS the preview; the default is to never embed
@@ -508,5 +522,10 @@ excluded), pandoc as a bundled engine, and WebKitGTK as a preview pane
   finalized, annotated tag with the patchnotes entry verbatim,
   GitHub release with the built tarball attached by the tag-gated
   release job. A Flatpak was not required for the first tag.
-- [ ] **1.0** after Phase 6: Brandon's display passes, docs truth pass
-  (doc-drift-auditor), release-auditor pre-flight before the tag.
+- [x] **1.0** (2026-10-08): Phases 6-9 complete, the whole suite
+  green, release-auditor pre-flight run, and Brandon's instruction
+  to cut on a successful build. The docs truth pass landed with
+  v0.10.0's amendment pass. Brandon's display passes (1x and 2x)
+  remain recommended eyeball time after the tag - the tour's new
+  sections, the rate cells, and the region alignment deserve eyes -
+  but they gate polish, not the release.

@@ -154,6 +154,10 @@ struct Ctx {
     /// and bodies refuse it (spec.md "Line references"), exactly as
     /// they refuse `total`'s sheet position.
     in_fn_body: bool,
+    /// When watching a line (the breakdown popover), its operations
+    /// record human-readable steps here, bottom-up.
+    watch: Option<usize>,
+    explain_steps: Vec<String>,
 }
 
 /// Split trailing tags off an Expression line: `lunch = 12.50 @food
@@ -227,7 +231,29 @@ fn is_date_shape(text: &str) -> bool {
 /// the running subtotal (the Phase 1 gate decision: both act as
 /// boundaries).
 pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
-    let mut ctx = Ctx::default();
+    evaluate_sheet_explaining(text, None).0
+}
+
+/// The step-by-step breakdown of one sheet line (the Ctrl+click
+/// popover, spec.md "The breakdown"): the line's scalar operations,
+/// bottom-up, as `operands = value` strings, evaluated in the full
+/// sheet context so variables and references resolve. None when the
+/// scalar engine does not reduce the line into operations
+/// (quantities, definitions, prose) or the line is out of range.
+pub fn explain_sheet_line(text: &str, line_no: usize) -> Option<Vec<String>> {
+    let (outcomes, steps) = evaluate_sheet_explaining(text, Some(line_no));
+    if steps.is_empty() {
+        return None;
+    }
+    let _ = outcomes;
+    Some(steps)
+}
+
+fn evaluate_sheet_explaining(text: &str, watch: Option<usize>) -> (Vec<LineOutcome>, Vec<String>) {
+    let mut ctx = Ctx {
+        watch,
+        ..Ctx::default()
+    };
     let mut bridge = Bridge::new();
     let mut out = Vec::new();
     for line in parse_sheet_lines(text) {
@@ -253,7 +279,7 @@ pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
             outcome,
         });
     }
-    out
+    (out, ctx.explain_steps)
 }
 
 /// Evaluate a single line against a fresh context. Table-test and
@@ -618,7 +644,9 @@ fn unit_line(
     let ErrKind::UnknownName(name) = &e.kind else {
         return None;
     };
-    let known = bridge.as_ref().is_some_and(|b| b.knows_unit(name)) || is_date_word(name);
+    let known = bridge
+        .as_ref()
+        .is_some_and(|b| b.knows_unit(name) || b.knows_function(name) || is_date_word(name));
     if !known
         || toks
             .iter()
@@ -661,6 +689,37 @@ fn translate_date_phrases(body: &str) -> String {
     }
 }
 
+/// Embedded date vocabulary becomes its function call: `today + 30
+/// days` is `today() + 30 days` on the bridge. Word-boundary scan;
+/// a word already followed by `(` is left alone, and this runs only
+/// on the line body, never on the `let` seeds.
+fn translate_date_words(source: &str) -> String {
+    let mut out = String::with_capacity(source.len());
+    let mut i = 0;
+    while i < source.len() {
+        let c = source[i..].chars().next().unwrap();
+        if c.is_ascii_alphabetic() || c == '_' {
+            let end = source[i..]
+                .find(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_'))
+                .map(|l| i + l)
+                .unwrap_or(source.len());
+            let word = &source[i..end];
+            let called = source[end..].starts_with('(');
+            let repl = match word.to_lowercase().as_str() {
+                "today" if !called => Some("today()"),
+                "now" if !called => Some("now()"),
+                _ => None,
+            };
+            out.push_str(repl.unwrap_or(word));
+            i = end;
+        } else {
+            out.push(c);
+            i += c.len_utf8();
+        }
+    }
+    out
+}
+
 /// A line the scalar path declined: routing happens in order - a
 /// blank &N ref answers nothing yet; the unit bridge takes unit and
 /// date lines; the mixed-line skeleton takes prose with embedded
@@ -684,8 +743,9 @@ fn declined_line(
         && (toks.iter().any(
             |t| matches!(&t.tok, Tok::LineRef(n) if ctx.outcomes.contains_key(&(*n as usize))),
         ) || bridge.as_ref().is_some_and(|b| {
-            toks.iter()
-                .any(|t| matches!(&t.tok, Tok::Ident(n) if b.knows_unit(n) || is_date_word(n)))
+            toks.iter().any(|t| {
+                matches!(&t.tok, Tok::Ident(n) if b.knows_unit(n) || b.knows_function(n) || is_date_word(n))
+            })
         })
         // arithmetic over quantity-valued names (spec.md "Unit
         // expressions" routing): the names are bound, the bridge
@@ -855,9 +915,9 @@ fn bridge_eval(
     match &assignment {
         Some((name, rest)) => source.push_str(&format!(
             "let {name} = {}\n{name}",
-            translate_date_phrases(rest)
+            translate_date_words(&translate_date_phrases(rest))
         )),
-        None => source.push_str(&translate_date_phrases(raw)),
+        None => source.push_str(&translate_date_words(&translate_date_phrases(raw))),
     }
 
     match bridge.eval(&source) {
@@ -967,7 +1027,7 @@ fn eval_stmt(
             Ok(None)
         }
         Stmt::Assign(name, _, e) => {
-            let num = eval_expr(e, ctx)?;
+            let num = eval_expr(e, ctx, bridge)?;
             ctx.vars.insert(name.clone(), num.clone());
             ctx.answer = Some(num.clone());
             ctx.subtotal.push(num.clone());
@@ -995,10 +1055,14 @@ fn eval_stmt(
                 finish_sum(&merged, bridge)?
             };
             ctx.answer = Some(num.clone());
+            if ctx.watch == Some(ctx.line) {
+                ctx.explain_steps
+                    .push(format!("total = {}", num.outcome().render()));
+            }
             Ok(Some(num))
         }
         Stmt::Expr(e) => {
-            let num = eval_expr(e, ctx)?;
+            let num = eval_expr(e, ctx, bridge)?;
             ctx.answer = Some(num.clone());
             ctx.subtotal.push(num.clone());
             record_tags(ctx, tags, num.clone());
@@ -1057,7 +1121,7 @@ fn sum_by_bridge(items: &[Num], bridge: &mut Option<Bridge>) -> Result<Num, Fail
         .map_err(|message| Fail::Err(QuireError::new((0, 0), ErrKind::Unit(message))))
 }
 
-fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
+fn eval_expr(e: &Expr, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Result<Num, Fail> {
     let num = match e {
         Expr::Num(n) => Num::S(*n),
         Expr::Call(name, args, span) => {
@@ -1075,7 +1139,7 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
             // evaluate the arguments once
             let arg_values: Vec<Num> = args
                 .iter()
-                .map(|a| eval_expr(a, ctx))
+                .map(|a| eval_expr(a, ctx, bridge))
                 .collect::<Result<_, _>>()?;
             // clause selection: literal-param clauses (the param string
             // parses as a number and the arg matches it) before
@@ -1111,6 +1175,8 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
                     outcomes: ctx.outcomes.clone(),
                     line: ctx.line,
                     in_fn_body: true,
+                    watch: ctx.watch,
+                    explain_steps: std::mem::take(&mut ctx.explain_steps),
                 };
                 for (param, value) in params.iter().zip(&arg_values) {
                     if param.chars().next().is_some_and(|c| c.is_ascii_digit()) {
@@ -1118,7 +1184,9 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
                     }
                     frame.vars.insert(param.clone(), value.clone());
                 }
-                result = Some(eval_expr(body, &mut frame)?);
+                result = Some(eval_expr(body, &mut frame, bridge)?);
+                // the body's own steps belong to the watched line too
+                ctx.explain_steps.append(&mut frame.explain_steps);
                 break;
             }
             ctx.depth -= 1;
@@ -1168,29 +1236,34 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
                 None => return Err(Fail::Null),
             }
         }
+        // a quantity subtotal finishes through the bridge wherever
+        // `total` appears - in an expression as much as on its own
+        // line (spec: a total that includes quantity results sums
+        // them dimension-safely)
         Expr::Total(_) => match &ctx.subtotal {
             Sum::S(s) => Num::S(*s),
-            Sum::Q(_) => return Err(Fail::Reroute),
+            Sum::Q(_) => finish_sum(&ctx.subtotal, bridge)?,
         },
         Expr::Answer(span) => ctx
             .answer
             .clone()
             .ok_or_else(|| QuireError::new(*span, ErrKind::NoAnswer))?,
         Expr::Neg(span, inner) => {
-            let Num::S(v) = eval_expr(inner, ctx)? else {
+            let Num::S(v) = eval_expr(inner, ctx, bridge)? else {
                 return Err(Fail::Reroute);
             };
             Num::S(finite(-v, *span)?)
         }
         // standalone percent is x / 100
         Expr::Pct(span, inner) => {
-            let Num::S(v) = eval_expr(inner, ctx)? else {
+            let Num::S(v) = eval_expr(inner, ctx, bridge)? else {
                 return Err(Fail::Reroute);
             };
             Num::S(finite(v / 100.0, *span)?)
         }
         Expr::Bin(op, l, r, span) => {
-            let (Num::S(a), Num::S(b)) = (eval_expr(l, ctx)?, eval_expr(r, ctx)?) else {
+            let (Num::S(a), Num::S(b)) = (eval_expr(l, ctx, bridge)?, eval_expr(r, ctx, bridge)?)
+            else {
                 return Err(Fail::Reroute);
             };
             let v = match op {
@@ -1210,6 +1283,38 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
                 }
                 BinOp::Pow => a.powf(b),
             };
+            if ctx.watch == Some(ctx.line) {
+                // the breakdown popover: one readable step per
+                // operation, bottom-up
+                let fmt = |v: f64| format_number(v);
+                let step = match (op, is_pct(r)) {
+                    (BinOp::Add, true) => format!(
+                        "{} + {}% (of {}) = {}",
+                        fmt(a),
+                        fmt(b * 100.0),
+                        fmt(a),
+                        fmt(v)
+                    ),
+                    (BinOp::Sub, true) => format!(
+                        "{} - {}% (of {}) = {}",
+                        fmt(a),
+                        fmt(b * 100.0),
+                        fmt(a),
+                        fmt(v)
+                    ),
+                    _ => {
+                        let sym = match op {
+                            BinOp::Add => "+",
+                            BinOp::Sub => "-",
+                            BinOp::Mul => "*",
+                            BinOp::Div => "/",
+                            BinOp::Pow => "^",
+                        };
+                        format!("{} {sym} {} = {}", fmt(a), fmt(b), fmt(v))
+                    }
+                };
+                ctx.explain_steps.push(step);
+            }
             Num::S(finite(v, *span)?)
         }
     };
@@ -1549,6 +1654,72 @@ answer * 200
             Some(Outcome::Failed(e))
                 if e.kind.to_string().contains("function bodies cannot use line references")
         ));
+    }
+
+    #[test]
+    fn math_functions_route_to_the_engine() {
+        assert_eq!(show("sqrt(144)"), "12");
+        assert_eq!(show("log10(1000)"), "3");
+        assert_eq!(show("2 * abs(-3)"), "6");
+        assert_eq!(show("sin(30 deg)"), "0.5");
+        // unknown functions still demote in mixed lines
+        assert_eq!(show("foo(2)"), "2");
+    }
+
+    #[test]
+    fn embedded_date_words_call_the_functions() {
+        // `today + 30 days` composes like the phrase forms
+        let lines = evaluate_sheet("leave = today + 30 days\n");
+        assert!(matches!(&lines[0].outcome, Some(Outcome::Quantity(_))));
+        let lines = evaluate_sheet("gap = now() - today\n");
+        assert!(matches!(&lines[0].outcome, Some(Outcome::Quantity(_))));
+    }
+
+    #[test]
+    fn quantity_totals_finish_inside_expressions() {
+        // a quantity subtotal finishes through the bridge wherever
+        // `total` appears - in an assignment as much as on its own
+        // line (spec: totals sum dimension-safely)
+        let sheet = "rent = 950/month\nfood = 320/month\nwhole = total\n";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(lines[2].outcome.as_ref().unwrap().render(), "1270 /month");
+        // the trip shape: money amounts, then the per-day split
+        // (a rate divided by a duration is honestly month⁻², not a
+        // per-day figure - only amounts split per day)
+        let sheet = "rent = 950 EUR\nfood = 320 EUR\nwhole = total\nper_day = whole / 30 days\n";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(lines[2].outcome.as_ref().unwrap().render(), "1270 €");
+        assert_eq!(lines[3].outcome.as_ref().unwrap().render(), "42.3333 €/day");
+    }
+
+    #[test]
+    fn explain_sheet_line_walks_bottom_up() {
+        let text = "rent = 950\n3 * 4 + rent / 2\n";
+        // the operations record in evaluation order, bottom-up
+        assert_eq!(
+            explain_sheet_line(text, 2),
+            Some(vec![
+                "3 * 4 = 12".to_string(),
+                "950 / 2 = 475".to_string(),
+                "12 + 475 = 487".to_string(),
+            ])
+        );
+        // relative percent reads in the sheet's words
+        let text = "200 + 15%\n";
+        assert_eq!(
+            explain_sheet_line(text, 1),
+            Some(vec!["200 + 15% (of 200) = 230".to_string()])
+        );
+        // a total line explains as one step
+        let text = "5\n10\ntotal\n";
+        assert_eq!(
+            explain_sheet_line(text, 3),
+            Some(vec!["total = 15".to_string()])
+        );
+        // quantities, prose, and out-of-range lines explain as None
+        assert_eq!(explain_sheet_line("5 kg + 300 g\n", 1), None);
+        assert_eq!(explain_sheet_line("just words\n", 1), None);
+        assert_eq!(explain_sheet_line("2 + 2\n", 9), None);
     }
 
     #[test]

@@ -2,26 +2,42 @@
 
 // tags group the categories; the views update as you type.
 // amounts are rates: /period keeps it in every answer, and the
-// totals stay dimension-checked (this one mixes /month and /year)
+// totals stay dimension-checked (income mixes /month and /year).
+// budget-vs-actual: every category has a paired *_actual variable,
+// and the variance section is plain subtraction
 
 ## Income
 paycheck = 2400/month @income
+paycheck_actual = 2380/month @income
 side = 4200/year @income
+side_actual = 3900/year @income
 
 ## Fixed
 rent = 950/month @fixed
+rent_actual = 950/month @fixed
 utilities = 120/month @fixed
+utilities_actual = 138/month @fixed
 internet = 45/month @fixed
+internet_actual = 45/month @fixed
 
 ## Variable
 groceries = 320/month @variable
+groceries_actual = 355/month @variable
 transport = 90/month @variable
+transport_actual = 74/month @variable
 fun = 150/month @fun
+fun_actual = 190/month @fun
 
 ## The picture
 total @income
 total @fixed
 total @variable
 total @fun
-leftover = paycheck + side - (rent + utilities + internet + groceries + transport + fun)
-total
+
+## Budget vs actual
+// positive variance = under budget
+income_var = (paycheck_actual + side_actual) - (paycheck + side)
+fixed_var = (rent_actual + utilities_actual + internet_actual) - (rent + utilities + internet)
+variable_var = (groceries_actual + transport_actual) - (groceries + transport)
+fun_var = fun_actual - fun
+total_var = income_var + fixed_var + variable_var + fun_var

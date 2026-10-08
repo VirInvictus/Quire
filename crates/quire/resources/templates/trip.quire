@@ -1,0 +1,20 @@
+# Trip: Lisbon
+
+// the trip recipe: dates for the countdown, rates for anything
+// per-day, currency for the spend, one section so `total` sees it all
+
+## When
+leave = today + 30 days
+stay = 5 days
+
+## The costs
+flights = 220 EUR
+hotel = 95 EUR / day * 4 days
+transit = 12 EUR / day * stay
+food = 45 EUR / day * stay
+museums = 75 EUR
+pastries = 30 EUR
+
+// the damage: the whole trip, then the per-day split
+whole = total
+per_day = whole / stay

@@ -369,6 +369,11 @@ line-model sheet, where every line evaluates on its own.
   notation and no digit separators in v1. A `$` immediately before a
   number is decoration: `$1200` is the number 1200 (currency is
   ISO-code syntax, `50 USD -> EUR`; see Recurring amounts).
+- **Math functions.** The engine's functions - `sqrt`, `log10`,
+  `ln`, `sin`, `cos`, `exp`, `abs`, and the rest of the prelude -
+  evaluate through the unit engine: `sqrt(144)` is `12`,
+  `sin(30 deg)` is `0.5`. Unknown names still demote in mixed lines,
+  so a typo'd function is prose, not a wrong answer.
 - **Operators.** `+`, `-`, `*`, `/`; parentheses; unary minus; `^`
   for power, right-associative, binding tighter than unary minus, so
   `-2^2` is `-(2^2)`. Implicit multiplication: a number, bare name,
@@ -426,6 +431,42 @@ a per-line view choice that never changes the sheet (unit values
 keep the engine's notation; hex and bin apply to non-negative
 integers). The choice rides the line number and shifts when the
 sheet's structure shifts.
+
+Within each heading region, scalar answers share a decimal-point
+column (the region model): integer answers pad on the right so
+their implied dot sits where the region's fractional dots are, and
+the column's right alignment lines every dot in the region up.
+Quantities, errors, hex and bin keep their own shapes.
+
+## The breakdown (Phase 7)
+
+Ctrl+clicking a math line opens a popover with its step-by-step
+breakdown: the line's scalar operations, bottom-up, each as
+`operands = value`, evaluated in the full sheet context so
+variables, references, and function bodies resolve
+(`3 * 4 + rent / 2` shows `3 * 4 = 12`, then `950 / 2 = 475`, then
+the sum; a relative percent reads `200 + 15% (of 200) = 230`).
+Lines the scalar engine does not reduce into operations - unit
+lines, definitions, prose - have no breakdown and Ctrl+click does
+nothing on them. Ctrl+clicking a task-list checkbox toggles it
+instead (see The sheet).
+
+## Task lists (Phase 7)
+
+A list line may open with a GFM checkbox - `- [ ] plan the trip` -
+and stays prose for the engine. Ctrl+clicking the box toggles it
+(`x` for done, space for open), as a plain user edit the undo
+history reverses. Checkboxes never enter the math: a dangling or
+malformed box is just text.
+
+## Definition sheets (Phase 8)
+
+Sheets often open with a block of assignments - `name = value`, one
+per line, a `//` note trailing - and the app treats that block as
+the definition sheet: the outline popover lists every bound name
+beneath the headings (pick one to jump to its line), Ctrl+B jumps
+from any use to its definition, and Tab completes names. The
+answers column is the value column; the comments are the notes.
 
 ## Architecture
 

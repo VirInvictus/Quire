@@ -64,7 +64,7 @@ pub fn compute_with_formats(
     formats: &HashMap<u32, LineFormat>,
     max_decimals: Option<u32>,
 ) -> HashMap<u32, AnswerCell> {
-    quire_eval::evaluate_sheet(sheet)
+    let mut map: HashMap<u32, AnswerCell> = quire_eval::evaluate_sheet(sheet)
         .into_iter()
         .filter_map(|line| {
             let format = formats.get(&(line.number as u32)).copied();
@@ -106,7 +106,82 @@ pub fn compute_with_formats(
             };
             Some((line.number as u32, cell))
         })
-        .collect()
+        .collect();
+    align_regions(sheet, &mut map);
+    map
+}
+
+/// The region model (spec.md "Results"): within each heading region,
+/// scalar answers share a decimal-point column. Integer answers pad
+/// on the right so their implied dot sits where the fractional
+/// answers' dots are; the renderer's right alignment then lines every
+/// dot in the region up. Only plain number texts pad - quantities,
+/// errors, hex and bin keep their shapes.
+fn align_regions(text: &str, cells: &mut HashMap<u32, AnswerCell>) {
+    let mut region = 0usize;
+    let mut region_of: HashMap<u32, usize> = HashMap::new();
+    for line in quire_eval::parse_sheet(text) {
+        if line.kind == quire_eval::LineKind::Heading {
+            region += 1;
+        }
+        region_of.insert(line.number as u32, region);
+    }
+    let mut max_frac: HashMap<usize, usize> = HashMap::new();
+    for (num, cell) in cells.iter() {
+        if cell.is_error {
+            continue;
+        }
+        let Some(frac) = scalar_frac(&cell.text) else {
+            continue;
+        };
+        if frac > 0 {
+            let slot = max_frac.entry(region_of[num]).or_insert(0);
+            if frac > *slot {
+                *slot = frac;
+            }
+        }
+    }
+    for (num, cell) in cells.iter_mut() {
+        if cell.is_error {
+            continue;
+        }
+        let Some(frac) = scalar_frac(&cell.text) else {
+            continue;
+        };
+        let Some(max) = max_frac.get(&region_of[num]) else {
+            continue;
+        };
+        if *max == 0 {
+            continue;
+        }
+        // an integer pads one extra column for its implied dot
+        let pad = if frac == 0 { *max + 1 } else { *max - frac };
+        if pad > 0 {
+            cell.text.push_str(&" ".repeat(pad));
+        }
+    }
+}
+
+/// The fractional width of a plain number text (`1,270.50` -> 2), or
+/// None for anything else (quantities, hex, bin, errors).
+fn scalar_frac(text: &str) -> Option<usize> {
+    let (int, frac) = match text.split_once('.') {
+        Some((i, f)) => (i, Some(f)),
+        None => (text, None),
+    };
+    if !int
+        .strip_prefix('-')
+        .unwrap_or(int)
+        .chars()
+        .all(|c| c.is_ascii_digit() || c == ',')
+    {
+        return None;
+    }
+    match frac {
+        Some(f) if f.chars().all(|c| c.is_ascii_digit()) => Some(f.len()),
+        Some(_) => None,
+        None => Some(0),
+    }
 }
 
 #[cfg(test)]
@@ -120,7 +195,9 @@ mod tests {
         assert_eq!(map.len(), 3);
         assert_eq!(map[&1].text, "3.5");
         assert!(!map[&1].is_error);
-        assert_eq!(map[&3].text, "7");
+        // region alignment: the region's only decimal (3.5) gives the
+        // integer a two-space pad (digit + implied dot column)
+        assert_eq!(map[&3].text, "7  ");
         assert!(map[&5].is_error);
         assert_eq!(map[&5].text, "division by zero");
     }
@@ -128,6 +205,28 @@ mod tests {
     #[test]
     fn empty_sheet_has_no_cells() {
         assert!(compute("").is_empty());
+    }
+
+    #[test]
+    fn regions_share_a_decimal_column() {
+        let sheet = "# A\n120\n3.5\n\n## B\n7\n2.25\n5000 g\n";
+        let map = compute(sheet);
+        // region A: max frac is 1, so the integer pads two (digit +
+        // implied dot column)
+        assert_eq!(map[&2].text, "120  ");
+        assert_eq!(map[&3].text, "3.5");
+        // region B: max frac is 2
+        assert_eq!(map[&6].text, "7   ");
+        assert_eq!(map[&7].text, "2.25");
+        // quantities keep the engine's shape
+        assert_eq!(map[&8].text, "5000 g");
+    }
+
+    #[test]
+    fn integer_only_regions_do_not_pad() {
+        let map = compute("10\n20\n");
+        assert_eq!(map[&1].text, "10");
+        assert_eq!(map[&2].text, "20");
     }
 
     #[test]

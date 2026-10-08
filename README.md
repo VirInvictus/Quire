@@ -53,10 +53,18 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
 - Currency conversion (offline-first): `50 USD -> EUR` against cached
   ECB daily rates
 - Hand-typed price snapshots with dates (`aapl = 10 * 190 @
-  2026-10-06`) — portfolio and budget sheets ship as templates in the
+  2026-10-06`) — portfolio, budget (with budget-vs-actual variance),
+  trip, and a Complex Sample for scientists ship as templates in the
   menu
-- Markdown structure (headings, lists, emphasis, `//` comments) as
-  styled text; documents are plain UTF-8, no lock-in
+- Math functions from the engine's prelude: `sqrt(144)` is 12,
+  `sin(30 deg)` is 0.5, `log10` and friends work right on a sheet
+- Ctrl+click a math line for its step-by-step breakdown; Ctrl+click
+  a `- [ ]` checkbox to tick it
+- Answers align on the decimal point within each heading region, and
+  the Outline button lists headings plus every defined name
+- Markdown structure (headings, lists, task checkboxes, emphasis,
+  `//` comments) as styled text; documents are plain UTF-8,
+  no lock-in
 - Tab completes variable and unit names (acting only on a unique
   match)
 - Errors show a red underline on the exact failing token; hover the
@@ -67,14 +75,15 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
 
 ## Status
 
-Active development. v0.10.0 shipped the core calculator (arithmetic
-with implicit multiplication, percents including the reverse
-questions in words, variables, totals, functions with recursion,
-tags, mixed lines, line references, dates, recurring amounts,
-currency, units, and Tab completion over sheet and engine names),
-the GTK4 editor with the live answers column, document management,
-and desktop packaging. The roadmap's next phase focuses on budget
-and portfolio depth.
+**1.0** shipped. The whole Soulver-depth surface is in: arithmetic
+with implicit multiplication, every percentage form including the
+reverse questions in words, variables and totals, functions with
+recursion, tags, mixed lines, self-updating line references, dates,
+recurring amounts, currency, units, math functions, Tab completion,
+the step-by-step breakdown popover, task-list checkboxes,
+decimal-aligned answer regions, and the template menu (portfolio,
+budget with actuals, trip, and a Complex Sample for scientists).
+Development continues toward budget and portfolio depth.
 
 ## Building
 

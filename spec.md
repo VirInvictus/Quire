@@ -96,10 +96,11 @@ sections).
 - **Routing.** A line evaluates on the scalar engine exactly as
   before, byte for byte. The numbat path takes an Expression line
   only when the scalar path declines it: the line's parse failed, or
-  its evaluation touched a quantity-valued name, and the line's
-  tokens include no Quire keyword (`of`, `total`, `answer`), no
-  percent, and at least one identifier numbat knows as a unit.
-  Everything else keeps today's behavior, including its errors.
+  its evaluation touched a quantity-valued name, or the line carries
+  a recurrence phrase (see Recurring amounts), and the line's tokens
+  include no Quire keyword (`of`, `total`, `answer`), no percent,
+  and at least one identifier numbat knows as a unit. Everything
+  else keeps today's behavior, including its errors.
 - **Quantities.** A unit line's result is a quantity: a number and a
   dimension (`5 kg + 300 g` is `5.3 kg`). Quantity results bind like
   any result: toward `answer`, toward totals, visible to lines below,
@@ -141,6 +142,45 @@ Date words are sheet vocabulary, case-insensitive:
   today` answers a duration; tagging and totals work as anywhere.
 - **Engine scope.** Datetimes are unit-engine values: scalar
   arithmetic on them routes to the bridge like quantities.
+
+## Recurring amounts (Phase 8)
+
+An Expression line may state a recurring amount: a value divided by
+a period, glued or spaced - `$1200/month`, `950 / month`,
+`60/quarter`. The phrase evaluates through the unit engine as a rate
+quantity, and the answer keeps the written period: `$1200/month`
+answers `1200 /month`. A rate written with an ISO currency is a
+money rate (`1200 USD/month` answers `1200 $/month`); any other
+period is a conversion away: `1200/month -> 1/day` answers
+`39.4259 /day`.
+
+- **Periods.** `day`, `week`, `month`, `quarter`, `year`, singular
+  or plural (`/months`). A quarter is three months (91.31 days),
+  registered into the engine at startup beside the prelude. Mixed
+  periods add dimension-safely; the sum displays in the line's first
+  period (`950/month + 45/week` is `1145.67 /month`) - display only,
+  the value is one dimension. (Soulver displays the last-written
+  period; the value is the same.)
+- **Dollar decoration.** A `$` immediately before a number is
+  decoration everywhere: `$1200` is the number 1200. It never names
+  a currency - money rates and conversion are ISO-code syntax
+  (`50 USD -> EUR`).
+- **Quantity rails.** A rate result binds like any quantity result:
+  toward `answer`, toward totals and tag sums, visible to lines
+  below, usable by name and through `&N`. A rate total is
+  dimension-checked like any quantity total: a bare scalar in a rate
+  sum fails the total line, so a forgotten `/month` is caught rather
+  than silently under-counted. `rent = 950/month @fixed` composes
+  with tags and dated stamps. A rate times a duration is a plain
+  amount (`950/month * 12 months` is `11400`).
+- **Boundaries.** The phrase needs the unit engine, so it does not
+  compose with `total`, `answer`, or percent inside a line (the same
+  rule as unit expressions; a `total` line itself sums rate results
+  fine). A variable bound to a period name wins over the phrase
+  (`month = 12` makes `950/month` divide by 12): nearest binding
+  above, like any name.
+- **Constants.** The engine's own: week = 7 days, month = year/12
+  (30.4368 days), quarter = 91.3105 days, year = 365.2422 days.
 
 ## Line references (Phase 7)
 
@@ -269,7 +309,9 @@ line-model sheet, where every line evaluates on its own.
 ## Evaluation semantics (Phase 1)
 
 - **Numbers.** Decimal literals (`12`, `3.50`). No scientific
-  notation and no digit separators in v1.
+  notation and no digit separators in v1. A `$` immediately before a
+  number is decoration: `$1200` is the number 1200 (currency is
+  ISO-code syntax, `50 USD -> EUR`; see Recurring amounts).
 - **Operators.** `+`, `-`, `*`, `/`; parentheses; unary minus; `^`
   for power, right-associative, binding tighter than unary minus, so
   `-2^2` is `-(2^2)`.

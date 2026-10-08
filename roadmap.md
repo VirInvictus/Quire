@@ -373,8 +373,16 @@ the work lands, with the current recommendation recorded here.
     union; tagged totals are pure views; headings and plain totals
     reset the tag sums; tags ride the unit engine (`5 kg @bulk`).
     Corpus: `tests/scripts/tags.quire`.
-  - [ ] Recurrence phrases: `$1200/month` and `/year` normalize to
-    per-day equivalents for budget math.
+  - [ ] Recurrence phrases (2026-10-08): **[D]** gate, Brandon's
+    picks: rate quantities through the numbat bridge (Soulver's own
+    model - the written period stays in the answer, `1200 /month`;
+    the old "normalize to per-day" sketch is superseded, per-day is
+    `1200/month -> 1/day`), periods day/week/month/quarter/year plus
+    plurals (quarter = 3 months, registered into the engine beside
+    the prelude), `$` decorative everywhere (the tokenizer skips
+    `$` before a digit; ISO codes remain the only currency syntax),
+    budget template migrates to `/month` lines. spec "Recurring
+    amounts"; corpus `tests/scripts/recurrence.quire`.
   - [ ] Definition-sheet ergonomics: a variable reference section at
     the top of a sheet (name, value, note) that reads like a table.
 - [ ] **Phase 9: budgets and portfolios (all offline).** Sheet

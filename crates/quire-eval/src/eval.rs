@@ -659,8 +659,23 @@ fn unit_line(
             record_tags(ctx, tags, Num::Q(v.clone()));
             Some(Outcome::Quantity(v))
         }
-        // the line carries more than the bridge can read: fall back
+        // the bridge read the line and found a real unit error (a
+        // dimension clash, a bad conversion): that message beats the
+        // scalar path's "unknown name". Only an unknown-identifier
+        // refusal falls back - the line carries a name the bridge
+        // cannot seed, and the mixed skeleton keeps its shot
+        Outcome::Failed(e) if !bridge_error_is_unknown(&e) => Some(Outcome::Failed(e)),
         _ => None,
+    }
+}
+
+/// Whether a bridge failure means "a name the engine does not know"
+/// (fall back to the scalar funnel) rather than a real unit error
+/// (surface it). numbat words the former "Unknown identifier".
+fn bridge_error_is_unknown(e: &QuireError) -> bool {
+    match &e.kind {
+        ErrKind::Unit(message) => message.contains("nknown"),
+        _ => false,
     }
 }
 
@@ -1517,8 +1532,13 @@ total
             err_of("total / month"),
             ErrKind::UnknownName("month".into())
         );
-        // no slash, no phrase: a bare period word is just unbound
-        assert_eq!(err_of("(month) + 1"), ErrKind::UnknownName("month".into()));
+        // no slash, no phrase: a bare period word reads as the unit
+        // it is, and the bridge's dimension clash names the problem
+        // (with a suggested fix) instead of "unknown name"
+        match err_of("(month) + 1") {
+            ErrKind::Unit(message) => assert!(message.contains("Time"), "{message}"),
+            other => panic!("expected a unit error, got {other:?}"),
+        };
     }
 
     #[test]

@@ -2,6 +2,31 @@
 
 Newest first.
 
+## v1.1.0 (2026-10-08)
+
+- Two dev torture sheets join the template menu, built to stress and
+  confuse the renderer on purpose. The Stress Test loads layout
+  edges: wrapped long lines, a 45-character answer next to short
+  ones, region-alignment padding, tab-led lines, blank forward
+  references, very long names and tag runs, and unicode prose. The
+  Error Zoo loads every contained failure family at once - division
+  by zero, out-of-range powers, malformed numbers, unbalanced
+  parens, unknown functions and names, dead references, recursion
+  depth, arity clashes, fighting units, keyword misuse, and hostile
+  text - each error caged to its own line while the sheet keeps
+  computing past the last cage. If a cell overlaps, an error leaks,
+  or anything misbehaves, the sheet names the finding.
+- Two better error messages fell out of building the zoo: unit
+  dimension clashes now surface the engine's own wording (`3 kg +
+  5 m` names Mass versus Length instead of "unknown name kg"), and
+  a bare period word in dead algebra reads as the unit it is, with
+  numbat's suggested fix attached.
+- Finding, documented: the recursion cap (200 levels) costs about
+  10 KB of stack per level in debug builds - fine on the app's
+  8 MB main thread, over the budget of Rust's default 2 MB test
+  threads, so heavy template computes in the suite run under a
+  big-stack harness.
+
 ## v1.0.0 (2026-10-08)
 
 - 1.0: Phases 6 through 9 are complete and the Soulver-depth surface

@@ -1,0 +1,49 @@
+# Stress Test
+
+// every section is a renderer edge case: nothing here should
+// panic, overlap, or leak across lines. Cells that look clipped
+// show their full text on hover - that is the design working.
+
+## Long lines
+this is a deliberately long prose line with no numbers in it, so
+the view wraps it somewhere and the answers column stays clear
+123456789 + 987654321 + 123456789 + 987654321 + 123456789 + 987654321 + 123456789 + 987654321 + 5
+
+## Wide and tiny answers
+wide = 111111 * 111111 * 111111
+tiny = 2 ^ -100
+third = 1 / 3
+big = 999999999999999999999999 * 2
+
+## Alignment edges
+1
+2.5
+1000000
+0.001
+-3.14159
+
+## Depth
+((((((((((1 + 2) * 3) + 4) * 5) + 6) * 7) + 8) * 9) + 10))
+fact(0) = 1
+fact(n) = n * fact(n - 1)
+fact(30)
+
+## Spacing oddities
+   5   +   5
+	6	+	6
+  7+7
+
+## Blank and forward references
+&100 * 2
+answer_never_comes
+
+## Long names and many tags
+averyveryverylongvariablename_without_spaces = 12
+tagged = 1 @averyveryverylongtagname @a @b @c @d @e @f @g @h
+
+## Unicode prose
+café ☕ résumé ✓ 完成 العربية עברית
+note: emoji beside words, never math
+
+## Still alive
+1 + 1

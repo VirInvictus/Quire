@@ -530,3 +530,14 @@ excluded), pandoc as a bundled engine, and WebKitGTK as a preview pane
   remain recommended eyeball time after the tag - the tour's new
   sections, the rate cells, and the region alignment deserve eyes -
   but they gate polish, not the release.
+- [x] **Post-1.0: stress templates (v1.1.0, 2026-10-08):** a Stress
+    Test (layout edges: wrapped lines, wide and 45-character
+    answers, region-alignment pads, tab-led lines, blank forward
+    refs, unicode prose) and an Error Zoo (every contained failure
+    family plus hostile text), loadable from the template menu.
+    Finding: the recursion cap costs ~10 KB/level in debug builds
+    and overflows Rust's default 2 MB test threads - heavy computes
+    run under a big-stack test harness; the app's 8 MB main thread
+    is unaffected. Also fell out: bridge dimension clashes surface
+    instead of "unknown name" (3 kg + 5 m names Mass vs Length),
+    and the zoo's unknown-function cage tightened.

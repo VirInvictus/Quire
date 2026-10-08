@@ -1,0 +1,42 @@
+# Error Zoo
+
+// every line here fails on purpose. Each error belongs to its own
+// line and poisons nothing: if an error swallows a neighbour,
+// breaks scrolling, or grows outside its cell, that is a real
+// finding.
+
+## Arithmetic
+1 / 0
+2 ^ 10000
+1.2.3
+2 +
+((((((((((1 + 2) * 3) + 4) * 5) + 6) * 7) + 8) * 9) + 10)
+
+## Unknown names
+bloognorch(1)
+sqrt(missing_thing) + 777777 + 888888888888 + another_missing
+
+## References
+&500 * 2
+
+## Functions
+loop(n) = loop(n) + 1
+loop(1)
+f(0) = 0
+f(1, 2)
+
+## Units that fight
+3 kg + 5 m
+2 kg * 3 m
+
+## Keyword misuse
+total = 5
+answer = 7
+
+## Hostile text (never math)
+🜛 ☿ ⛧ alchemical row
+العربية עברית 中文
+3 coffees ☕ at 4 each
+
+## Still alive
+6 * 7

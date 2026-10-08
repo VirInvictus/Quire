@@ -182,6 +182,12 @@ accumulating under Unreleased.
   mixed skeleton) must accept both spellings. The reverse-percent
   recognizer runs BEFORE the mixed skeleton (its word-operator
   `of` would otherwise multiply the phrase into nonsense).
+- The recursion cap (200 quire-call levels) costs roughly 10 KB of
+  stack PER LEVEL in debug builds. The app's 8 MB main thread is
+  fine; Rust's default 2 MB test threads are NOT - heavy template
+  or engine computes in tests run under with_big_stack
+  (templates.rs). If evaluation ever moves off the main thread,
+  give that thread a fat stack or lower the cap.
 - Implicit multiplication (kalker's rule) lives on the expression
   path ONLY: `parser::parse_strict` is the mixed skeleton's
   grammar, so prose remnants never gain products. Because

@@ -54,8 +54,8 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
   ECB daily rates
 - Hand-typed price snapshots with dates (`aapl = 10 * 190 @
   2026-10-06`); portfolio, budget (with budget-vs-actual variance),
-  trip, and a Complex Sample for scientists ship as templates in the
-  menu
+  trip, a Complex Sample for scientists, and two dev torture sheets
+  (a Stress Test and an Error Zoo) ship as templates in the menu
 - Math functions from the engine's prelude: `sqrt(144)` is 12,
   `sin(30 deg)` is 0.5, `log10` and friends work right on a sheet
 - Ctrl+click a math line for its step-by-step breakdown; Ctrl+click

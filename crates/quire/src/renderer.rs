@@ -15,10 +15,13 @@ use sourceview5::{GutterLines, GutterRenderer};
 
 use crate::answers::AnswerCell;
 
-/// Column width in pixels: room for a typical computed value; longer
-/// error messages ellipsize until Phase 7 gives them token-level
-/// treatment. Also consumed by the view's chrome painting.
-pub const COLUMN_WIDTH: i32 = 168;
+/// Column width bounds in pixels. The column breathes to fit its
+/// widest visible answer - dates are 19 characters and outgrew the
+/// old fixed 168 - between this floor (room for a typical computed
+/// value) and this ceiling (past it, answers ellipsize from the
+/// left and the hover tooltip carries the full text).
+pub const MIN_COLUMN_WIDTH: i32 = 168;
+pub const MAX_COLUMN_WIDTH: i32 = 320;
 
 mod imp {
     use super::*;
@@ -27,6 +30,9 @@ mod imp {
     pub struct AnswersRenderer {
         pub answers: RefCell<HashMap<u32, AnswerCell>>,
         pub buffer: RefCell<Option<sourceview5::Buffer>>,
+        /// The current column width: fits the widest visible answer,
+        /// clamped to the bounds above. Recomputed on set_answers.
+        pub width: std::cell::Cell<i32>,
     }
 
     #[glib::object_subclass]
@@ -47,13 +53,17 @@ mod imp {
             obj.set_xpad(12);
             obj.add_css_class("quire-answers");
             obj.set_visible(false);
+            self.width.set(MIN_COLUMN_WIDTH);
         }
     }
 
     impl WidgetImpl for AnswersRenderer {
         fn measure(&self, orientation: gtk4::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
             match orientation {
-                gtk4::Orientation::Horizontal => (COLUMN_WIDTH, COLUMN_WIDTH, -1, -1),
+                gtk4::Orientation::Horizontal => {
+                    let w = self.width.get();
+                    (w, w, -1, -1)
+                }
                 _ => self.parent_measure(orientation, for_size),
             }
         }
@@ -97,7 +107,7 @@ mod imp {
             let layout = obj.create_pango_layout(Some(&cell.text));
             layout.set_alignment(pango::Alignment::Right);
             layout.set_ellipsize(pango::EllipsizeMode::Start);
-            let inner = COLUMN_WIDTH - 2 * obj.xpad();
+            let inner = self.width.get() - 2 * obj.xpad();
             // the layout spans the inner column, right-aligned inside
             // it, so its logical width IS the cell width handed to
             // align_cell: the glyphs end flush at the xpad edge and
@@ -166,7 +176,34 @@ impl AnswersRenderer {
             let mut map = self.imp().answers.borrow_mut();
             *map = answers;
         }
+        self.refit_column();
         self.set_visible(!self.imp().answers.borrow().is_empty());
         self.queue_draw();
+    }
+
+    /// Size the column to its widest visible answer, clamped. Measured
+    /// with the same widget-font layout the cells draw with, so the
+    /// fit is exact at any font; once per burst, not per frame.
+    fn refit_column(&self) {
+        let widest = self
+            .imp()
+            .answers
+            .borrow()
+            .values()
+            .map(|cell| {
+                let layout = self.create_pango_layout(Some(&cell.text));
+                let (w, _) = layout.pixel_size();
+                w
+            })
+            .max()
+            .unwrap_or(0);
+        let inner = (widest + 1).max(0); // one glyph of breathing room
+        let xpad = self.xpad();
+        let width = (inner + 2 * xpad).clamp(MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH);
+        if self.imp().width.get() != width {
+            self.imp().width.set(width);
+            // the gutter re-measures on resize requests
+            self.queue_resize();
+        }
     }
 }

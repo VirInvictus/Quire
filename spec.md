@@ -71,7 +71,9 @@ A line is an Expression if any of these holds:
 - it leads with the keyword `total` (bare, or `total` opening an
   expression such as `total * 2`);
 - it leads with an identifier immediately followed (optional spaces)
-  by `*`, `/`, `^`, or `(`: a reference line like `milk * 2`.
+  by `*`, `/`, `^`, or `(`: a reference line like `milk * 2`;
+- it starts with `&` followed by a digit: a line carrying a
+  reference (`&1 * 3`, see Line references).
 
 That last rule is deliberately narrow. Identifier-led lines whose next
 token is `+` or `-` are Text: prose like "War and Peace - part 1" must
@@ -150,6 +152,21 @@ Date words are sheet vocabulary, case-insensitive:
 - **Engine scope.** Datetimes are unit-engine values: scalar
   arithmetic on them routes to the bridge like quantities.
 
+## Currency (Phase 6)
+
+`50 USD -> EUR` converts through the unit engine against a daily
+reference-rate snapshot the app fetches from the ECB on demand. The
+snapshot caches under `~/.cache/quire/ecb.xml` and seeds the engine
+at startup: once fetched, conversions work offline forever after -
+the stale cache keeps every rate working, and rates can always be
+typed into a sheet by hand. The refresh interval is a setting
+(`currency-refresh-hours`, default 24) with a menu item to force a
+fetch; rates seed once per process, so a refresh applies from the
+next launch. A sheet without rates sees unknown names, never a
+hang. No live prices, ever (see Non-goals): the snapshot is a
+reference rate, and money composes with the unit engine's dimension
+rules - totals over money results sum them dimension-safely.
+
 ## Recurring amounts (Phase 8)
 
 An Expression line may state a recurring amount: a value divided by
@@ -195,10 +212,13 @@ period is a conversion away: `1200/month -> 1/day` answers
 Tab completes the word before the cursor when the match is unique -
 NoteCalc's rule: act only on a unique match, never on ambiguity.
 Candidates are the sheet's own names bound above the cursor line
-plus the engine's names: units and their aliases, prelude
-variables, and currency codes once rates have loaded in the
-session. The word must be identifier-shaped, and a completion
-inserts only its remainder.
+plus the engine's names: units, their aliases, and prelude
+variables. The word must be identifier-shaped, and a completion
+inserts only its remainder. Prefixed unit symbols (`kg`), typechecker
+constants (`pi`), and currency codes evaluate when typed but are not
+candidates: the first are parse-time combinations, the second have
+no public accessor, and the currencies module may only load on
+demand (its unit values snapshot the exchange rates at load).
 
 ## Line references (Phase 7)
 
@@ -277,10 +297,10 @@ An Expression line may end with one or more tags: `@` immediately
 followed by an identifier, each preceded by whitespace (`lunch =
 12.50 @food @london`). Tags are sheet-local labels, not variables.
 
-- **Summing.** `total @tag` reports the sum of every tagged result
-  since the most recent heading - through the unit engine when any
-  item is a quantity, exactly like the plain total's dimension
-  rules. A `total @a @b` sums lines carrying either tag.
+- **Summing.** `total @tag` reports the sheet-wide sum of every
+  tagged result - through the unit engine when any item is a
+  quantity, exactly like the plain total's dimension rules. A
+  `total @a @b` sums lines carrying either tag.
 - **Boundaries.** Tag sums are sheet-wide: a heading sections the
   plain math but never touches them, so categories can live in
   their own sections with the views gathered at the end. A plain
@@ -325,9 +345,6 @@ line-model sheet, where every line evaluates on its own.
   anywhere. Names may not be `total` or `answer`.
 - **Arity.** Calling with the wrong number of arguments fails the
   calling line.
-- **Recursion.** A function cannot call itself (directly or in a
-  cycle): call depth past a small cap fails the calling line rather
-  than looping.
 - **Recursion and clauses.** A function may be defined in multiple
   clauses, and clauses with LITERAL arguments match before general
   ones: `fact(0) = 1` then `fact(n) = n * fact(n - 1)` is a working
@@ -441,14 +458,16 @@ sheet's structure shifts.
 - Table-driven unit tests in-module: classification, tokenizer,
   parser, the four percent forms, variables, `answer`, `total`,
   errors, formatting.
-- File-driven script tests: every
-  `crates/quire-eval/tests/scripts/*.quire` file is a sheet carrying
-  its own expectations. `//= N` trailing a line pins that line's
-  answer (the golden-sheet layer, including every example in this
-  spec); `# expect: N` after an expression line asserts its result;
-  `# err: text` asserts a failure whose message contains `text`. One
-  runner walks the directory; dropping in a new `.quire` file is
-  enough.
+- File-driven script tests: every `.quire` file under
+  `crates/quire-eval/tests/scripts/` (subfolders included) is a
+  sheet carrying its own expectations. `//= N` trailing a line pins
+  that line's answer; `# expect: N` after an expression line asserts
+  its result; `# err: text` asserts a failure whose message contains
+  `text`. One runner walks the tree; dropping in a new `.quire` file
+  is enough. Each feature's corpus carries this spec's examples for
+  that feature (units, recurrence, reverse percents, and so on);
+  the ambiguities subfolder pins the implicit-multiplication edge
+  cases.
 - An adversarial corpus: malformed, hostile, and pathological sheets
   must evaluate without panicking, errors contained to their lines.
 - `quire`: the model layer is tested headlessly. Visual acceptance is

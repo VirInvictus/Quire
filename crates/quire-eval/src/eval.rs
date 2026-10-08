@@ -150,6 +150,10 @@ struct Ctx {
     outcomes: HashMap<usize, Outcome>,
     /// The one-based line being evaluated.
     line: usize,
+    /// True inside a function-call frame: `&N` is sheet-positional
+    /// and bodies refuse it (spec.md "Line references"), exactly as
+    /// they refuse `total`'s sheet position.
+    in_fn_body: bool,
 }
 
 /// Split trailing tags off an Expression line: `lunch = 12.50 @food
@@ -890,14 +894,15 @@ fn collect_callees(expr: &Expr, out: &mut std::collections::BTreeSet<String>) {
 
 /// Render a function body as numbat source, when it translates:
 /// arithmetic, names, and calls do; `total` and `answer` do not
-/// (their meaning is sheet-positional, numbat has none).
+/// (their meaning is sheet-positional, numbat has none), and percent
+/// does not either - a relative percent cannot ride the bridge, so
+/// percent bodies stay scalar-only (spec.md "Functions").
 fn numbat_source(expr: &Expr) -> Option<String> {
     Some(match expr {
         Expr::Num(n) => format!("{n}"),
         Expr::Name(n, _) => n.clone(),
-        Expr::Total(_) | Expr::Answer(_) | Expr::LineRef(..) => return None,
+        Expr::Total(_) | Expr::Answer(_) | Expr::Pct(..) | Expr::LineRef(..) => return None,
         Expr::Neg(_, inner) => format!("(-{})", numbat_source(inner)?),
-        Expr::Pct(_, inner) => format!("(({}) / 100)", numbat_source(inner)?),
         Expr::Bin(op, l, r, _) => format!(
             "({} {} {})",
             numbat_source(l)?,
@@ -1105,6 +1110,7 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
                     steps: ctx.steps,
                     outcomes: ctx.outcomes.clone(),
                     line: ctx.line,
+                    in_fn_body: true,
                 };
                 for (param, value) in params.iter().zip(&arg_values) {
                     if param.chars().next().is_some_and(|c| c.is_ascii_digit()) {
@@ -1138,6 +1144,15 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx) -> Result<Num, Fail> {
             .cloned()
             .ok_or_else(|| QuireError::new(*span, ErrKind::UnknownName(n.clone())))?,
         Expr::LineRef(n, span) => {
+            if ctx.in_fn_body {
+                // sheet-positional like `total` (spec.md "Line
+                // references"): a body cannot hold a ref, or a line
+                // shift would silently re-aim it
+                return Err(Fail::Err(QuireError::new(
+                    *span,
+                    ErrKind::BadLineRef("function bodies cannot use line references".into()),
+                )));
+            }
             if (*n as usize) == ctx.line {
                 return Err(Fail::Err(QuireError::new(
                     *span,
@@ -1504,6 +1519,36 @@ answer * 200
         let sheet = "milk = 3.50\nI paid $5 for milk\n";
         let lines = evaluate_sheet(sheet);
         assert!(lines[1].outcome.is_none());
+    }
+
+    #[test]
+    fn percent_bodies_stay_scalar_only() {
+        // the scalar path reads the relative percent as always
+        let sheet = "p(x) = x + 10%\np(2)\n";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(lines[1].outcome.as_ref().unwrap().render(), "2.2");
+        // the unit path refuses the body (spec.md "Functions"): a
+        // relative percent cannot ride the bridge, so seeding one
+        // would silently change its meaning
+        let sheet = "p(x) = x + 10%\np(2 kg)\n";
+        let lines = evaluate_sheet(sheet);
+        assert!(matches!(
+            &lines[1].outcome,
+            Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::Unit(_) | ErrKind::UnknownName(_))
+        ));
+    }
+
+    #[test]
+    fn line_refs_are_refused_in_function_bodies() {
+        // sheet-positional like `total` (spec.md "Line references"):
+        // a body ref would silently re-aim when lines shift
+        let sheet = "base = 10\nf(x) = &1 + x\nf(5)\n";
+        let lines = evaluate_sheet(sheet);
+        assert!(matches!(
+            &lines[2].outcome,
+            Some(Outcome::Failed(e))
+                if e.kind.to_string().contains("function bodies cannot use line references")
+        ));
     }
 
     #[test]

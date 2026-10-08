@@ -304,22 +304,29 @@ the work lands, with the current recommendation recorded here.
     symbols (`kg`) are parse-time combinations, and typechecker
     constants (`pi`) have no public accessor - both evaluate when
     typed, they are just not candidates. spec "Completion".
-  - [ ] Spec amendment pass: grow spec.md Semantics with whatever
-    lands (the units section is in; currency and dates amend theirs
-    when they land).
+  - [x] Spec amendment pass (2026-10-08): the doc-drift audit found
+    seventeen drifts; the contract now tells the truth everywhere.
+    Currency gained its own section (the cross-reference dangled
+    since Phase 6); the Tags Summing and Functions Recursion bullets
+    no longer contradict their own later amendments; percent bodies
+    and `&N` in function bodies now MATCH the spec's scalar-only
+    refusal in code (both silently did the opposite); the Testing
+    section describes the per-feature corpora instead of a golden
+    sheet that never held every example; the Expression shape lists
+    the `&N` rule; Completion documents its three unreachable
+    candidates.
 
 - [ ] **Phase 7 (post-0.1.0): Soulver-depth semantics.**
   - [ ] **[D]** Stable line references: NoteCalc's `&[line-id]` model
     with a picker UI vs `answer` only; line numbers shift on insert,
     so true references need stable ids. Recommendation: stable ids
     with the interactive chooser.
-  - [ ] Mixed-line evaluation (NoteCalc's classify-by-failure):
-    `50 apples at 3 EUR` evaluates the math and demotes the words.
-    Gated on golden prose tests. (Partially pulled forward 2026-10-06:
-    bare identifier references now evaluate when bound — Brandon hit
-    the strict-shape rule live on his first session and it became a
-    spec amendment; what remains here is mixed prose+math on one
-    line and the `+`/`-` prose exception.)
+  - [x] Mixed-line evaluation (NoteCalc's classify-by-failure):
+    `50 apples at 3 each` evaluates the math and demotes the words
+    (shipped v0.4.0-v0.5.0; the word operators map, failures stay
+    silent, and the skeleton parses strict so prose remnants keep
+    their grammar). Bare identifier references pulled forward
+    2026-10-06 on a live-session spec amendment.
   - [x] Reverse percent forms (2026-10-08): **[D]** gate, Brandon's
     picks: the find-the-percent form answers the fraction (Quire's
     percent-is-its-fraction convention; `30 is what percent of 200`
@@ -351,8 +358,10 @@ the work lands, with the current recommendation recorded here.
     walks subfolders now). spec "Operators" + the routing bullet.
   - [x] User functions: `name(params) = ...` (2026-10-06; inline
     bodies, params shadow sheet variables, redefinition wins below,
-    no recursion - depth-capped, arity-checked, no answer cell on
-    the def line. Scalar-engine citizens in v1; corpus
+    depth-capped, arity-checked, no answer cell on the def line.
+    Superseded since this box was written: recursion with literal
+    clauses landed in v0.5.0 and functions reach the unit engine
+    since v0.3.0 - spec "Functions" is the truth.) Corpus:
     `tests/scripts/functions.quire`.)
   - [x] **[D]** Stable line references (2026-10-07): `&N` visible
     references, any line above or below. Poisoning follows the
@@ -438,11 +447,11 @@ the work lands, with the current recommendation recorded here.
     templates shipped behind a "New from template" menu section -
     the templates are the worked examples, pinned by tests.)
   - [ ] Budget sheets: category sections with heading-bounded
-    subtotals, recurrence phrases, budget-vs-actual as paired
-    variables. NO live prices, ever (spec Non-goals): prices and
-    rates enter sheets as manually typed snapshots. (The budget
-    template ships; recurrence phrases and budget-vs-actual lines
-    remain.)
+    subtotals, recurrence phrases (shipped in v0.7.0), budget-vs-
+    actual as paired variables. NO live prices, ever (spec
+    Non-goals): prices and rates enter sheets as manually typed
+    snapshots. (The migrated budget template ships; budget-vs-actual
+    lines remain.)
   - [ ] Sheet templates shipped with the app (budget, portfolio,
     trip - Soulver 4's trip planning is a recipe, not a feature).
 - [ ] **Phase 10 (post-1.0, gated): rendered preview, if ever.**
@@ -474,7 +483,7 @@ of order.
 | Comments / headings / markdown structure | Shipped (Phases 0, 3) |
 | Line highlighting | Partial: reference lines + answers (Phases 2-3); cursor-line highlight queued |
 | Tags workflow | Phase 8 |
-| Functions | Phase 8 |
+| Functions | Phase 7 |
 | Units | Phase 6 (numbat embed gate) |
 | Currency (manual snapshots) | Phase 6 + Phase 9 (never live) |
 | Calendar / date math | Phase 6 (numbat jiff module) |

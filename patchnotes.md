@@ -6,12 +6,27 @@ Newest first.
 
 - Tab completion reaches the engine: completing a word now offers
   the sheet's names above the cursor plus units and their aliases
-  (`hours`, `kilometer`), prelude variables, and currency codes
-  once rates have loaded - the unique-match rule is unchanged, so
-  Tab still inserts only when one candidate remains. Two numbat API
-  edges are documented in the engine: prefixed symbols (`kg`) and
-  typechecker constants (`pi`) evaluate fine when typed but are not
-  candidates.
+  (`hours`, `kilometer`) and prelude variables - the unique-match
+  rule is unchanged, so Tab still inserts only when one candidate
+  remains. Three numbat edges are documented in the engine:
+  prefixed symbols (`kg`) and typechecker constants (`pi`) evaluate
+  fine when typed but are not candidates, and currency codes can
+  never safely be ones (the currencies module bakes the exchange
+  rates into its unit values at load time, so it may only ever load
+  on demand).
+- The Phase 6 spec amendment pass: a doc-drift audit found seventeen
+  drifts and the contract now tells the truth everywhere. Three were
+  code fixes - percent-bodied functions refuse the unit path (the
+  spec always said so; the code silently seeded them with plain
+  division, changing their meaning), line references in function
+  bodies are refused (sheet-positional like `total`; a body ref
+  would silently re-aim when lines shift), and a currencies pre-load
+  that briefly NaN'd every conversion was reverted for the load-time
+  reason above. The rest were words: Currency gained its own spec
+  section (the cross-reference had dangled since Phase 6), the Tags
+  Summing and Functions Recursion bullets no longer contradict their
+  own later amendments, the Testing section describes the per-
+  feature corpora, and the Expression shape lists the `&N` rule.
 
 ## v0.9.0 (2026-10-08)
 

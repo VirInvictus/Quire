@@ -31,8 +31,10 @@ metainfo, hicolor icons, mime package, tag-gated release CI with
 server-side verbatim notes.
 
 Next: dates depth, budget/portfolio depth (budget-vs-actual lines),
-the two Phase 6 completion boxes (numbat completions, the spec
-amendment pass), and Brandon's display passes.
+and Brandon's display passes. Phase 6 is CLOSED (both completion
+boxes landed 2026-10-08); what stands between the repo and the 1.0
+gate is Brandon's display passes, a release-auditor pre-flight, and
+the tag.
 
 ## Stack
 
@@ -154,13 +156,16 @@ accumulating under Unreleased.
   does).
 - Recurrence phrases ride the unit bridge (spec.md "Recurring
   amounts"): `quarter` registers at startup beside the prelude
-  (`@aliases(quarters)` + `unit quarter: Time = 3 months`); the rate
-  hook fires only when the scalar failure IS an unbound whitelisted
-  period word sitting right after a slash, and a bridge refusal
-  falls back to the scalar funnel so the mixed lines' silence
-  stands. Quantity-valued NAMES route on the touch alone (no unit
-  word needed in the line; `bag * 2` works) - arithmetic over rate
-  variables is how the budget template's leftover line lives.
+  (`@aliases(quarters)` + `unit quarter: Time = 3 months`), and the
+  unit fallback (`unit_line`) hands ANY scalar failure on a
+  bridge-known name to the bridge - units, periods, date words - no
+  whitelist, no slash gate (implicit multiplication made
+  value-unit shapes parse, so the failures surface at evaluation).
+  A bridge refusal falls back to the scalar funnel so the mixed
+  lines' silence stands. Quantity-valued NAMES route on the touch
+  alone (no unit word needed in the line; `bag * 2` works) -
+  arithmetic over rate variables is how the budget template's
+  leftover line lives.
 - `$` before a digit is decoration twice over: the tokenizer skips
   the byte, and bridge source prep strips it textually BEFORE the
   &N translation (a rendered money rate may legitimately
@@ -210,16 +215,19 @@ upstream if a closed citation ever reopens):
 
 - `notecalc3` (AGPL-3.0): the closest Soulver-like. Learn semantics
   and behavior ONLY; AGPL code must never be copied or translated
-  into MIT-licensed Quire. Cited by open Phase 7 items (mixed-line
-  evaluation, region alignment).
-- `kalker` (MIT): parser ladder, span discipline, file-driven engine
-  tests; embeddable alternative engine. Cited by the open Phase 7
-  implicit-multiplication box.
+  into MIT-licensed Quire. Cited by the open Phase 7 region-
+  alignment box.
 - `numbat` (MIT OR Apache-2.0): the embedded engine
-  (`Context::new_without_importer()`, `set_exchange_rates`). Cited by
-  the open Phase 6 completion box and Phase 8's `fn` gate.
+  (`Context::new(BuiltinModuleImporter::default())`,
+  `set_exchange_rates`). Kept as the semantics check for the
+  dependency; its citations closed with Phases 6 and 8, but it is
+  Cargo-linked, not just a shelf clone.
 - `gtksourceview` (LGPL-2.1+, linked): the right-gutter renderer API
   behind the answers column; the markdown.lang fork source.
 - `Apostrophe` (GPL-3.0): markdown editor; preview architecture,
   scroll sync, bundled-font chain, focus modes. Cited by the open
   Phase 7 popover box and the gated Phase 10.
+
+(2026-10-08 second sweep: `kalker` removed - its last citation, the
+Phase 7 implicit-multiplication box, shipped and ticked; re-clone
+from upstream if an ambiguities question ever reopens it.)

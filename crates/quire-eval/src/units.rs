@@ -133,12 +133,15 @@ impl Bridge {
 
     /// The engine's completable names for a prefix: the roadmap trio
     /// (numbat's own completion gatherer, the unit registry, and the
-    /// variable namespace) merged and prefix-filtered. Currency codes
-    /// appear once the currency module has loaded in this process.
-    /// Two documented gaps: prefixed symbols (`kg`) are parse-time
-    /// combinations, not registry names, and typechecker constants
-    /// (`pi`) have no public accessor - both evaluate fine when
-    /// typed (see `knows_unit`), they are just not candidates.
+    /// variable namespace) merged and prefix-filtered. Two documented
+    /// gaps: prefixed symbols (`kg`) are parse-time combinations, not
+    /// registry names, and typechecker constants (`pi`) have no
+    /// public accessor - both evaluate fine when typed (see
+    /// `knows_unit`). Currency codes are not candidates either: the
+    /// currencies module defines each unit's value from the exchange
+    /// rates AT LOAD TIME (NaN when rates are absent), so it must
+    /// only ever load on demand, into a context that is about to
+    /// interpret - never into the long-lived master completions read.
     pub fn completions(&self, prefix: &str) -> Vec<String> {
         MASTER.with(|master| {
             let Some(master) = master.as_ref() else {

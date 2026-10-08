@@ -67,12 +67,14 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
 
 ## Status
 
-Active development. v0.7.0 shipped the core calculator (arithmetic,
-percents, variables, totals, functions with recursion, tags, mixed
-lines, line references, dates, recurring amounts, currency, units),
+Active development. v0.10.0 shipped the core calculator (arithmetic
+with implicit multiplication, percents including the reverse
+questions in words, variables, totals, functions with recursion,
+tags, mixed lines, line references, dates, recurring amounts,
+currency, units, and Tab completion over sheet and engine names),
 the GTK4 editor with the live answers column, document management,
-and desktop packaging. The roadmap's next phase focuses on budget and
-portfolio depth.
+and desktop packaging. The roadmap's next phase focuses on budget
+and portfolio depth.
 
 ## Building
 

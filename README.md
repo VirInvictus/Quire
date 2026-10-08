@@ -69,8 +69,12 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
   no lock-in
 - Tab completes variable and unit names (acting only on a unique
   match)
+- The caret's line carries a subtle band, so you always know where
+  you are; Ctrl+click anywhere in it to break down the math
 - Errors show a red underline on the exact failing token; hover the
   red cell for the full message
+- `quire-cli`: a sheet in, its answers column out - as text or JSON,
+  for terminals, scripts, and agents
 - Wayland-native GTK4, no libadwaita, Kanagawa-themed through
   [vir-gtk](https://github.com/VirInvictus/vir-gtk), bundled JetBrains
   Mono

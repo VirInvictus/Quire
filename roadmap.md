@@ -496,7 +496,7 @@ of order.
 | Percent forms | Shipped (Phase 1) |
 | Totals / subtotals | Shipped (Phase 1, heading-or-total bounded) |
 | Comments / headings / markdown structure | Shipped (Phases 0, 3) |
-| Line highlighting | Partial: reference lines + answers (Phases 2-3); cursor-line highlight queued |
+| Line highlighting | Shipped: reference lines + answers + the cursor-line band (v1.4.0) |
 | Tags workflow | Phase 8 |
 | Functions | Phase 7 |
 | Units | Phase 6 (numbat embed gate) |
@@ -505,7 +505,7 @@ of order.
 | Trip planning | Phase 9 (a sheet template recipe) |
 | Autocomplete | Phase 4 |
 | Line numbers | Phase 4 (toggle) |
-| Agent-friendly CLI | Post-1.0: `quire-eval` already enables a trivial `quire` bin |
+| Agent-friendly CLI | Shipped post-1.0 (v1.4.0): `quire-cli`, a sheet in and its answers column out as text or JSON |
 | Budgets / portfolios | Phase 9 (offline, sheet primitives first) |
 | Rendered preview / sharing | Phase 10 gate (deliberately skipped for now) |
 
@@ -530,6 +530,16 @@ excluded), pandoc as a bundled engine, and WebKitGTK as a preview pane
   remain recommended eyeball time after the tag - the tour's new
   sections, the rate cells, and the region alignment deserve eyes -
   but they gate polish, not the release.
+- [x] **Post-1.0: the rest of the register (v1.4.0, 2026-10-08):**
+    cursor-line highlight (a full-height background TextTag riding
+    the caret's line in the palette's raised card tone - the
+    below-text snapshot hook the Phase 3 notes reserved turned out
+    to be unexposed in sourceview5 0.11, so the native TextTag
+    mechanism does it with zero custom paint), the agent-facing
+    `quire-cli` binary (a sheet in, its answers column out as text
+    or JSON; stdlib-only, a new workspace crate), and the Error
+    Zoo's units section now teaches what it exhibits (addition
+    fights, multiplication composes).
 - [x] **Post-1.0: forward references (v1.3.0, 2026-10-08):** the
     spec promised `&N` on "any line, above or below" but the single
     top-down pass made forward refs permanently blank (Brandon hit

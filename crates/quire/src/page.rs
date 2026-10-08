@@ -147,6 +147,10 @@ pub struct QuirePage {
     /// the evaluation handler id, blocked while the renumber splices
     /// apply so the pipeline never sees its own output
     changed_handler: RefCell<Option<glib::SignalHandlerId>>,
+    /// the cursor-line highlight: a full-height background tag applied
+    /// to the caret's line, plus the line it last painted
+    cursor_tag: sourceview5::Tag,
+    cursor_line: Cell<i32>,
 }
 
 impl QuirePage {
@@ -184,6 +188,8 @@ impl QuirePage {
             formats: RefCell::new(std::collections::HashMap::new()),
             ref_marks: RefCell::new(std::collections::HashMap::new()),
             changed_handler: RefCell::new(None),
+            cursor_tag: sourceview5::Tag::new(Some("quire-cursor-line")),
+            cursor_line: Cell::new(-1),
         });
         Self::wire_evaluation(&page, &buffer);
         Self::wire_answer_tooltips(&page);
@@ -379,6 +385,81 @@ impl QuirePage {
             glib::Propagation::Proceed
         });
         self.view.add_controller(controller);
+    }
+
+    /// The cursor-line highlight: a full-height background tag riding
+    /// the caret's line. The palette is re-read on every update, so a
+    /// dark/light flip repaints on the next caret move. Tag
+    /// applications sit outside the undo stream, so moving around
+    /// never pollutes undo history.
+    pub fn wire_cursor_line(self: &Rc<Self>, buffer: &sourceview5::Buffer) {
+        buffer.tag_table().add(&self.cursor_tag);
+        // full-height: the background spans the line's whole height
+        // even when the line's text is short
+        self.cursor_tag.set_property("background-full-height", true);
+        let page = Rc::downgrade(self);
+        let refresh = move |page: &std::rc::Weak<QuirePage>| {
+            if let Some(page) = page.upgrade() {
+                page.refresh_cursor_line();
+            }
+        };
+        let update = {
+            let page = page.clone();
+            move || refresh(&page)
+        };
+        buffer.connect_changed(move |_| update());
+        let update_mark = {
+            let page = page.clone();
+            move || refresh(&page)
+        };
+        buffer.connect_mark_set(move |_, _location, mark| {
+            if mark.name().as_deref() == Some("insert") {
+                update_mark();
+            }
+        });
+        refresh(&page);
+    }
+
+    /// The Weak tail of the wiring: one first paint once the page is
+    /// fully built.
+    fn wire_cursor_line_done(page: &std::rc::Weak<QuirePage>) {
+        if let Some(page) = page.upgrade() {
+            page.refresh_cursor_line();
+        }
+    }
+
+    /// Repaint the band: drop the tag from the previous line, apply
+    /// it across the caret's line (start of line to start of the
+    /// next; the full-height flag paints the line's own height).
+    fn refresh_cursor_line(&self) {
+        let palette = crate::active_palette();
+        // a parse failure falls back to fully transparent: an
+        // invisible band beats a wrong-colored one
+        let rgba = gtk4::gdk::RGBA::parse(palette.bg_card)
+            .unwrap_or(gtk4::gdk::RGBA::new(0.0, 0.0, 0.0, 0.0));
+        self.cursor_tag.set_property("background-rgba", rgba);
+        let line = self.cursor_iter().line();
+        if line as i32 == self.cursor_line.get() {
+            return;
+        }
+        let bounds = |page: &Self, at: i32| -> Option<(gtk4::TextIter, gtk4::TextIter)> {
+            let start = page.buffer.iter_at_line(at)?;
+            let end = page
+                .buffer
+                .iter_at_line(at + 1)
+                .unwrap_or_else(|| page.buffer.end_iter());
+            Some((start, end))
+        };
+        let old = self.cursor_line.get();
+        if old >= 0 {
+            if let Some((s, e)) = bounds(self, old) {
+                self.buffer.remove_tag(&self.cursor_tag, &s, &e);
+            }
+        }
+        if let Some((s, e)) = bounds(self, line) {
+            self.buffer.apply_tag(&self.cursor_tag, &s, &e);
+        }
+        self.cursor_line.set(line as i32);
     }
 
     /// Ctrl+click on a line inspects it: a task-list item's checkbox

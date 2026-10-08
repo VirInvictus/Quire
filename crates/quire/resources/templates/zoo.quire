@@ -26,7 +26,10 @@ f(0) = 0
 f(1, 2)
 
 ## Units that fight
+// adding Mass to Length is meaningless, and the error names both
 3 kg + 5 m
+// multiplying units is fine, though: they compose (kg*m is torque
+// territory - this is real dimensional algebra, not a bug)
 2 kg * 3 m
 
 ## Keyword misuse

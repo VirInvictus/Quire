@@ -489,7 +489,10 @@ answers column is the value column; the comments are the notes.
 
 - **Two-crate workspace.** `quire-eval` is the engine: sheet model,
   tokenizer, parser, evaluator. No GTK, no I/O dependencies; it is a
-  standalone Rust library by design. `quire` is the GTK4 application.
+  standalone Rust library by design. `quire` is the GTK4 application,
+  and a thin `quire-cli` crate turns a sheet into its answers column
+  as text or JSON - the same engine, readable by terminals and
+  agents.
 - **Toolchain.** Rust 2024 (floor 1.88); `gtk4` 0.11 and `sourceview5`
   0.11 from Phase 2; plain GTK4, no libadwaita, styled through
   `vir-gtk` with the house Kanagawa Dragon palette. `numbat`

@@ -1,11 +1,12 @@
-//! The sheet view subclass. Carries the below-text paint layer that
-//! the Phase 3 cursor-line expression highlight will use; column tone
-//! and hairline live in the renderer's own snapshot, which proved to
-//! be the only paint surface that reliably reaches the screen (the
-//! Gutter widget ignores CSS backgrounds, and the view's below-text
-//! layer is clipped to the text window, under the gutter child).
+//! The sheet view subclass. The cursor-line highlight lives in
+//! page.rs as a full-height background TextTag - the native GTK
+//! mechanism, which needs no custom paint layer (the sourceview
+//! subclass trait in 0.11 exposes no below-text snapshot hook, and a
+//! WidgetImpl::snapshot override cannot paint between the view's
+//! background and its text).
 
 use gtk4::glib;
+use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use sourceview5::subclass::prelude::*;
 

@@ -1,0 +1,13 @@
+[package]
+name = "quire-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+quire-eval = { path = "../quire-eval" }
+
+[[bin]]
+name = "quire-cli"
+path = "src/main.rs"

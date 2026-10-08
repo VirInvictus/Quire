@@ -15,7 +15,7 @@ use numbat::value::Value as UnitValue;
 
 use crate::error::{ErrKind, QuireError};
 use crate::format::format_number;
-use crate::parser::{BinOp, Expr, Stmt, parse};
+use crate::parser::{BinOp, Expr, Stmt, parse, parse_strict};
 use crate::tokens::{Tok, tokenize};
 use crate::units::{self, Bridge};
 use crate::{Line, LineKind};
@@ -357,11 +357,13 @@ fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<Ou
         // classify-by-failure: an unknown name may be prose, and the
         // prose-stripped skeleton may still answer
         Err(Fail::Err(e)) if matches!(e.kind, ErrKind::UnknownName(_)) => {
-            // a recurrence phrase fails the scalar path as an unbound
-            // period word; the hook hands the line to the unit engine
-            // (spec.md "Recurring amounts"). Not a phrase, or the
-            // bridge refused: the mixed skeleton keeps its shot.
-            rate_line(raw, &toks, &e, &tags, ctx, bridge)
+            // a scalar failure on a name the unit engine knows - a
+            // unit, a period, a date word - hands the line to the
+            // bridge (implicit multiplication lets value-unit shapes
+            // parse now, so the failure surfaces here instead of at
+            // the parse). Not bridge-known, or the bridge refused:
+            // the mixed skeleton keeps its shot.
+            unit_line(raw, &toks, &e, &tags, ctx, bridge)
                 .or_else(|| mixed_line(raw, ctx, bridge))
                 .unwrap_or(Outcome::Failed(e))
         }
@@ -468,8 +470,11 @@ fn mixed_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<O
     if !saw_number {
         return None;
     }
-    // the skeleton must parse and evaluate; anything else is prose
-    let stmt = parse(&kept).ok()?;
+    // the skeleton must parse and evaluate; anything else is prose.
+    // Strict grammar: implicit multiplication lives on the
+    // expression path, so a prose remnant like `5 milk` with milk
+    // bound stays prose (spec.md "Operators")
+    let stmt = parse_strict(&kept).ok()?;
     match eval_stmt(&stmt, &[], ctx, bridge) {
         Ok(Some(num)) => Some(num.outcome()),
         _ => None,
@@ -589,37 +594,16 @@ fn reverse_percent(
     None
 }
 
-/// The recurrence periods (spec.md "Recurring amounts"): the closed
-/// whitelist behind `value / period` phrases. Case-insensitive like
-/// the date vocabulary. `quarter` is registered into the engine at
-/// startup (units.rs); the other four shapes are prelude units.
-fn is_period_word(name: &str) -> bool {
-    matches!(
-        name.to_lowercase().as_str(),
-        "day"
-            | "days"
-            | "week"
-            | "weeks"
-            | "month"
-            | "months"
-            | "quarter"
-            | "quarters"
-            | "year"
-            | "years"
-    )
-}
-
-/// The recurrence-phrase hook (spec.md "Recurring amounts"): a
-/// scalar failure on an unbound period word routes the line to the
-/// unit bridge, which reads `value / period` natively and answers
-/// with a rate quantity. Strict shape: the failed name must sit
-/// immediately after a slash, the line must carry no Quire keyword
-/// or percent (the routing rule), and a period name bound as a
-/// variable wins before the hook ever fires (the binding answered
-/// the lookup; the failure IS the bare period word). A bridge
+/// The unit fallback (spec.md "Unit expressions" routing): a scalar
+/// failure on an unbound name the bridge knows - a unit, a period,
+/// or a date word - hands the raw line to the bridge, which reads it
+/// natively and answers with a quantity. Implicit multiplication
+/// lets value-unit shapes parse on the scalar path now, so this
+/// catches what the parse-failed route used to. Keyword- and
+/// percent-carrying lines stay scalar (the routing rule). A bridge
 /// refusal returns None so the caller's scalar funnel - mixed-line
 /// silence included - stands untouched.
-fn rate_line(
+fn unit_line(
     raw: &str,
     toks: &[crate::tokens::Token],
     e: &QuireError,
@@ -630,13 +614,8 @@ fn rate_line(
     let ErrKind::UnknownName(name) = &e.kind else {
         return None;
     };
-    if !is_period_word(name) || bridge.is_none() {
-        return None;
-    }
-    let slashed = toks.windows(2).any(|w| {
-        matches!(w[0].tok, Tok::Slash) && matches!(&w[1].tok, Tok::Ident(n) if is_period_word(n))
-    });
-    if !slashed
+    let known = bridge.as_ref().is_some_and(|b| b.knows_unit(name)) || is_date_word(name);
+    if !known
         || toks
             .iter()
             .any(|t| matches!(t.tok, Tok::Total | Tok::Answer | Tok::Of | Tok::Percent))
@@ -648,8 +627,7 @@ fn rate_line(
             record_tags(ctx, tags, Num::Q(v.clone()));
             Some(Outcome::Quantity(v))
         }
-        // the line carries more than a phrase (an unbound name the
-        // bridge cannot seed, a dimension clash): fall back
+        // the line carries more than the bridge can read: fall back
         _ => None,
     }
 }
@@ -1296,7 +1274,8 @@ mod tests {
                 expected: "a value"
             }
         );
-        assert_eq!(err_of("2 3"), ErrKind::TrailingTokens);
+        // `2 3` multiplies now (implicit); a stray closer trails
+        assert_eq!(err_of("2 )"), ErrKind::TrailingTokens);
         assert_eq!(err_of("()"), ErrKind::EmptyParens);
         // `$5` is decoration now (see dollar_prefix_is_decoration);
         // the error table keeps a stray-`$` case
@@ -1485,10 +1464,46 @@ answer * 200
     #[test]
     fn phrase_misses_keep_the_old_paths() {
         // a near-miss on an expression line keeps its honest error
-        assert_eq!(err_of("20 is 10% of somewhere"), ErrKind::TrailingTokens);
+        // (the first unknown name, now that the line parses)
+        assert_eq!(
+            err_of("20 is 10% of somewhere"),
+            ErrKind::UnknownName("is".into())
+        );
         // prose that merely contains `is` stays prose
         let lines = evaluate_sheet("rent is due soon\n");
         assert!(lines[0].outcome.is_none());
+    }
+
+    #[test]
+    fn implicit_multiplication_evaluates() {
+        assert_eq!(show("3(4 + 5)"), "27");
+        assert_eq!(show("2 3"), "6");
+        assert_eq!(show("(1 + 2)(3 + 4)"), "21");
+        assert_eq!(show("2 -3"), "-1");
+        let sheet = "x = 7\n2x\n1/2x\n2^3x\n";
+        let lines = evaluate_sheet(sheet);
+        let values: Vec<_> = lines[1..]
+            .iter()
+            .map(|l| l.outcome.as_ref().unwrap().render())
+            .collect();
+        assert_eq!(values, vec!["14", "3.5", "56"]);
+        // value-unit shapes route through the engine as before
+        assert_eq!(show("5 kg + 300 g"), "5300 g");
+    }
+
+    #[test]
+    fn implicit_mult_keeps_calls_and_prose() {
+        let sheet = "double(x) = x * 2\ndouble(21)\ndouble(21)(2)\n";
+        let lines = evaluate_sheet(sheet);
+        // the definition line: no cell
+        assert!(lines[0].outcome.is_none());
+        assert_eq!(lines[1].outcome.as_ref().unwrap().render(), "42");
+        assert_eq!(lines[2].outcome.as_ref().unwrap().render(), "84");
+        // a prose remnant with a bound name stays silent (the mixed
+        // skeleton parses strict)
+        let sheet = "milk = 3.50\nI paid $5 for milk\n";
+        let lines = evaluate_sheet(sheet);
+        assert!(lines[1].outcome.is_none());
     }
 
     #[test]
@@ -1793,12 +1808,13 @@ loop(1)
                 .into_iter()
                 .all(|l| l.outcome.is_none())
         );
-        // a dangling word operator fails the line: the trailing
-        // tokens are an honest error, never a silent guess
+        // a dangling word operator fails the line: never a silent
+        // guess (the honest error surfaces from the first unknown
+        // name now that implicit multiplication parses the line)
         let lines = evaluate_sheet("3 pears plus\n");
         assert!(matches!(
             &lines[0].outcome,
-            Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::TrailingTokens)
+            Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::UnknownName(_))
         ));
     }
 

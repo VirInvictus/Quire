@@ -31,6 +31,7 @@ answer * 200
 20 IS 10% OF WHAT
 # expect: 200
 
-// a near-miss keeps the old behavior
+// a near-miss keeps the old behavior (the honest error surfaces
+// from the first unknown name now that the line parses)
 20 is 10% of somewhere
-# err: extra input
+# err: unknown name

@@ -43,6 +43,10 @@ answer * 2
 220 is 10% on what
 30 is what percent of 200
 
+## Math, the way you jot it
+2pi
+3(4 + 5)
+
 ## Variables, references, and totals
 rent = 950 @fixed
 groceries = 320 @fixed
@@ -822,6 +826,7 @@ mod tests {
             "150",
             "200",
             "0.15",
+            "27",
             "950 /month",
             "60 /quarter",
             "11400",

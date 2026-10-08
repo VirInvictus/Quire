@@ -329,8 +329,20 @@ the work lands, with the current recommendation recorded here.
     token, which the matcher must accept). No-match keeps the
     silence. spec "Reverse percents"; corpus
     `tests/scripts/reverse-percent.quire`.
-  - [ ] Implicit multiplication (`2pi`, `3(4+5)`) with a dedicated
-    ambiguities test folder (kalker pattern).
+  - [x] Implicit multiplication (2026-10-08): `2pi`, `3(4+5)`,
+    `(1+2)(3+4)`, `2 3` - kalker's rule verbatim: a number, bare
+    name, or `(` directly after a value multiplies at `*`
+    precedence, left-associative (`1/2pi` is `(1/2)*pi`), power
+    binds tighter, and `name(` stays a call. Two riders the parser
+    change forced: the mixed-line skeleton now parses strict
+    (implicit lives on the expression path only, so prose remnants
+    keep their grammar), and the unit fallback generalized - a
+    scalar failure on a name the bridge knows hands the line over,
+    because value-unit shapes (`5 kg + 300 g`) parse on the scalar
+    path now. Honest errors surface from the first unknown name
+    instead of the parser; three pins moved with that. Dedicated
+    ambiguities folder: `tests/scripts/ambiguities/` (the runner
+    walks subfolders now). spec "Operators" + the routing bullet.
   - [x] User functions: `name(params) = ...` (2026-10-06; inline
     bodies, params shadow sheet variables, redefinition wins below,
     no recursion - depth-capped, arity-checked, no answer cell on

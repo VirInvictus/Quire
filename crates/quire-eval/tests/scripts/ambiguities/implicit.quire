@@ -1,0 +1,31 @@
+# Implicit multiplication (kalker's rule)
+
+// a number, bare name, or ( after a value multiplies
+
+// adjacent numbers
+2 3
+# expect: 6
+
+// name adjacency, bound above
+x = 7
+# expect: 7
+2x
+# expect: 14
+
+// same precedence as *, left-associative: 1/2x is (1/2)*x
+1/2x
+# expect: 3.5
+
+// power binds tighter: 2^3x is (2^3)*x
+2^3x
+# expect: 56
+
+// paren chains
+3(4 + 5)
+# expect: 27
+(1 + 2)(3 + 4)
+# expect: 21
+
+// subtraction is not implicit
+2 -3
+# expect: -1

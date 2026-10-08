@@ -54,6 +54,18 @@ pub enum Stmt {
 }
 
 pub fn parse(tokens: &[Token]) -> Result<Stmt, QuireError> {
+    parse_inner(tokens, true)
+}
+
+/// Parse with implicit multiplication OFF: the mixed-line
+/// skeleton's grammar (spec.md "Operators"), so a prose remnant
+/// like `5 milk` with `milk` bound stays prose. Everything else is
+/// identical.
+pub fn parse_strict(tokens: &[Token]) -> Result<Stmt, QuireError> {
+    parse_inner(tokens, false)
+}
+
+fn parse_inner(tokens: &[Token], implicit: bool) -> Result<Stmt, QuireError> {
     if tokens.is_empty() {
         return Err(QuireError::new(
             (0, 0),
@@ -116,6 +128,7 @@ pub fn parse(tokens: &[Token]) -> Result<Stmt, QuireError> {
                 toks: tokens,
                 pos: close + 2,
                 depth: 0,
+                implicit,
             };
             let body = p.expr()?;
             p.expect_end()?;
@@ -129,6 +142,7 @@ pub fn parse(tokens: &[Token]) -> Result<Stmt, QuireError> {
                 toks: tokens,
                 pos: 2,
                 depth: 0,
+                implicit,
             };
             let e = p.expr()?;
             p.expect_end()?;
@@ -147,6 +161,7 @@ pub fn parse(tokens: &[Token]) -> Result<Stmt, QuireError> {
                 toks: tokens,
                 pos: 0,
                 depth: 0,
+                implicit,
             };
             let e = p.expr()?;
             p.expect_end()?;
@@ -159,6 +174,10 @@ struct P<'t> {
     toks: &'t [Token],
     pos: usize,
     depth: u32,
+    /// implicit multiplication lives on the expression path only:
+    /// the mixed-line skeleton parses with it off so prose
+    /// remnants keep today's grammar (spec.md "Operators")
+    implicit: bool,
 }
 
 type R = Result<Expr, QuireError>;
@@ -203,14 +222,22 @@ impl<'t> P<'t> {
     fn term(&mut self) -> R {
         let mut lhs = self.unary()?;
         while let Some(t) = self.peek() {
-            let op = match t.tok {
-                Tok::Star => BinOp::Mul,
-                Tok::Slash => BinOp::Div,
-                Tok::Of => BinOp::Mul,
+            let (op, consume) = match t.tok {
+                Tok::Star => (BinOp::Mul, true),
+                Tok::Slash => (BinOp::Div, true),
+                Tok::Of => (BinOp::Mul, true),
+                // implicit multiplication (kalker's rule): a number,
+                // bare name, or `(` directly after a value multiplies
+                // at `*` precedence, left-associative (`1/2pi` is
+                // `(1/2)*pi`). The token is not consumed; `name(`
+                // still reaches primary's call branch first.
+                Tok::Num(_) | Tok::Ident(_) | Tok::LParen if self.implicit => (BinOp::Mul, false),
                 _ => break,
             };
             let span = t.span;
-            self.pos += 1;
+            if consume {
+                self.pos += 1;
+            }
             let rhs = self.unary()?;
             lhs = Expr::Bin(op, Box::new(lhs), Box::new(rhs), span);
         }
@@ -423,8 +450,9 @@ mod tests {
 
     #[test]
     fn error_positions() {
-        // trailing junk carries its own span
-        let toks = tokenize("2 3").expect("tokenizes");
+        // trailing junk carries its own span (`2 3` multiplies now;
+        // a stray closer still trails)
+        let toks = tokenize("2 )").expect("tokenizes");
         assert!(
             matches!(parse(&toks), Err(e) if e.kind == ErrKind::TrailingTokens && e.span == (2, 3))
         );
@@ -437,5 +465,44 @@ mod tests {
         let deep: String = "(".repeat(5000);
         let toks = tokenize(&deep).expect("tokenizes");
         assert!(matches!(parse(&toks), Err(e) if e.kind == ErrKind::NestTooDeep));
+    }
+
+    #[test]
+    fn implicit_multiplication() {
+        // the headline shapes
+        assert!(matches!(expr("2pi"), Expr::Bin(BinOp::Mul, l, _, _)
+            if matches!(*l, Expr::Num(2.0))));
+        assert!(matches!(expr("3(4 + 5)"), Expr::Bin(BinOp::Mul, l, _, _)
+            if matches!(*l, Expr::Num(3.0))));
+        // paren-paren chains
+        assert!(matches!(expr("(1 + 2)(3 + 4)"), Expr::Bin(BinOp::Mul, ..)));
+        // adjacent numbers multiply
+        assert!(matches!(expr("2 3"), Expr::Bin(BinOp::Mul, ..)));
+        // same precedence as *, left-associative: 1/2pi is (1/2)*pi
+        assert!(matches!(expr("1/2pi"), Expr::Bin(BinOp::Mul, l, _, _)
+            if matches!(*l, Expr::Bin(BinOp::Div, ..))));
+        // power binds tighter: 2^3pi is (2^3)*pi
+        assert!(matches!(expr("2^3pi"), Expr::Bin(BinOp::Mul, l, _, _)
+            if matches!(*l, Expr::Bin(BinOp::Pow, ..))));
+        // subtraction is not implicit: 2 -3 stays binary
+        assert!(matches!(expr("2 -3"), Expr::Bin(BinOp::Sub, ..)));
+        // a name followed by ( is a call, not a product
+        assert!(matches!(expr("milk(2)"), Expr::Call(..)));
+        // a call followed by a value multiplies
+        assert!(matches!(expr("milk(2)x"), Expr::Bin(BinOp::Mul, l, _, _)
+            if matches!(*l, Expr::Call(..))));
+    }
+
+    #[test]
+    fn strict_mode_keeps_the_old_grammar() {
+        // the mixed-line skeleton parses with implicit mult off
+        let toks = tokenize("2 3").expect("tokenizes");
+        assert!(matches!(
+            parse_strict(&toks),
+            Err(e) if e.kind == ErrKind::TrailingTokens
+        ));
+        // explicit operators are unaffected
+        let toks = tokenize("2 * 3").expect("tokenizes");
+        assert!(matches!(parse_strict(&toks), Ok(Stmt::Expr(..))));
     }
 }

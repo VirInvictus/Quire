@@ -1,0 +1,29 @@
+# Ambiguities: calls, prose, and the engine boundary
+
+// a name followed by ( is a call, never a product
+double(x) = x * 2
+double(21)
+# expect: 42
+
+// a call followed by a value multiplies
+double(21)(2)
+# expect: 84
+
+// unknown names keep the prose demotion
+2 tickets to the show
+# expect: 2
+2 bloognorch
+# expect: 2
+
+// a prose remnant with a bound name stays prose (the mixed
+// skeleton parses strict; no cell grows on the line below)
+milk = 3.50
+# expect: 3.5
+I paid $5 for milk
+
+// unit shapes route through the engine unchanged
+5 kg + 300 g
+# expect: 5300 g
+
+// 2pi rides the bridge's own implicit multiplication
+2pi

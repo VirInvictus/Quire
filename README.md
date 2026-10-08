@@ -28,6 +28,8 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
 
 - Per-line results as you type; an error belongs to its line and never
   breaks the others
+- Math the way you jot it: `2pi`, `3(4 + 5)`, `(1 + 2)(3 + 4)` all
+  multiply without an operator, at `*` precedence
 - Variables, bare references (`groceries` on its own line answers with
   its value), `answer`, and `total` for running subtotals
 - Percentage forms that match how they are spoken: `200 + 15%` is 230,

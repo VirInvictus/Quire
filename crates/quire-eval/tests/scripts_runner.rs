@@ -21,15 +21,25 @@ fn script_files_hold_their_expectations() {
     // (every currency at 1.0)
     quire_eval::use_test_rates();
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/scripts");
-    let mut paths: Vec<_> = fs::read_dir(&dir)
-        .expect("scripts directory exists")
-        .map(|e| e.expect("readable entry").path())
-        .filter(|p| p.extension().is_some_and(|e| e == "quire"))
-        .collect();
+    let mut paths = Vec::new();
+    collect_scripts(&dir, &mut paths);
     paths.sort();
     assert!(!paths.is_empty(), "no .quire scripts found");
     for path in paths {
         run_script(&path);
+    }
+}
+
+/// Walk the scripts tree: subfolders (the ambiguities corpus, the
+/// kalker pattern) hold their own `.quire` sheets.
+fn collect_scripts(dir: &Path, paths: &mut Vec<std::path::PathBuf>) {
+    for e in fs::read_dir(dir).expect("scripts directory exists") {
+        let p = e.expect("readable entry").path();
+        if p.is_dir() {
+            collect_scripts(&p, paths);
+        } else if p.extension().is_some_and(|e| e == "quire") {
+            paths.push(p);
+        }
     }
 }
 

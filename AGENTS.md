@@ -173,6 +173,14 @@ accumulating under Unreleased.
   mixed skeleton) must accept both spellings. The reverse-percent
   recognizer runs BEFORE the mixed skeleton (its word-operator
   `of` would otherwise multiply the phrase into nonsense).
+- Implicit multiplication (kalker's rule) lives on the expression
+  path ONLY: `parser::parse_strict` is the mixed skeleton's
+  grammar, so prose remnants never gain products. Because
+  value-unit shapes (`5 kg + 300 g`) parse on the scalar path now,
+  `unit_line` in eval.rs catches UnknownName failures on
+  bridge-known names - the parse-failed route alone no longer
+  reaches every unit line. Honest near-miss errors therefore
+  surface from the first unknown name, not the parser.
 - Every landed chunk updates the docs (see "Docs flow"): patchnotes
   bullet, roadmap ticks, spec on semantics, README on user-facing
   reality, this file on agent-facing reality. All five were current

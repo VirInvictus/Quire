@@ -16,7 +16,7 @@ mod units;
 pub use error::{ErrKind, QuireError, Span};
 pub use eval::{LineOutcome, Outcome, evaluate_line, evaluate_sheet};
 pub use format::{format_number, format_number_with};
-pub use parser::{Expr, Stmt, parse};
+pub use parser::{Expr, Stmt, parse, parse_strict};
 pub use tokens::{Tok, tokenize};
 pub use units::{render, set_exchange_rates, use_test_rates};
 

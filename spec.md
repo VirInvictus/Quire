@@ -95,15 +95,19 @@ sections).
 
 - **Routing.** A line evaluates on the scalar engine exactly as
   before, byte for byte. The numbat path takes an Expression line
-  only when the scalar path declines it, in one of three ways: the
+  only when the scalar path declines it, in one of these ways: the
   line's parse failed and at least one identifier numbat knows as a
-  unit; its evaluation touched a quantity-valued name (arithmetic
-  over quantity results and variables - the names are bound, the
-  bridge seeds them, so no unit word is needed in the line); or the
-  line carries a recurrence phrase (see Recurring amounts). In every
-  case the line's tokens include no Quire keyword (`of`, `total`,
-  `answer`) and no percent. Everything else keeps today's behavior,
-  including its errors.
+  unit; its evaluation failed on an unbound name the unit engine
+  knows (a unit, a period, or a date word - implicit multiplication
+  now lets value-unit shapes parse on the scalar path, so the
+  failure surfaces at evaluation); its evaluation touched a
+  quantity-valued name (arithmetic over quantity results and
+  variables - the names are bound, the bridge seeds them, so no
+  unit word is needed in the line); or the line carries a
+  recurrence phrase (see Recurring amounts). In every case the
+  line's tokens include no Quire keyword (`of`, `total`, `answer`)
+  and no percent. Everything else keeps today's behavior, including
+  its errors.
 - **Quantities.** A unit line's result is a quantity: a number and a
   dimension (`5 kg + 300 g` is `5.3 kg`). Quantity results bind like
   any result: toward `answer`, toward totals, visible to lines below,
@@ -340,7 +344,15 @@ line-model sheet, where every line evaluates on its own.
   ISO-code syntax, `50 USD -> EUR`; see Recurring amounts).
 - **Operators.** `+`, `-`, `*`, `/`; parentheses; unary minus; `^`
   for power, right-associative, binding tighter than unary minus, so
-  `-2^2` is `-(2^2)`.
+  `-2^2` is `-(2^2)`. Implicit multiplication: a number, bare name,
+  or `(` directly after a value multiplies - `2pi`, `3(4+5)`,
+  `(1+2)(3+4)`, `2 3` - at the same precedence as `*`,
+  left-associative, so `1/2pi` is `(1/2)*pi`. A name followed by `(`
+  is still a function call, `2 -3` is still subtraction, and
+  unknown names keep the mixed lines' demotion (`2 tickets` is
+  still `2`). The mixed-line skeleton itself keeps today's grammar:
+  implicit multiplication lives on the expression path, not in
+  prose remnants.
 - **Percent.** The four forms:
   - `x%` alone is `x / 100`;
   - `a + b%` is `a + a*b/100`, and `a - b%` is `a - a*b/100`

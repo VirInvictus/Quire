@@ -2,6 +2,24 @@
 
 Newest first.
 
+## v0.9.0 (2026-10-08)
+
+- Implicit multiplication, kalker's rule: a number, bare name, or
+  `(` directly after a value multiplies - `2pi`, `3(4 + 5)`,
+  `(1 + 2)(3 + 4)`, `2 3` - at the same precedence as `*`,
+  left-associative (`1/2pi` is `(1/2)*pi`), with power binding
+  tighter and `name(` staying a function call. The starter sheet
+  gained a "Math, the way you jot it" section, and the ambiguities
+  corpus ships as its own folder (`tests/scripts/ambiguities/`).
+- Two riders the parser change forced, both userspace-preserving:
+  the mixed-line skeleton now parses with implicit multiplication
+  off, so a prose remnant like `I paid $5 for milk` with milk bound
+  stays prose exactly as before; and the unit fallback generalized -
+  a scalar failure on any name the unit engine knows hands the line
+  to the bridge, because value-unit shapes parse on the scalar path
+  now. Near-miss errors surface from the first unknown name instead
+  of the parser (an honest error either way).
+
 ## v0.8.0 (2026-10-08)
 
 - Reverse percent questions answer in words: `220 is 10% on what` is

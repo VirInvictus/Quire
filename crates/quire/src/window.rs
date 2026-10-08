@@ -2,6 +2,7 @@
 //! save / save-as), recents, the unsaved-changes guard, and the
 //! line-numbers toggle.
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk4::gio;
@@ -93,8 +94,18 @@ impl QuireWindow {
     /// "Definition sheets"): pick a name, land on its line, and the
     /// answers column and any trailing comment carry the rest.
     fn wire_outline(&self) {
+        type OutlineSignature = (Vec<(usize, String)>, Vec<(usize, String)>);
         let win = self.clone();
+        let last_outline: Rc<RefCell<Option<OutlineSignature>>> = Rc::new(RefCell::new(None));
         self.page.set_on_reindex(move |index| {
+            // most bursts change no headings or names; rebuilding the
+            // gio::Menu (and repopulating the popover) per keystroke
+            // is GObject churn for nothing
+            let signature = (index.headings.clone(), index.assignments.clone());
+            if *last_outline.borrow() == Some(signature.clone()) {
+                return;
+            }
+            *last_outline.borrow_mut() = Some(signature);
             let menu = gio::Menu::new();
             for (line, title) in &index.headings {
                 menu.append(

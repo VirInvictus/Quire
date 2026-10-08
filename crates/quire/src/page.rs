@@ -161,6 +161,9 @@ pub struct QuirePage {
     /// to the caret's line, plus the line it last painted
     cursor_tag: sourceview5::Tag,
     cursor_line: Cell<i32>,
+    /// the (line, span) set the error highlights were last painted
+    /// from; identical sets skip the teardown/rebuild
+    error_signature: RefCell<Vec<(u32, usize, usize)>>,
 }
 
 impl QuirePage {
@@ -200,6 +203,7 @@ impl QuirePage {
             changed_handler: RefCell::new(None),
             cursor_tag: sourceview5::Tag::new(Some("quire-cursor-line")),
             cursor_line: Cell::new(-1),
+            error_signature: RefCell::new(Vec::new()),
         });
         Self::wire_evaluation(&page, &buffer);
         Self::wire_answer_tooltips(&page);
@@ -434,16 +438,16 @@ impl QuirePage {
     /// it across the caret's line (start of line to start of the
     /// next; the full-height flag paints the line's own height).
     fn refresh_cursor_line(&self) {
+        let line = self.cursor_iter().line();
+        if line == self.cursor_line.get() {
+            return;
+        }
         let palette = crate::active_palette();
         // a parse failure falls back to fully transparent: an
         // invisible band beats a wrong-colored one
         let rgba = gtk4::gdk::RGBA::parse(palette.bg_card)
             .unwrap_or(gtk4::gdk::RGBA::new(0.0, 0.0, 0.0, 0.0));
         self.cursor_tag.set_property("background-rgba", rgba);
-        let line = self.cursor_iter().line();
-        if line == self.cursor_line.get() {
-            return;
-        }
         let bounds = |page: &Self, at: i32| -> Option<(gtk4::TextIter, gtk4::TextIter)> {
             let start = page.buffer.iter_at_line(at)?;
             let end = page
@@ -613,67 +617,75 @@ impl QuirePage {
         // here so it can never be forgotten when evaluation is wired
         Self::wire_cursor_line(page, buffer);
         let pending = Rc::new(Cell::new(false));
-        let handler = buffer.connect_changed(glib::clone!(
-            #[weak]
-            page,
-            #[strong]
-            pending,
-            move |_| {
-                if pending.replace(true) {
-                    return;
-                }
-                glib::idle_add_local_once(glib::clone!(
-                    #[weak]
-                    page,
-                    #[strong]
-                    pending,
-                    move || {
-                        pending.set(false);
-                        if crate::settings::follow_refs() {
-                            page.converge_refs_step();
-                        } else if !page.ref_marks.borrow().is_empty() {
-                            page.drop_ref_marks();
-                        }
-                        let text = page.buffer.text(
-                            &page.buffer.start_iter(),
-                            &page.buffer.end_iter(),
-                            true,
-                        );
-                        let text = text.to_string();
-
-                        let debug = std::env::var("QUIRE_DEBUG").as_deref() == Ok("1");
-                        let started = std::time::Instant::now();
-                        let cells = answers::compute_with_formats(
-                            &text,
-                            &page.formats.borrow(),
-                            crate::settings::answer_decimals(),
-                        );
-                        let error_count = cells.values().filter(|c| c.is_error).count();
-                        page.answers.replace(cells.clone());
-                        page.apply_error_highlights(&cells);
-                        page.renderer.set_answers(cells);
-                        if debug {
-                            let (_, stats) = quire_eval::evaluate_sheet_stats(&text);
-                            let (width, over) = page.renderer.debug_info();
-                            eprintln!(
-                                "[quire] {} lines, {} passes{}, column {} px, \
-                                 {} over-cap, {} errors, {:.1} ms",
-                                stats.lines,
-                                stats.passes,
-                                if stats.capped { " (CAP HIT)" } else { "" },
-                                width,
-                                over,
-                                error_count,
-                                started.elapsed().as_secs_f64() * 1000.0,
-                            );
-                        }
-                        if let Some(f) = page.on_reindex.borrow().as_ref() {
-                            f(&index_sheet(&text));
-                        }
-                    }
-                ));
+        let tick_scheduled = Rc::new(Cell::new(false));
+        let view = page.view.clone();
+        let page_weak = Rc::downgrade(page);
+        // frame-clock evaluation: the tick runs in the frame's update
+        // phase, so the answers land in the SAME frame as the typed
+        // text instead of trailing it (an idle at priority 200 paints
+        // a frame behind the 120-priority echo frame - the "slight
+        // split" from typing). One tick per burst; the coalescing
+        // cells batch everything else.
+        let handler = buffer.connect_changed(move |_| {
+            if pending.replace(true) {
+                return;
             }
-        ));
+            if tick_scheduled.replace(true) {
+                return;
+            }
+            // fresh Rc clones per scheduled tick: the outer closure is
+            // an Fn and cannot hand its captures to the tick by value
+            let view = view.clone();
+            let pending = pending.clone();
+            let tick_scheduled = tick_scheduled.clone();
+            let page = page_weak.clone();
+            view.add_tick_callback(move |_, _| {
+                tick_scheduled.set(false);
+                pending.set(false);
+                let Some(page) = page.upgrade() else {
+                    return glib::ControlFlow::Break;
+                };
+                if crate::settings::follow_refs() {
+                    page.converge_refs_step();
+                } else if !page.ref_marks.borrow().is_empty() {
+                    page.drop_ref_marks();
+                }
+                let text = page
+                    .buffer
+                    .text(&page.buffer.start_iter(), &page.buffer.end_iter(), true)
+                    .to_string();
+                let debug = std::env::var("QUIRE_DEBUG").as_deref() == Ok("1");
+                let started = std::time::Instant::now();
+                let cells = answers::compute_with_formats(
+                    &text,
+                    &page.formats.borrow(),
+                    crate::settings::answer_decimals(),
+                );
+                let error_count = cells.values().filter(|c| c.is_error).count();
+                page.answers.replace(cells.clone());
+                page.apply_error_highlights(&cells);
+                page.renderer.set_answers(cells);
+                if debug {
+                    let (_, stats) = quire_eval::evaluate_sheet_stats(&text);
+                    let (width, over) = page.renderer.debug_info();
+                    eprintln!(
+                        "[quire] {} lines, {} passes{}, column {} px, \
+                         {} over-cap, {} errors, {:.1} ms",
+                        stats.lines,
+                        stats.passes,
+                        if stats.capped { " (CAP HIT)" } else { "" },
+                        width,
+                        over,
+                        error_count,
+                        started.elapsed().as_secs_f64() * 1000.0,
+                    );
+                }
+                if let Some(f) = page.on_reindex.borrow().as_ref() {
+                    f(&index_sheet(&text));
+                }
+                glib::ControlFlow::Break
+            });
+        });
         *page.changed_handler.borrow_mut() = Some(handler);
     }
 
@@ -938,6 +950,18 @@ impl QuirePage {
     /// sheet. Previous highlights are cleared every pass - the map is
     /// rebuilt wholesale, so the tags follow.
     fn apply_error_highlights(&self, cells: &std::collections::HashMap<u32, answers::AnswerCell>) {
+        // unchanged error sets are common (most bursts edit one line);
+        // skipping the teardown/rebuild keeps error lines from
+        // repainting every pass
+        let signature: Vec<(u32, usize, usize)> = cells
+            .iter()
+            .filter_map(|(num, cell)| cell.error_span.map(|(a, b)| (*num, a, b)))
+            .collect();
+        if *self.error_signature.borrow() == signature {
+            return;
+        }
+        *self.error_signature.borrow_mut() = signature.clone();
+
         let tag_table = self.buffer.tag_table();
         if tag_table.lookup("quire-error-token").is_none() {
             let tag = gtk4::TextTag::new(Some("quire-error-token"));

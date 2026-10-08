@@ -10,6 +10,7 @@
 //! statements become numbat `let`s, since `=` in numbat is
 //! comparison).
 
+use std::cell::RefCell;
 use std::collections::HashSet;
 
 use numbat::Context;
@@ -23,6 +24,39 @@ use numbat::value::Value;
 // the clone, so the master stays pristine.
 thread_local! {
     static MASTER: Option<Context> = build_master();
+    /// knows_unit probe answers, memoized per process. The master
+    /// never mutates, so a probe's outcome can never change; probes
+    /// cost a full master clone + parse each, and prose lines probe
+    /// every word they contain on every pass.
+    static PROBE_MEMO: RefCell<std::collections::HashMap<String, bool>> =
+        RefCell::new(std::collections::HashMap::new());
+}
+
+/// The engine's own answer to `does `1 {name}` parse as a quantity`,
+/// cached. First probe per name clones the master and tries; every
+/// later probe is a set lookup.
+fn probe_memo(name: &str) -> bool {
+    PROBE_MEMO.with(|memo| {
+        // exact name: numbat units are case-sensitive (K is kelvin,
+        // k is kilo)
+        if let Some(hit) = memo.borrow().get(name) {
+            return *hit;
+        }
+        let answer = MASTER.with(|master| {
+            master
+                .as_ref()
+                .and_then(|m| {
+                    let mut probe = m.clone();
+                    probe
+                        .interpret(&format!("1 {name}"), CodeSource::Internal)
+                        .ok()
+                        .map(|_| ())
+                })
+                .is_some()
+        });
+        memo.borrow_mut().insert(name.to_string(), answer);
+        answer
+    })
 }
 
 fn build_master() -> Option<Context> {
@@ -107,19 +141,7 @@ impl Bridge {
     /// probe is the only truth. The probe is an expression statement:
     /// success binds nothing, failure rolls the typechecker back.
     pub fn knows_unit(&self, name: &str) -> bool {
-        self.units.contains(name)
-            || MASTER.with(|master| {
-                master
-                    .as_ref()
-                    .and_then(|m| {
-                        let mut probe = m.clone();
-                        probe
-                            .interpret(&format!("1 {name}"), CodeSource::Internal)
-                            .ok()
-                            .map(|_| ())
-                    })
-                    .is_some()
-            })
+        self.units.contains(name) || probe_memo(name)
     }
 
     /// Whether this identifier is a prelude function the bridge can

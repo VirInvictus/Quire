@@ -158,11 +158,13 @@ struct Ctx {
     /// record human-readable steps here, bottom-up.
     watch: Option<usize>,
     explain_steps: Vec<String>,
-    /// Set when a pass met a `&N` whose target had no outcome yet -
-    /// the only event that can make a re-pass differ, so sheets
-    /// without one settle after a single pass (spec.md "Line
+    /// The &N line numbers that missed their targets this pass; the
+    /// pass loop cross-checks them against the line kinds, because a
+    /// target that can never answer (prose, beyond the sheet) must
+    /// not trigger re-passes. Empty on a settled pass - the only
+    /// event that can make a re-pass differ (spec.md "Line
     /// references": fixed-point evaluation).
-    saw_unresolved_ref: bool,
+    saw_unresolved_targets: std::collections::HashSet<u32>,
 }
 
 /// Split trailing tags off an Expression line: `lunch = 12.50 @food
@@ -328,12 +330,20 @@ fn evaluate_inner(
             .iter()
             .map(|l| l.outcome.as_ref().map(Outcome::render))
             .collect();
+        // one-pass fast path: a pass is only worth repeating when one
+        // of its missed targets could still answer (an Expression or
+        // Reference line); a target that is prose, a heading, or past
+        // the end of the sheet can never make a later pass differ
+        let answerable = ctx.saw_unresolved_targets.iter().any(|n| {
+            matches!(
+                lines.get(n.wrapping_sub(1) as usize).map(|l| l.kind),
+                Some(LineKind::Expression) | Some(LineKind::Reference)
+            )
+        });
         let settled = if pass == 0 {
-            // one-pass fast path: nothing referenced an absent
-            // outcome, so pass 1 would reproduce pass 0 exactly
-            !ctx.saw_unresolved_ref
+            !answerable
         } else {
-            prev.as_deref() == Some(&fingerprint[..])
+            prev.as_deref() == Some(&fingerprint[..]) && !answerable
         };
         // the ONLY state carried across passes: everything else
         // (answer, totals, tags, variables) restarts fresh, exactly
@@ -1038,7 +1048,7 @@ fn bridge_eval(
             _ => None,
         };
         let Some(replacement) = replacement else {
-            ctx.saw_unresolved_ref = true;
+            ctx.saw_unresolved_targets.insert(n);
             return Outcome::Failed(QuireError::new(
                 (at, end),
                 ErrKind::BadLineRef(format!("line {n} has no result")),
@@ -1387,7 +1397,7 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Result<Num
                     in_fn_body: true,
                     watch: ctx.watch,
                     explain_steps: std::mem::take(&mut ctx.explain_steps),
-                    saw_unresolved_ref: ctx.saw_unresolved_ref,
+                    saw_unresolved_targets: std::mem::take(&mut ctx.saw_unresolved_targets),
                 };
                 for (param, value) in params.iter().zip(&arg_values) {
                     if param.chars().next().is_some_and(|c| c.is_ascii_digit()) {
@@ -1448,7 +1458,7 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Result<Num
                 // no result yet: the re-pass loop will fill this in
                 // from below if the target ever answers
                 None => {
-                    ctx.saw_unresolved_ref = true;
+                    ctx.saw_unresolved_targets.insert(*n);
                     return Err(Fail::Null);
                 }
             }

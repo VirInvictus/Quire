@@ -607,6 +607,9 @@ impl QuirePage {
     /// not an undo unit - the two properties every earlier attempt
     /// lacked (the history is in refs.rs).
     fn wire_evaluation(page: &Rc<Self>, buffer: &sourceview5::Buffer) {
+        // the cursor-line band rides the same buffer lifecycle: wired
+        // here so it can never be forgotten when evaluation is wired
+        Self::wire_cursor_line(page, buffer);
         let pending = Rc::new(Cell::new(false));
         let handler = buffer.connect_changed(glib::clone!(
             #[weak]

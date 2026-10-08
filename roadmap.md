@@ -119,9 +119,10 @@ the work lands, with the current recommendation recorded here.
       Two bugs found and fixed in the pass (0-based gutter line
       numbers vs 1-based sheet numbers; a width-set right-aligned
       Pango layout translating its glyphs past the renderer clip).
-    - [ ] Gutter chrome finding, carried to Phase 3: CSS background
-      and border-left on the Gutter widget's class do not paint; the
-      hairline separator and column tone need a different mechanism
+    - [x] Gutter chrome finding, carried to Phase 3 and resolved
+      there: CSS background and border-left on the Gutter widget's
+      class do not paint; the renderer itself draws the column tone
+      and hairline (the ticked Phase 3 box).
       (renderer-drawn line or CSS node investigation).
 
 - [x] **Phase 3: Typography and the markdown surface.** (2026-10-05)

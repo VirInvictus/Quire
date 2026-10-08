@@ -35,7 +35,7 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
 - Percentage forms that match how they are spoken: `200 + 15%` is 230,
   `15% of 200` is 30, and the reverse questions answer too -
   `220 is 10% on what`, `30 is what percent of 200`
-- Mixed lines: prose and math on the same line — `50 apples at 3 each`
+- Mixed lines: prose and math on the same line; `50 apples at 3 each`
   evaluates the math and drops the words
 - Functions with recursion: `fact(0) = 1`, `fact(n) = n * fact(n - 1)`,
   `fact(6)` → 720
@@ -53,7 +53,7 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
 - Currency conversion (offline-first): `50 USD -> EUR` against cached
   ECB daily rates
 - Hand-typed price snapshots with dates (`aapl = 10 * 190 @
-  2026-10-06`) — portfolio, budget (with budget-vs-actual variance),
+  2026-10-06`); portfolio, budget (with budget-vs-actual variance),
   trip, and a Complex Sample for scientists ship as templates in the
   menu
 - Math functions from the engine's prelude: `sqrt(144)` is 12,

@@ -396,7 +396,7 @@ line-model sheet, where every line evaluates on its own.
   allowed; a reading line sees the nearest binding above it.
 - **References.** A Reference line (a bare identifier) asks what that
   name is worth. Bound above, it shows the value and counts like any
-  expression result — toward `answer`, toward totals, visible to
+  expression result: toward `answer`, toward totals, visible to
   lines below. Unbound, it renders as plain text with no cell: bare
   names never error, and a bare `answer` behaves the same way for the
   most recent result.
@@ -491,7 +491,7 @@ answers column is the value column; the comments are the notes.
   are the Phase 3 typography decision.
 - **Currency, units, dates.** The numbat embed powers units and
   dates; currency converts against ECB daily snapshots (offline-first).
-  These are IN, not out — the original "out of v1" note is
+  These are IN, not out: the original "out of v1" note is
   superseded by Phase 6 completion.
 
 ## Testing

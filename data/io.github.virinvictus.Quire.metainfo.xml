@@ -63,6 +63,58 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="1.0.0" date="2026-10-08">
+      <description>
+        <p>1.0: Ctrl+click a math line for its step-by-step
+        breakdown; GFM task checkboxes that tick with Ctrl+click;
+        answers aligned on the decimal point within each heading
+        region; the Outline popover listing every defined name;
+        budget-vs-actual variance in the budget template; new trip
+        and Complex Sample templates (a scientist's worksheet: ideal
+        gas law, Arrhenius, dilution, Henderson-Hasselbalch,
+        projectile range, and recursive combinatorics); and the
+        engine's math functions (sqrt, log10, ln, sin and friends)
+        working right on a sheet. Phases 6 through 9 complete.</p>
+      </description>
+    </release>
+    <release version="0.10.0" date="2026-10-08">
+      <description>
+        <p>Tab completion reaches the engine (units, aliases, and
+        prelude variables alongside sheet names), and a docs truth
+        pass: percent-bodied functions refuse the unit path, line
+        references are refused inside function bodies, and Currency
+        gained its own spec section.</p>
+      </description>
+    </release>
+    <release version="0.9.0" date="2026-10-08">
+      <description>
+        <p>Implicit multiplication, kalker's rule: 2pi, 3(4+5),
+        (1+2)(3+4) and 2 3 multiply without an operator, at *
+        precedence. Prose keeps its grammar, and the ambiguities
+        corpus ships as its own folder.</p>
+      </description>
+    </release>
+    <release version="0.8.0" date="2026-10-08">
+      <description>
+        <p>Reverse percent questions answer in words: 220 is 10% on
+        what is 200, and 30 is what percent of 200 is 0.15.</p>
+      </description>
+    </release>
+    <release version="0.7.0" date="2026-10-08">
+      <description>
+        <p>Recurring amounts: $1200/month and 60/quarter answer as
+        rate quantities that add across periods and total
+        dimension-checked; the budget template migrated to rates.
+        The $ prefix is decoration everywhere.</p>
+      </description>
+    </release>
+    <release version="0.6.0" date="2026-10-07">
+      <description>
+        <p>Self-updating line references: &amp;N follows its target
+        when lines shift, with undo and redo converging cleanly and
+        a menu toggle for the old positional reading.</p>
+      </description>
+    </release>
     <release version="0.5.1" date="2026-10-07">
       <description>
         <p>The &amp;N renumber cascade fix: references renumber in

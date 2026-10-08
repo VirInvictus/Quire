@@ -11,9 +11,8 @@ public, MIT.
 
 ## Where this stands (updated 2026-10-08, v1.0.0)
 
-v1.0.0 shipped and tagged: Phases 6-9 are complete. The full
-Soulver-depth surface is live All core features are
-live and on the starter page: arithmetic with implicit multiplication
+v1.0.0 shipped and tagged: Phases 6-9 are complete, and the full
+Soulver-depth surface is live on the starter page: arithmetic with implicit multiplication
 (`2pi`, `3(4+5)`; the mixed skeleton parses strict), percents
 including the reverse questions in words, variables, totals, tags,
 mixed lines, functions with recursion and multi-clause matching,
@@ -60,13 +59,13 @@ release.
     collapses it to one compact line for the answers column.
 - Plain GTK4, NO libadwaita. Styling goes through `vir-gtk` (a git
   dependency tracked on `main`, pinned by Cargo.lock; 1.4.3 is the
-  floor - see the Alert gotcha below) —
+  floor - see the Alert gotcha below).
   `portal::init` + `connect_dark_changed` + resplice on every
   dark/light flip: `base_css` at the crate tier, the app sheet at the
   app tier via `palette.replace_tokens(APP_CSS)`.
 - Editor surface: `sourceview5` 0.11 (needs the
   `gtksourceview5-devel` system package; CI's Ubuntu ships
-  GtkSourceView 5.12, so NO version-gated features — the v5_16
+  GtkSourceView 5.12, so NO version-gated features: the v5_16
   feature once red-ran CI).
 - Packaging is Meson wrapping cargo (the house shape): `meson.build`
   at the root installs the binary, `data/`'s desktop file and
@@ -134,7 +133,7 @@ accumulating under Unreleased.
   numbers are 1-based.
 - TextView CSS `line-height` clips glyph ascenders at any value: do
   not set it. Set the caret with the scheme's `cursor` style, not
-  CSS. Prefer whole-pixel font sizes (20px) — fractional font metric
+  CSS. Prefer whole-pixel font sizes (20px): fractional font metric
   heights put every baseline off-pixel and GSK shaves glyph tops.
 - Pixel-snap custom text draws (`align_cell` returns f32; round it).
 - The renderer reads cell colors from the scheme (`quire:result` /

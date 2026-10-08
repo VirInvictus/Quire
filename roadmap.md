@@ -550,6 +550,20 @@ excluded), pandoc as a bundled engine, and WebKitGTK as a preview pane
     one-pass fast path via Ctx.saw_unresolved_ref). Three-agent
     research wave designed it; notecalc3 comparison: they ban
     forward refs in the UI, Quire resolves them.
+- [x] **Post-1.0: debug mode + real templates (v1.5.0, 2026-10-08):**
+    SheetStats (lines, passes, capped) exposed through
+    evaluate_sheet_stats and quire-cli --stats; the app sprouts a
+    QUIRE_DEBUG=1 diagnostics tap (lines, passes, cap, elapsed,
+    column width, over-cap cells, error count per burst); the
+    template menu grows a Mortgage walkthrough (headline cites its
+    derivation through forward references - the v1.3.0 feature
+    demoed as a real document) and a Freelance invoice (relative
+    percent discount + VAT); the welcome sheet gains a compound-
+    interest line and a Where-to-go-next pointer to the templates.
+    The full debug run: 21 sheets, zero cap hits, all settling.
+    Template-authoring lessons now pinned by tests: two-word names
+    never bind, `total` cannot be an assignment name, and template
+    forward refs must be counted against the final layout.
 - [x] **Post-1.0: stress templates (v1.1.0, 2026-10-08):** a Stress
     Test (layout edges: wrapped lines, wide and 45-character
     answers, region-alignment pads, tab-led lines, blank forward

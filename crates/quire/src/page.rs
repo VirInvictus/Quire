@@ -99,6 +99,16 @@ fact(6)
 2 coffees plus 1 tea
 the sample weighs 0.101 g
 
+## A formula worth keeping
+// compound interest, one line: 1000 at 7% for 10 years
+1000 * 1.07 ^ 10
+
+## Where to go next
+// the menu ships worked templates: a mortgage walkthrough whose
+// headline cites its own derivation, a freelance invoice, a budget
+// with variance, a portfolio, a trip planner, a scientist's lab
+// notebook, and two stress sheets for this very column
+
 ## Hand-typed price snapshots
 aapl = 10 * 190 @ 2026-10-06 @stocks
 msft = 4 * 410 @ 2026-10-06 @stocks
@@ -631,14 +641,34 @@ impl QuirePage {
                         );
                         let text = text.to_string();
 
+                        let debug = std::env::var("QUIRE_DEBUG").as_deref() == Ok("1");
+                        let started = std::time::Instant::now();
                         let cells = answers::compute_with_formats(
                             &text,
                             &page.formats.borrow(),
                             crate::settings::answer_decimals(),
                         );
+                        let error_count =
+                            cells.values().filter(|c| c.is_error).count();
                         page.answers.replace(cells.clone());
                         page.apply_error_highlights(&cells);
                         page.renderer.set_answers(cells);
+                        if debug {
+                            let (lines, stats) =
+                                quire_eval::evaluate_sheet_stats(&text);
+                            let (width, over) = page.renderer.debug_info();
+                            eprintln!(
+                                "[quire] {} lines, {} passes{}, column {} px, \
+                                 {} over-cap, {} errors, {:.1} ms",
+                                stats.lines,
+                                stats.passes,
+                                if stats.capped { " (CAP HIT)" } else { "" },
+                                width,
+                                over,
+                                error_count,
+                                started.elapsed().as_secs_f64() * 1000.0,
+                            );
+                        }
                         if let Some(f) = page.on_reindex.borrow().as_ref() {
                             f(&index_sheet(&text));
                         }
@@ -997,6 +1027,7 @@ mod tests {
             "200   ",
             "0.15",
             "0.101 g",
+            "1,967.15135729",
             "460",
             "400",
             "200",

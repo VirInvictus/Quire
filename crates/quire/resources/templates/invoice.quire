@@ -1,0 +1,21 @@
+# Freelance invoice
+
+// hours and costs as named variables, the bill assembled from them:
+// the percent forms do the discount and the tax as relative moves
+
+## The work
+design = 14 * 95
+integration = 9 * 95
+retainer = 1200
+
+## Costs
+photos = 45
+typeface = 120
+costs = photos + typeface
+
+## The bill
+// names are single words: two-word names never bind
+subtotal = design + integration + retainer + costs
+discounted = subtotal - 5%
+vat = discounted * 21%
+bill = discounted + vat

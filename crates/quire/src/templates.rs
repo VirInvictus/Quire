@@ -24,6 +24,14 @@ pub const TEMPLATES: &[(&str, &str)] = &[
         "Error Zoo",
         include_str!("../resources/templates/zoo.quire"),
     ),
+    (
+        "Mortgage",
+        include_str!("../resources/templates/mortgage.quire"),
+    ),
+    (
+        "Invoice",
+        include_str!("../resources/templates/invoice.quire"),
+    ),
 ];
 
 #[cfg(test)]
@@ -171,6 +179,26 @@ mod tests {
                 zoo_texts.contains(&"42"),
                 "the zoo stopped computing past its cages: {zoo_texts:?}"
             );
+            // the mortgage: the top-of-sheet headline cites the bottom-
+            // sheet derivation through FORWARD references
+            let mortgage = crate::answers::compute(TEMPLATES[6].1);
+            // trim_end: the region model pads to a shared dot column
+            let texts: Vec<&str> = mortgage.values().map(|c| c.text.trim_end()).collect();
+            for expected in ["2,464.36275991", "887,170.593566", "467,170.593566"] {
+                assert!(
+                    texts.contains(&expected),
+                    "mortgage lost {expected}: {texts:?}"
+                );
+            }
+            // the invoice: relative percents do the discount and the tax
+            let invoice = crate::answers::compute(TEMPLATES[7].1);
+            let texts: Vec<&str> = invoice.values().map(|c| c.text.trim_end()).collect();
+            for expected in ["3,550", "3,372.5", "708.225", "4,080.725"] {
+                assert!(
+                    texts.contains(&expected),
+                    "invoice lost {expected}: {texts:?}"
+                );
+            }
         });
     }
 }

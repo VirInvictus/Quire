@@ -2,6 +2,32 @@
 
 Newest first.
 
+## v1.5.0 (2026-10-08)
+
+- The template menu grows into a small library: a Mortgage
+  walkthrough whose top-of-sheet headline cites its own derivation
+  through forward references (monthly payment, everything you pay,
+  what the bank keeps, the payoff date - all resolved from the
+  algebra below), and a Freelance invoice where the relative
+  percent forms do the discount and the VAT (`subtotal - 5%`,
+  then `* 21%`).
+- The welcome sheet is a richer first impression: a compound-
+  interest line worth keeping, and a Where-to-go-next section
+  pointing at the template menu (plain text by design - the menu is
+  one click away, and clickable cross-document links would drag in
+  file resolution for no calculation gain).
+- The debug mode: `evaluate_sheet_stats` and `quire-cli --stats`
+  report the fixed-point pass count and whether a sheet ever
+  exhausted the pass cap; `QUIRE_DEBUG=1` makes the app eprint
+  per-burst diagnostics (lines, passes, cap, elapsed time, column
+  width, over-cap answers, error count). The full run over all 21
+  shipped sheets: everything settles, zero cap hits, fastest path
+  everywhere forward references are absent.
+- Template-authoring lessons now pinned by the suite: two-word
+  names never bind as assignments, `total` cannot be an assignment
+  name (it is the keyword), and a template's forward references
+  must be counted against the final layout.
+
 ## v1.4.0 (2026-10-08)
 
 - The caret's line carries a subtle band: a full-height background

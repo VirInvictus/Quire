@@ -4,17 +4,19 @@
 
 use std::io::Read;
 
-const USAGE: &str = "usage: quire-cli [--json] [file]\n \
+const USAGE: &str = "usage: quire-cli [--json] [--stats] [file]\n \
 reads a .quire sheet (or any text file; `-` or no file means stdin)\n \
 and prints it with its answers column - plain text, or JSON with\n \
---json";
+--json. --stats reports the fixed-point pass count on stderr";
 
 fn main() {
     let mut json = false;
+    let mut stats = false;
     let mut file: Option<String> = None;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             "--json" => json = true,
+            "--stats" => stats = true,
             "-h" | "--help" => {
                 print!("{USAGE}");
                 return;
@@ -50,4 +52,14 @@ fn main() {
         quire_cli::render_column(&text)
     };
     print!("{out}");
+    if stats {
+        let (lines, s) = quire_eval::evaluate_sheet_stats(&text);
+        eprintln!(
+            "quire-cli: {} lines, {} passes{}",
+            s.lines,
+            s.passes,
+            if s.capped { " (CAP HIT)" } else { "" }
+        );
+        let _ = lines;
+    }
 }

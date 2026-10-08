@@ -33,6 +33,8 @@ mod imp {
         /// The current column width: fits the widest visible answer,
         /// clamped to the bounds above. Recomputed on set_answers.
         pub width: std::cell::Cell<i32>,
+        /// How many visible answers exceeded the cap (ellipsized).
+        pub over_cap: std::cell::Cell<usize>,
     }
 
     #[glib::object_subclass]
@@ -185,25 +187,39 @@ impl AnswersRenderer {
     /// with the same widget-font layout the cells draw with, so the
     /// fit is exact at any font; once per burst, not per frame.
     fn refit_column(&self) {
-        let widest = self
-            .imp()
-            .answers
-            .borrow()
-            .values()
-            .map(|cell| {
-                let layout = self.create_pango_layout(Some(&cell.text));
-                let (w, _) = layout.pixel_size();
-                w
-            })
-            .max()
-            .unwrap_or(0);
-        let inner = (widest + 1).max(0); // one glyph of breathing room
         let xpad = self.xpad();
+        let budget = MAX_COLUMN_WIDTH - 2 * xpad;
+        let mut widest = 0;
+        let mut over = 0usize;
+        for cell in self.imp().answers.borrow().values() {
+            let layout = self.create_pango_layout(Some(&cell.text));
+            let (w, _) = layout.pixel_size();
+            if w > widest {
+                widest = w;
+            }
+            if w > budget {
+                over += 1;
+            }
+        }
+        let inner = (widest + 1).max(0); // one glyph of breathing room
         let width = (inner + 2 * xpad).clamp(MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH);
+        self.imp().over_cap.set(over);
         if self.imp().width.get() != width {
             self.imp().width.set(width);
             // the gutter re-measures on resize requests
             self.queue_resize();
         }
+        if std::env::var("QUIRE_DEBUG").as_deref() == Ok("1") && over > 0 {
+            eprintln!(
+                "[quire] {} answer(s) wider than the column cap - ellipsized; hover for full text",
+                over
+            );
+        }
+    }
+
+    /// Debug surface: the current column width and how many visible
+    /// answers exceeded the cap (ellipsized, full text on hover).
+    pub fn debug_info(&self) -> (i32, usize) {
+        (self.imp().width.get(), self.imp().over_cap.get())
     }
 }

@@ -232,13 +232,6 @@ fn is_date_shape(text: &str) -> bool {
             .all(|p| !p.is_empty() && p.bytes().all(|c| c.is_ascii_digit()))
 }
 
-/// Evaluate a whole sheet top-down. Headings and `total` lines reset
-/// the running subtotal (the Phase 1 gate decision: both act as
-/// boundaries).
-pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
-    evaluate_sheet_explaining(text, None).0
-}
-
 /// The step-by-step breakdown of one sheet line (the Ctrl+click
 /// popover, spec.md "The breakdown"): the line's scalar operations,
 /// bottom-up, as `operands = value` strings, evaluated in the full
@@ -246,11 +239,12 @@ pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
 /// scalar engine does not reduce the line into operations
 /// (quantities, definitions, prose) or the line is out of range.
 pub fn explain_sheet_line(text: &str, line_no: usize) -> Option<Vec<String>> {
-    let (outcomes, steps) = evaluate_sheet_explaining(text, Some(line_no));
+    let lines = parse_sheet_lines(text);
+    let mut watch = StatsCell::default();
+    let (_, steps) = evaluate_inner(&lines, Some(line_no), &mut watch);
     if steps.is_empty() {
         return None;
     }
-    let _ = outcomes;
     Some(steps)
 }
 
@@ -262,9 +256,56 @@ pub fn explain_sheet_line(text: &str, line_no: usize) -> Option<Vec<String>> {
 /// seeded, so none ever answers).
 const MAX_EVAL_PASSES: usize = 8;
 
-fn evaluate_sheet_explaining(text: &str, watch: Option<usize>) -> (Vec<LineOutcome>, Vec<String>) {
-    // parsed once; every pass sees identical line numbering
-    let lines = parse_sheet_lines(text);
+/// How a sheet's evaluation went: the line count, the fixed-point
+/// loop's pass count, and whether the cap was exhausted (answers
+/// still changing through every allowed pass). The debug surface for
+/// the "catch what we can't see" mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SheetStats {
+    pub lines: usize,
+    pub passes: usize,
+    pub capped: bool,
+}
+
+pub fn evaluate_sheet(text: &str) -> Vec<LineOutcome> {
+    evaluate_inner(&parse_sheet_lines(text), None, &mut StatsCell::default()).0
+}
+
+/// Evaluate with the fixed-point loop's statistics alongside the
+/// outcomes: `passes` is 1 for sheets without forward references and
+/// grows one link per unresolved chain depth; `capped` is true when
+/// the loop ran out of passes while answers were still changing.
+pub fn evaluate_sheet_stats(text: &str) -> (Vec<LineOutcome>, SheetStats) {
+    let mut stats = StatsCell::default();
+    let (out, _) = evaluate_inner(&parse_sheet_lines(text), None, &mut stats);
+    (
+        out,
+        SheetStats {
+            lines: sheet_lines_len(text),
+            passes: stats.passes,
+            capped: stats.capped,
+        },
+    )
+}
+
+fn sheet_lines_len(text: &str) -> usize {
+    text.lines().count()
+}
+
+/// Pass bookkeeping shared by the entry points: the fixed-point
+/// loop's pass count and whether it ran out while answers still
+/// changed.
+#[derive(Default)]
+struct StatsCell {
+    passes: usize,
+    capped: bool,
+}
+
+fn evaluate_inner(
+    lines: &[Line],
+    watch: Option<usize>,
+    stats: &mut StatsCell,
+) -> (Vec<LineOutcome>, Vec<String>) {
     // one bridge per sheet: it holds only name sets and clones the
     // pristine master per eval, so passes share it safely
     let mut bridge = Bridge::new();
@@ -274,9 +315,10 @@ fn evaluate_sheet_explaining(text: &str, watch: Option<usize>) -> (Vec<LineOutco
     let mut steps = Vec::new();
 
     for pass in 0..MAX_EVAL_PASSES {
-        let (pass_out, ctx) = run_pass(&lines, watch, seeds, &mut bridge);
+        let (pass_out, ctx) = run_pass(lines, watch, seeds, &mut bridge);
         out = pass_out;
         steps = ctx.explain_steps;
+        stats.passes = pass + 1;
 
         // fingerprint = exactly what the answer column shows, as
         // render() strings. Never compare derived PartialEq: datetime
@@ -299,6 +341,9 @@ fn evaluate_sheet_explaining(text: &str, watch: Option<usize>) -> (Vec<LineOutco
         seeds = ctx.outcomes;
         if settled {
             break;
+        }
+        if pass + 1 == MAX_EVAL_PASSES {
+            stats.capped = true;
         }
         prev = Some(fingerprint);
     }

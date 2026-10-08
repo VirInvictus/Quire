@@ -9,9 +9,9 @@ Quire: a Soulver-style notepad calculator for Linux. Plain-text
 sheets, per-line live results in a right-hand column. Portfolio piece,
 public, MIT.
 
-## Where this stands (updated 2026-10-08, v1.4.0)
+## Where this stands (updated 2026-10-08, v1.5.0)
 
-v1.4.0 shipped and tagged: Phases 6-9 are complete, and the full
+v1.5.0 shipped and tagged: Phases 6-9 are complete, and the full
 Soulver-depth surface is live on the starter page - mixed lines now
 carry units through the engine, so a lab-notebook sentence with one
 number and one unit answers on its own line: arithmetic with implicit multiplication
@@ -184,6 +184,11 @@ accumulating under Unreleased.
   mixed skeleton) must accept both spellings. The reverse-percent
   recognizer runs BEFORE the mixed skeleton (its word-operator
   `of` would otherwise multiply the phrase into nonsense).
+- The debug surface: evaluate_sheet_stats (lines, passes, capped)
+  and quire-cli --stats on the CLI side; QUIRE_DEBUG=1 on the app
+  side eprints per-burst lines/passes/cap/elapsed/column-px/over-
+  cap/errors and refit_column counts over-cap answers. The full run
+  over all 21 sheets: everything settles, zero cap hits.
 - evaluate_sheet is a FIXED-POINT loop now (MAX_EVAL_PASSES = 8):
   each pass seeds the next with its outcomes so forward `&N`
   resolves. Settling compares RENDERED strings (Outcome::render) -

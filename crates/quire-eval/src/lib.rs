@@ -14,7 +14,10 @@ mod tokens;
 mod units;
 
 pub use error::{ErrKind, QuireError, Span};
-pub use eval::{LineOutcome, Outcome, evaluate_line, evaluate_sheet, explain_sheet_line};
+pub use eval::{
+    LineOutcome, Outcome, SheetStats, evaluate_line, evaluate_sheet, evaluate_sheet_stats,
+    explain_sheet_line,
+};
 pub use format::{format_number, format_number_with};
 pub use parser::{Expr, Stmt, parse, parse_strict};
 pub use tokens::{Tok, tokenize};

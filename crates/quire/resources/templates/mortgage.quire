@@ -1,0 +1,28 @@
+# Mortgage
+
+// the whole loan on one page. The headline at the top cites the
+// derivation at the bottom - forward references resolve, so the
+// reading order is yours to choose: summary first, algebra after.
+
+## The headline
+// monthly payment
+&25
+// everything you pay
+&26
+// what the bank keeps
+&27
+// the last payment lands
+&28
+
+## The loan
+principal = 420000
+rate = 5.8% / 12
+months = 360
+
+## The derivation
+// standard amortization: P * r / (1 - (1 + r)^-months)
+factor = (1 + rate) ^ months
+payment = principal * rate / (1 - factor ^ -1)
+paid = payment * months
+interest = paid - principal
+payoff = today + 30 years

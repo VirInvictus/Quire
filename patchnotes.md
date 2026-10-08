@@ -2,6 +2,26 @@
 
 Newest first.
 
+## v1.4.0 (2026-10-08)
+
+- The caret's line carries a subtle band: a full-height background
+  tag in the palette's raised card tone, following every caret move
+  and repaint on theme flips. Implemented as a plain TextTag after
+  the reserved snapshot-layer hook turned out to be unexposed in
+  sourceview5 0.11 - zero custom paint, and tag applications sit
+  outside the undo stream, so moving around never pollutes undo
+  history.
+- `quire-cli` joins the workspace: a sheet in, its answers column
+  out. Plain text mirrors the sheet's shape with the answer column
+  right-aligned; `--json` emits one object per line with the raw
+  text and the answer. Stdlib-only by house rules, and it rides the
+  same engine, so sentences-with-units work at the terminal too
+  (`the stock measures 2 mol/L` answers `2 molar`).
+- The Error Zoo's Units that fight section now teaches what it
+  exhibits: adding Mass to Length fails with the clash named, while
+  multiplying units composes (`2 kg * 3 m` is `6 kg*m` - torque
+  territory, not a bug).
+
 ## v1.3.1 (2026-10-08)
 
 - The answers column breathes: it sizes to its widest visible

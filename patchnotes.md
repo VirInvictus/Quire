@@ -2,6 +2,47 @@
 
 Newest first.
 
+## v1.0.0 (2026-10-08)
+
+- 1.0: Phases 6 through 9 are complete and the Soulver-depth surface
+  is whole - arithmetic with implicit multiplication, every
+  percentage form including the reverse questions in words,
+  functions with recursion and dimension-checked unit paths,
+  self-updating line references, dates, recurring amounts, currency,
+  units, math functions, tags, mixed lines, completion, and the
+  template menu.
+- Ctrl+click a math line and it explains itself: a popover shows the
+  line's operations bottom-up, each as `operands = value`, evaluated
+  in full sheet context so variables, references, and function
+  bodies resolve. A relative percent reads in the sheet's words
+  (`200 + 15% (of 200) = 230`). Unit lines and prose do not break
+  down.
+- Task lists: a list line may open with a GFM checkbox
+  (`- [ ] plan the trip`); Ctrl+clicking the box toggles it as a
+  plain user edit undo reverses. Checkboxes never enter the math.
+- The region model: within each heading region, scalar answers
+  align on the decimal point - integer answers pad so their implied
+  dot sits where the region's fractional dots are. Quantities,
+  errors, hex and bin keep their shapes.
+- Definition sheets read as a table: the Outline popover lists every
+  bound name beneath the headings; picking one lands on its line,
+  with the answers column as the values and trailing comments as
+  the notes.
+- The template menu grows to four: budget (now with budget-vs-
+  actual paired `*_actual` variables and a variance section where
+  positive means under budget), portfolio, trip (dates for the
+  countdown, rates for per-day costs, currency for the spend), and
+  a Complex Sample - a scientist's worksheet running the ideal gas
+  law, Arrhenius activation energy, triplicate statistics with a
+  sample standard deviation, a dilution, Henderson-Hasselbalch pH,
+  projectile range, and combinatorics through recursive functions.
+- Two engine primitives the new sheets demanded: the prelude's math
+  functions route to the unit engine (`sqrt(144)` is 12,
+  `sin(30 deg)` is 0.5 - before, `log(100)` silently answered 100
+  through the mixed skeleton), and quantity totals finish inside
+  expressions (`whole = total` over money answers `990 EUR`). Date
+  words call their functions mid-line too: `today + 30 days`.
+
 ## v0.10.0 (2026-10-08)
 
 - Tab completion reaches the engine: completing a word now offers

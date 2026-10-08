@@ -9,9 +9,10 @@ Quire: a Soulver-style notepad calculator for Linux. Plain-text
 sheets, per-line live results in a right-hand column. Portfolio piece,
 public, MIT.
 
-## Where this stands (updated 2026-10-08, v0.10.0)
+## Where this stands (updated 2026-10-08, v1.0.0)
 
-v0.10.0 shipped and tagged, closing Phase 6. All core features are
+v1.0.0 shipped and tagged: Phases 6-9 are complete. The full
+Soulver-depth surface is live All core features are
 live and on the starter page: arithmetic with implicit multiplication
 (`2pi`, `3(4+5)`; the mixed skeleton parses strict), percents
 including the reverse questions in words, variables, totals, tags,
@@ -32,10 +33,11 @@ hover tooltips. Packaging: Meson wrapper, desktop file, AppStream
 metainfo, hicolor icons, mime package, tag-gated release CI with
 server-side verbatim notes.
 
-Next: dates depth, budget/portfolio depth (budget-vs-actual lines),
-and Brandon's display passes. What stands between the repo and the
-1.0 gate: those display passes, a release-auditor pre-flight, and
-the tag.
+Post-1.0 queue: dates depth, budget/portfolio depth, the Phase 10
+preview gate (recorded default: never), the agent-friendly CLI, and
+Brandon's display passes - the tour's new sections, the rate cells,
+and the region alignment deserve eyes; they gate polish, not the
+release.
 
 ## Stack
 

@@ -373,10 +373,6 @@ the work lands, with the current recommendation recorded here.
     union; tagged totals are pure views; headings and plain totals
     reset the tag sums; tags ride the unit engine (`5 kg @bulk`).
     Corpus: `tests/scripts/tags.quire`.
-  - [ ] User functions: `name(params) = ...` with the body on
-    following lines or inline after the equals (choose at the gate).
-    Numbat's own `fn` machinery is the unit-path candidate; the
-    scalar path needs its own call semantics.
   - [ ] Recurrence phrases: `$1200/month` and `/year` normalize to
     per-day equivalents for budget math.
   - [ ] Definition-sheet ergonomics: a variable reference section at

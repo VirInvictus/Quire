@@ -2,6 +2,22 @@
 
 Newest first.
 
+## v1.5.1 (2026-10-08)
+
+- Typing and answering land in the same frame now. The evaluation
+  idle ran at a priority a full frame behind the echo paint (the
+  structural cause of a slight split between typing and seeing),
+  and per-burst cost had crept to ~90 ms on the welcome sheet.
+  Three fixes: evaluation moved onto the view's frame clock (update
+  phase, so answers paint with the text), knows_unit probes are
+  memoized per process (the stress sheet's 24 prose words cost
+  33 ms in master-clone probes alone; now 0.12 ms for the whole
+  sheet), and the re-pass flag only fires when a missed reference
+  points at a line that can still answer (dangling refs stop
+  forcing a wasted confirm pass). The outline menu is no longer
+  rebuilt per keystroke, and error highlights skip rebuilds when
+  the error set is unchanged.
+
 ## v1.5.0 (2026-10-08)
 
 - The template menu grows into a small library: a Mortgage

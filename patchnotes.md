@@ -2,6 +2,36 @@
 
 Newest first.
 
+## v0.7.0 (2026-10-08)
+
+- Recurring amounts: `$1200/month`, `950 / month`, `60/quarter`
+  answer as rate quantities - the answer keeps the written period
+  (`1200 /month`), rates add across periods, join totals and tag
+  sums dimension-checked, convert explicitly (`1200/month -> 1/day`
+  is `39.4259 /day`), and multiply by durations into plain amounts
+  (`950/month * 12 months` is `11400`). Periods: day, week, month,
+  quarter (three months, registered into the engine at startup),
+  year, singular or plural; a quarter is 91.31 days, a month
+  30.4368. The gate decided Soulver's own model over the old
+  "normalize to per-day" sketch: a forgotten `/month` in a budget
+  now fails its total loudly instead of under-counting silently.
+- `$` before a number is decoration everywhere: `$5.60 * 3` is 16.8
+  and `$1200/month` is a plain rate. Classification had accepted
+  `$`-led lines since Phase 0; the tokenizer now backs it (a stray
+  `$` still errors). Currency remains ISO-code syntax
+  (`50 USD -> EUR`); `$` never names one.
+- Two riders the feature surfaced: arithmetic over quantity-valued
+  variables routes to the unit engine on the touch alone (`bag * 2`
+  works; the budget template's leftover line needs it), and the
+  answers column renders through the engine's display path, which it
+  had bypassed - datetime cells had shown the engine's debug form
+  since 0.6.0, and bare rates now read `950 /month` rather than
+  `950 month⁻¹`.
+- The budget template migrated to rates (its income mixes `/month`
+  and `/year`; sums over mixed periods display in the largest
+  period involved), and the starter sheet gained a Recurring amounts
+  section.
+
 ## v0.6.0 (2026-10-07)
 
 - Self-updating line references: `&N` follows its target when lines

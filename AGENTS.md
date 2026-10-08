@@ -9,27 +9,27 @@ Quire: a Soulver-style notepad calculator for Linux. Plain-text
 sheets, per-line live results in a right-hand column. Portfolio piece,
 public, MIT.
 
-## Where this stands (updated 2026-10-07, v0.6.0)
+## Where this stands (updated 2026-10-08, v0.7.0)
 
-v0.6.0 shipped and tagged. All core features are live and on the
+v0.7.0 shipped and tagged. All core features are live and on the
 starter page: arithmetic, percents, variables, totals, tags, mixed
 lines, functions with recursion and multi-clause matching, line
 references that follow their target lines (the follow-refs toggle,
 default on; GtkTextMark identity plus the pure refs.rs convergence
 module: the fourth attempt, after three cascade-stripped ones), dates
-(jiff-backed), currency (ECB, offline-first), units (numbat embed),
-dated snapshots, templates, answer-decimals setting, format cycling,
-hover tooltips, and token-level error highlighting. The app renders
-sheets at 20px JetBrains Mono in Kanagawa Dragon/Lotus through
-vir-gtk, with the custom `quire` language spec, scheme pair,
+(jiff-backed), recurring amounts (rate quantities through the numbat
+bridge; `$` is decoration), currency (ECB, offline-first), units
+(numbat embed), dated snapshots, templates, answer-decimals setting,
+format cycling, hover tooltips, and token-level error highlighting.
+The app renders sheets at 20px JetBrains Mono in Kanagawa Dragon/Lotus
+through vir-gtk, with the custom `quire` language spec, scheme pair,
 renderer-drawn answers column, token-level error underlining, and
 hover tooltips. Packaging: Meson wrapper, desktop file, AppStream
 metainfo, hicolor icons, mime package, tag-gated release CI with
 server-side verbatim notes.
 
-Next: dates depth, budget/portfolio depth, recurrence phrases,
-reverse percents, implicit multiplication, and Brandon's display
-passes.
+Next: dates depth, budget/portfolio depth, reverse percents, implicit
+multiplication, and Brandon's display passes.
 
 ## Stack
 

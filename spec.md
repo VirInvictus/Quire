@@ -268,6 +268,15 @@ prose; everything else composes.
   meaning must not be misread as arithmetic.
 - **Results.** A mixed line's value joins `answer`, totals, and
   tags like any expression result.
+- **Through the engine.** When the stripped skeleton carries a
+  unit, the skeleton evaluates through the unit engine: `the stock
+  solution measures 2 mol/L` answers `2 molar`, and `the sample
+  weighs 0.101 g` answers `0.101 g`. The surviving words must sit
+  the way numbers and units sit in math - a number may lean on the
+  unit it measures and units may stand together, but a bound name
+  next to anything and two bare numbers stay prose. Failures are
+  silent as always. A sentence's trailing punctuation and commas
+  are glue: `the sample weighs 0.101 g.` answers the same.
 
 ## Reverse percents (Phase 7)
 

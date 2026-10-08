@@ -359,10 +359,26 @@ fn eval_reference(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Opti
 
 fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<Outcome> {
     let (body, tags, _stamp) = split_tags(raw);
-    let raw = body.as_str();
+    let mut raw = body.as_str();
     let toks = match tokenize(raw) {
         Ok(t) => t,
-        Err(e) => return Some(Outcome::Failed(e)),
+        Err(e) => {
+            // sentence-terminal punctuation is prose glue (spec.md
+            // "Mixed lines"): a lab-notebook line may end in a
+            // period. One retry with the glue stripped; a genuine
+            // bad character stands.
+            let trimmed = raw.trim_end_matches(['.', ',', ';', ':', '!', '?']);
+            if trimmed.len() == raw.len() {
+                return Some(Outcome::Failed(e));
+            }
+            match tokenize(trimmed) {
+                Ok(t) => {
+                    raw = trimmed;
+                    t
+                }
+                Err(_) => return Some(Outcome::Failed(e)),
+            }
+        }
     };
     if toks.is_empty() {
         // classification guarantees expression-shaped lines carry
@@ -424,6 +440,10 @@ fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<Ou
 /// fully evaluate leaves the line as prose (a missed calculation
 /// beats a false error, and mixed failures are silent by design).
 fn mixed_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<Outcome> {
+    // sentence-terminal punctuation is prose glue: a lab-notebook
+    // line ends with a period without losing its answer (spec.md
+    // "Mixed lines")
+    let raw = raw.trim_end_matches(['.', ',', ';', ':', '!', '?']);
     let toks = tokenize(raw).ok()?;
     if toks.is_empty() {
         return None;
@@ -452,8 +472,10 @@ fn mixed_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<O
     for t in &toks {
         match &t.tok {
             Tok::Num(_) => saw_number = true,
-            Tok::Comma
-            | Tok::Plus
+            // commas are prose glue too (functions in sentences are
+            // rare enough to lose their argument separators)
+            Tok::Comma => continue,
+            Tok::Plus
             | Tok::Minus
             | Tok::Star
             | Tok::Slash
@@ -484,6 +506,10 @@ fn mixed_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<O
                 }
                 // known names survive; unknown names are the prose
                 _ => {
+                    // functions are NOT prose candidates: numbat's
+                    // own fn names (`show`, `count`) are ordinary
+                    // English words, and keeping them would poison
+                    // sentences
                     let known = ctx.vars.contains_key(n)
                         || ctx.fns.contains_key(n)
                         || bridge.as_ref().is_some_and(|b| b.knows_unit(n));
@@ -500,6 +526,52 @@ fn mixed_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<O
     if !saw_number {
         return None;
     }
+    // a skeleton carrying a unit or an engine function evaluates
+    // through the bridge - sentences with quantities answer (spec.md
+    // "Mixed lines"). Refusals fall back to the strict scalar path.
+    if kept
+        .iter()
+        .any(|t| matches!(&t.tok, Tok::Ident(n) if ctx.vars.get(n).is_none() && ctx.fns.get(n).is_none()))
+    {
+        let kinds: Vec<&str> = kept
+            .iter()
+            .map(|t| match &t.tok {
+                Tok::Num(_) => "num",
+                // a bound sheet name is a "var" (it never multiplies
+                // by accident); everything else kept is a unit or
+                // an engine function
+                Tok::Ident(n) => {
+                    if ctx.vars.contains_key(n) || ctx.fns.contains_key(n) {
+                        "var"
+                    } else {
+                        "unit"
+                    }
+                }
+                _ => "op",
+            })
+            .collect();
+        // the adjacency rule: a number may lean on the unit it
+        // measures, units may stand together, operators separate
+        // anything - but two value-ish tokens never multiply by
+        // accident, and a bound name next to anything stays prose
+        let well_formed = !matches!(kinds.first(), Some(&"op"))
+            && !matches!(kinds.last(), Some(&"op"))
+            && kinds.windows(2).all(|w| match (w[0], w[1]) {
+                ("op", _) | (_, "op") => true,
+                ("num", "unit") | ("unit", "unit") => true,
+                _ => false,
+            });
+        if well_formed {
+            let skeleton = kept.iter().map(token_text).collect::<Vec<_>>().join(" ");
+            match bridge_eval(&skeleton, &kept, ctx, bridge) {
+                Outcome::Failed(e) if !bridge_error_is_unknown(&e) => {
+                    return Some(Outcome::Failed(e))
+                }
+                outcome @ (Outcome::Quantity(_) | Outcome::Value(_)) => return Some(outcome),
+                _ => {}
+            }
+        }
+    }
     // the skeleton must parse and evaluate; anything else is prose.
     // Strict grammar: implicit multiplication lives on the
     // expression path, so a prose remnant like `5 milk` with milk
@@ -508,6 +580,23 @@ fn mixed_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<O
     match eval_stmt(&stmt, &[], ctx, bridge) {
         Ok(Some(num)) => Some(num.outcome()),
         _ => None,
+    }
+}
+
+/// The source form of a kept skeleton token (spec.md "Mixed lines").
+fn token_text(t: &crate::tokens::Token) -> String {
+    match &t.tok {
+        Tok::Num(v) => format!("{v}"),
+        Tok::Ident(n) => n.clone(),
+        Tok::Plus => "+".to_string(),
+        Tok::Minus => "-".to_string(),
+        Tok::Star => "*".to_string(),
+        Tok::Slash => "/".to_string(),
+        Tok::Caret => "^".to_string(),
+        Tok::Percent => "%".to_string(),
+        Tok::LParen => "(".to_string(),
+        Tok::RParen => ")".to_string(),
+        _ => String::new(),
     }
 }
 
@@ -1539,6 +1628,27 @@ total
             ErrKind::Unit(message) => assert!(message.contains("Time"), "{message}"),
             other => panic!("expected a unit error, got {other:?}"),
         };
+    }
+
+    #[test]
+    fn sentences_carry_units_through_the_engine() {
+        // one number leaning on its unit, inside a sentence
+        assert_eq!(show("the stock measures 2 mol/L"), "2 molar");
+        assert_eq!(show("the sample weighs 0.101 g"), "0.101 g");
+        // sentence punctuation is prose glue
+        assert_eq!(show("the sample weighs 0.101 g."), "0.101 g");
+        // two numbers never multiply by accident
+        let lines = evaluate_sheet("we ran it at 300 K, then 310 K\n");
+        assert!(lines[0].outcome.is_none());
+        // a bound name next to anything stays prose (the 5-milk rule)
+        let sheet = "milk = 3.50\nwe bought 5 milk\n";
+        assert!(evaluate_sheet(sheet).last().unwrap().outcome.is_none());
+        // failures stay silent
+        assert!(
+            evaluate_sheet("the sqrt of missing_thing\n")[0]
+                .outcome
+                .is_none()
+        );
     }
 
     #[test]

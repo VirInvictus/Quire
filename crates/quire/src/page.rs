@@ -93,6 +93,7 @@ fact(6)
 ## Mix words with math
 50 apples at 3 each
 2 coffees plus 1 tea
+the sample weighs 0.101 g
 
 ## Hand-typed price snapshots
 aapl = 10 * 190 @ 2026-10-06 @stocks
@@ -915,6 +916,7 @@ mod tests {
             "36",
             "200   ",
             "0.15",
+            "0.101 g",
             // 2pi brings a five-fraction region
             "27      ",
             "1,420",

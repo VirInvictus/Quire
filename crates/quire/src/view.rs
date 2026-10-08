@@ -6,7 +6,6 @@
 //! background and its text).
 
 use gtk4::glib;
-use gtk4::prelude::*;
 use gtk4::subclass::prelude::*;
 use sourceview5::subclass::prelude::*;
 

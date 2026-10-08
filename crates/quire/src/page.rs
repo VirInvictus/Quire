@@ -420,14 +420,6 @@ impl QuirePage {
         refresh(&page);
     }
 
-    /// The Weak tail of the wiring: one first paint once the page is
-    /// fully built.
-    fn wire_cursor_line_done(page: &std::rc::Weak<QuirePage>) {
-        if let Some(page) = page.upgrade() {
-            page.refresh_cursor_line();
-        }
-    }
-
     /// Repaint the band: drop the tag from the previous line, apply
     /// it across the caret's line (start of line to start of the
     /// next; the full-height flag paints the line's own height).
@@ -439,7 +431,7 @@ impl QuirePage {
             .unwrap_or(gtk4::gdk::RGBA::new(0.0, 0.0, 0.0, 0.0));
         self.cursor_tag.set_property("background-rgba", rgba);
         let line = self.cursor_iter().line();
-        if line as i32 == self.cursor_line.get() {
+        if line == self.cursor_line.get() {
             return;
         }
         let bounds = |page: &Self, at: i32| -> Option<(gtk4::TextIter, gtk4::TextIter)> {
@@ -451,15 +443,15 @@ impl QuirePage {
             Some((start, end))
         };
         let old = self.cursor_line.get();
-        if old >= 0 {
-            if let Some((s, e)) = bounds(self, old) {
-                self.buffer.remove_tag(&self.cursor_tag, &s, &e);
-            }
+        if old >= 0
+            && let Some((s, e)) = bounds(self, old)
+        {
+            self.buffer.remove_tag(&self.cursor_tag, &s, &e);
         }
         if let Some((s, e)) = bounds(self, line) {
             self.buffer.apply_tag(&self.cursor_tag, &s, &e);
         }
-        self.cursor_line.set(line as i32);
+        self.cursor_line.set(line);
     }
 
     /// Ctrl+click on a line inspects it: a task-list item's checkbox

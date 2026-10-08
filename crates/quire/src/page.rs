@@ -653,7 +653,7 @@ impl QuirePage {
                         page.apply_error_highlights(&cells);
                         page.renderer.set_answers(cells);
                         if debug {
-                            let (lines, stats) = quire_eval::evaluate_sheet_stats(&text);
+                            let (_, stats) = quire_eval::evaluate_sheet_stats(&text);
                             let (width, over) = page.renderer.debug_info();
                             eprintln!(
                                 "[quire] {} lines, {} passes{}, column {} px, \

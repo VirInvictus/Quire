@@ -2,6 +2,23 @@
 
 Newest first.
 
+## v1.2.0 (2026-10-08)
+
+- Sentences carry units through the engine: the mixed-line skeleton
+  evaluates through the unit engine when it holds one - `the stock
+  solution measures 2 mol/L` answers `2 molar`, `the sample weighs
+  0.101 g` answers `0.101 g`, trailing periods and commas are glue.
+  The surviving words must sit the way numbers and units sit in
+  math: a number may lean on its unit, units may stand together,
+  and a bound name next to anything stays prose. This is the
+  feature that makes a lab notebook read like a lab notebook.
+- The Complex Sample is rewritten as that lab notebook: sentences
+  carry the numbers, derivations keep their own lines when they
+  deserve the room, and everything referenced later is bound with
+  `=` in the paper's notation. Building it surfaced two name
+  collisions (numbat claims `mean`, `std`, and the word `second`
+  is the seconds unit) and the notebook words around them.
+
 ## v1.1.0 (2026-10-08)
 
 - Two dev torture sheets join the template menu, built to stress and

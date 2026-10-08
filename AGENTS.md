@@ -9,10 +9,12 @@ Quire: a Soulver-style notepad calculator for Linux. Plain-text
 sheets, per-line live results in a right-hand column. Portfolio piece,
 public, MIT.
 
-## Where this stands (updated 2026-10-08, v1.0.0)
+## Where this stands (updated 2026-10-08, v1.2.0)
 
-v1.0.0 shipped and tagged: Phases 6-9 are complete, and the full
-Soulver-depth surface is live on the starter page: arithmetic with implicit multiplication
+v1.2.0 shipped and tagged: Phases 6-9 are complete, and the full
+Soulver-depth surface is live on the starter page - mixed lines now
+carry units through the engine, so a lab-notebook sentence with one
+number and one unit answers on its own line: arithmetic with implicit multiplication
 (`2pi`, `3(4+5)`; the mixed skeleton parses strict), percents
 including the reverse questions in words, variables, totals, tags,
 mixed lines, functions with recursion and multi-clause matching,

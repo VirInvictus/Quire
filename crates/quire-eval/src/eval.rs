@@ -555,10 +555,11 @@ fn mixed_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<O
         // accident, and a bound name next to anything stays prose
         let well_formed = !matches!(kinds.first(), Some(&"op"))
             && !matches!(kinds.last(), Some(&"op"))
-            && kinds.windows(2).all(|w| match (w[0], w[1]) {
-                ("op", _) | (_, "op") => true,
-                ("num", "unit") | ("unit", "unit") => true,
-                _ => false,
+            && kinds.windows(2).all(|w| {
+                matches!(
+                    (w[0], w[1]),
+                    ("op", _) | (_, "op") | ("num", "unit") | ("unit", "unit")
+                )
             });
         if well_formed {
             let skeleton = kept.iter().map(token_text).collect::<Vec<_>>().join(" ");

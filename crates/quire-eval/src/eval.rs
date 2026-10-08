@@ -529,10 +529,9 @@ fn mixed_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<O
     // a skeleton carrying a unit or an engine function evaluates
     // through the bridge - sentences with quantities answer (spec.md
     // "Mixed lines"). Refusals fall back to the strict scalar path.
-    if kept
-        .iter()
-        .any(|t| matches!(&t.tok, Tok::Ident(n) if ctx.vars.get(n).is_none() && ctx.fns.get(n).is_none()))
-    {
+    if kept.iter().any(|t| {
+        matches!(&t.tok, Tok::Ident(n) if !ctx.vars.contains_key(n) && !ctx.fns.contains_key(n))
+    }) {
         let kinds: Vec<&str> = kept
             .iter()
             .map(|t| match &t.tok {
@@ -762,10 +761,7 @@ fn unit_line(
 /// (fall back to the scalar funnel) rather than a real unit error
 /// (surface it). numbat words the former "Unknown identifier".
 fn bridge_error_is_unknown(e: &QuireError) -> bool {
-    match &e.kind {
-        ErrKind::Unit(message) => message.contains("nknown"),
-        _ => false,
-    }
+    matches!(&e.kind, ErrKind::Unit(message) if message.contains("nknown"))
 }
 
 /// Soulver-style date phrases translate to numbat datetime calls:

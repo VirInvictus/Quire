@@ -168,21 +168,24 @@ accumulating under Unreleased.
 
 ## Reference shelf (read-only, not ours)
 
-Cloned into `~/.gitrepos/` for Quire's benefit; never edit them, never
-commit anything into them:
+Kept in `~/.gitrepos/` for Quire's benefit; never edit them, never
+commit anything into them. A clone is removed once the last open
+roadmap box citing it closes (2026-10-08 audit: gnome-text-editor,
+gnome-calculator, and Marker were removed as absorbed; re-clone from
+upstream if a closed citation ever reopens):
 
 - `notecalc3` (AGPL-3.0): the closest Soulver-like. Learn semantics
   and behavior ONLY; AGPL code must never be copied or translated
-  into MIT-licensed Quire.
+  into MIT-licensed Quire. Cited by open Phase 7 items (mixed-line
+  evaluation, region alignment).
 - `kalker` (MIT): parser ladder, span discipline, file-driven engine
-  tests; embeddable alternative engine.
-- `numbat` (MIT OR Apache-2.0): the Phase 6 embed candidate
-  (`Context::new_without_importer()`, `set_exchange_rates`).
-- `gnome-text-editor` (GPL-3.0): the GTK4 + sourceview5 app shape.
+  tests; embeddable alternative engine. Cited by the open Phase 7
+  implicit-multiplication box.
+- `numbat` (MIT OR Apache-2.0): the embedded engine
+  (`Context::new_without_importer()`, `set_exchange_rates`). Cited by
+  the open Phase 6 completion box and Phase 8's `fn` gate.
 - `gtksourceview` (LGPL-2.1+, linked): the right-gutter renderer API
   behind the answers column; the markdown.lang fork source.
-- `gnome-calculator` (GPL-3.0): currency-provider caching pattern
-  (ECB XML under `~/.cache`, stale works offline).
 - `Apostrophe` (GPL-3.0): markdown editor; preview architecture,
-  scroll sync, bundled-font chain, focus modes.
-- `Marker` (GPL-3.0): markdown editor; preview themes, export paths.
+  scroll sync, bundled-font chain, focus modes. Cited by the open
+  Phase 7 popover box and the gated Phase 10.

@@ -2,6 +2,16 @@
 
 Newest first.
 
+## v1.3.1 (2026-10-08)
+
+- The answers column breathes: it sizes to its widest visible
+  answer (between 168px and 320px) instead of a fixed width that
+  clipped every date and any large number. Measured with the same
+  widget-font layout the cells draw with, recomputed once per
+  evaluation burst; past the 320px ceiling answers ellipsize and
+  the hover tooltip carries the full text, as before. Verified on
+  the desktop: the tour's date cells render in full.
+
 ## v1.3.0 (2026-10-08)
 
 - Forward line references resolve: `&67` on line 65 answers with

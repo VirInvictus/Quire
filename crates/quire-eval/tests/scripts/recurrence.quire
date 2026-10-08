@@ -1,0 +1,55 @@
+# Recurring amounts (Phase 8)
+
+// the phrase keeps the written period in the answer
+$1200/month
+# expect: 1200 /month
+
+950 / month
+# expect: 950 /month
+
+// plurals read the same
+1200/months
+# expect: 1200 /month
+
+// a quarter is three months
+60/quarter
+# expect: 60 /quarter
+
+// any period is a conversion away
+1200/month -> 1/day
+# expect: 39.4259 /day
+
+// a rate times a duration is a plain amount
+950/month * 12 months
+# expect: 11400
+
+// rates bind, tag, and total like any quantity
+rent = 950/month @fixed
+# expect: 950 /month
+internet = 45/month @fixed
+# expect: 45 /month
+total @fixed
+# expect: 995 /month
+
+// stamps compose with phrases
+car = $450/month @ 2026-10-01 @fixed
+# expect: 450 /month
+total @fixed
+# expect: 1445 /month
+
+// a bare scalar in a rate total fails the total, loudly:
+// a forgotten /month is caught, not under-counted
+milk = 3.50
+# expect: 3.5
+total
+# err: Time
+
+// a bound period name wins over the phrase
+month = 12
+# expect: 12
+950/month
+# expect: 79.1666666667
+
+// dollar decoration, everywhere
+$5.60 * 3
+# expect: 16.8

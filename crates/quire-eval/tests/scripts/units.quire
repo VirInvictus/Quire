@@ -21,6 +21,11 @@ bag
 total
 # expect: 20600 g
 
+// quantity arithmetic over a bound name routes on the touch
+// alone - no unit word needed in the line
+bag * 2
+# expect: 10 kg
+
 # Durations
 2 hours + 30 minutes
 # expect: 150 min

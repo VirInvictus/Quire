@@ -40,7 +40,10 @@ mod tests {
         }
         let budget = crate::answers::compute(TEMPLATES[1].1);
         let texts: Vec<&str> = budget.values().map(|c| c.text.as_str()).collect();
-        for expected in ["2,750", "1,115", "1,075"] {
+        // rate renderings keep the written period (`950 /month`);
+        // sums over mixed periods display in the largest involved,
+        // so the /year income line reads its totals in /yr
+        for expected in ["33000 /yr", "1115 /month", "12900 /yr"] {
             assert!(
                 texts.contains(&expected),
                 "budget lost {expected}: {texts:?}"

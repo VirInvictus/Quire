@@ -149,6 +149,24 @@ accumulating under Unreleased.
   (three stripped attempts prove it). set_text collapses every mark
   to offset 0: every load path must rebuild the mark set (load()
   does).
+- Recurrence phrases ride the unit bridge (spec.md "Recurring
+  amounts"): `quarter` registers at startup beside the prelude
+  (`@aliases(quarters)` + `unit quarter: Time = 3 months`); the rate
+  hook fires only when the scalar failure IS an unbound whitelisted
+  period word sitting right after a slash, and a bridge refusal
+  falls back to the scalar funnel so the mixed lines' silence
+  stands. Quantity-valued NAMES route on the touch alone (no unit
+  word needed in the line; `bag * 2` works) - arithmetic over rate
+  variables is how the budget template's leftover line lives.
+- `$` before a digit is decoration twice over: the tokenizer skips
+  the byte, and bridge source prep strips it textually BEFORE the
+  &N translation (a rendered money rate may legitimately
+  re-introduce a `$` the engine reads natively).
+- units::render polishes the engine's numerator-less rate display
+  (`1200 month⁻¹`) into the sheet's own form (`1200 /month`). The
+  displayed form must stay parseable source: totals, tag sums, and
+  &N refs re-feed rendered values to the engine. Sums over mixed
+  periods display in the LARGEST period involved (numbat's choice).
 - Every landed chunk updates the docs (see "Docs flow"): patchnotes
   bullet, roadmap ticks, spec on semantics, README on user-facing
   reality, this file on agent-facing reality. All five were current

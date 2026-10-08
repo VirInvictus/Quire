@@ -30,6 +30,13 @@ fn build_master() -> Option<Context> {
     if ctx.interpret("use prelude", CodeSource::Internal).is_err() {
         return None;
     }
+    // the recurrence periods' quarter: the prelude carries week,
+    // month, and year but no quarter, and `N/quarter` routes here on
+    // the strength of this registration (spec.md "Recurring amounts")
+    let _ = ctx.interpret(
+        "@aliases(quarters)\nunit quarter: Time = 3 months",
+        CodeSource::Internal,
+    );
     // the currency module loads lazily, only when a sheet names a
     // currency AND rates exist (spec.md "Unit expressions": the app
     // seeds rates from its ECB cache before currency is used)
@@ -127,12 +134,34 @@ impl Bridge {
 
 /// The displayed form of a unit value, which is also its parseable
 /// source (`5.3 kg` reads back as `5.3 kg`). Datetimes render
-/// human-readable instead: `2026-10-28 00:00 +02:00`.
+/// human-readable instead: `2026-10-28 00:00 +02:00`. A bare rate (a
+/// value per period, the recurrence phrases' shape) reads
+/// `1200 /month` rather than the engine's `1200 month⁻¹`; the slash
+/// form is what the sheet wrote, and numbat parses it back the same.
 pub fn render(v: &Value) -> String {
     match v {
         Value::DateTime(dt) => dt.strftime("%Y-%m-%d %H:%M %Z").to_string(),
-        other => other.to_string(),
+        other => polish_rate(&other.to_string()),
     }
+}
+
+/// Rewrite the engine's numerator-less rate display (`1200
+/// month⁻¹`) into the sheet's slash form (`1200 /month`). Compound
+/// units, money rates (which the engine already prints with a
+/// slash), and anything whose unit stem is not a plain name pass
+/// through untouched; the result must stay parseable source, since
+/// totals and `&N` refs re-feed rendered values to the engine.
+fn polish_rate(text: &str) -> String {
+    let Some((value, unit)) = text.rsplit_once(' ') else {
+        return text.to_string();
+    };
+    let Some(stem) = unit.strip_suffix("⁻¹") else {
+        return text.to_string();
+    };
+    if stem.is_empty() || !stem.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return text.to_string();
+    }
+    format!("{value} /{stem}")
 }
 
 /// A scalar binding seeded into the unit engine as a plain number.
@@ -200,5 +229,41 @@ mod tests {
         let b = bridge();
         let v = b.eval("let milk = 3.5\nmilk * 2 kg").expect("evaluates");
         assert_eq!(render(&v), "7 kg");
+    }
+
+    #[test]
+    fn quarter_registers_beside_the_prelude() {
+        let b = bridge();
+        assert!(b.knows_unit("quarter"));
+        let v = b.eval("1 quarter -> days").expect("evaluates");
+        assert_eq!(render(&v), "91.3105 day");
+    }
+
+    #[test]
+    fn bare_rates_render_in_slash_form() {
+        let b = bridge();
+        let v = b.eval("1200/month").expect("evaluates");
+        assert_eq!(render(&v), "1200 /month");
+        let v = b.eval("5000/year").expect("evaluates");
+        // the engine's year prints as its short alias
+        assert_eq!(render(&v), "5000 /yr");
+        // money rates keep the engine's own slash form, untouched
+        use_test_rates();
+        let b = bridge();
+        let v = b.eval("1200 USD / month").expect("evaluates");
+        assert_eq!(render(&v), "1200 $/month");
+        // plain quantities pass the polish by
+        let v = b.eval("5 kg + 300 g").expect("evaluates");
+        assert_eq!(render(&v), "5300 g");
+    }
+
+    #[test]
+    fn rendered_rates_read_back_as_source() {
+        // totals and &N refs re-feed rendered values to the engine,
+        // so the polished display must parse back to the same value
+        let b = bridge();
+        let text = render(&b.eval("1200/month").expect("evaluates"));
+        let v = b.eval(&format!("({text}) -> 1/day")).expect("reparses");
+        assert_eq!(render(&v), "39.4259 /day");
     }
 }

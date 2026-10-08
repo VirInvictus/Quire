@@ -357,7 +357,13 @@ fn eval_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<Ou
         // classify-by-failure: an unknown name may be prose, and the
         // prose-stripped skeleton may still answer
         Err(Fail::Err(e)) if matches!(e.kind, ErrKind::UnknownName(_)) => {
-            mixed_line(raw, ctx, bridge).unwrap_or(Outcome::Failed(e))
+            // a recurrence phrase fails the scalar path as an unbound
+            // period word; the hook hands the line to the unit engine
+            // (spec.md "Recurring amounts"). Not a phrase, or the
+            // bridge refused: the mixed skeleton keeps its shot.
+            rate_line(raw, &toks, &e, &tags, ctx, bridge)
+                .or_else(|| mixed_line(raw, ctx, bridge))
+                .unwrap_or(Outcome::Failed(e))
         }
         Err(Fail::Err(e)) => Outcome::Failed(e),
         Err(Fail::Reroute) => {
@@ -474,6 +480,71 @@ fn is_date_word(name: &str) -> bool {
     )
 }
 
+/// The recurrence periods (spec.md "Recurring amounts"): the closed
+/// whitelist behind `value / period` phrases. Case-insensitive like
+/// the date vocabulary. `quarter` is registered into the engine at
+/// startup (units.rs); the other four shapes are prelude units.
+fn is_period_word(name: &str) -> bool {
+    matches!(
+        name.to_lowercase().as_str(),
+        "day"
+            | "days"
+            | "week"
+            | "weeks"
+            | "month"
+            | "months"
+            | "quarter"
+            | "quarters"
+            | "year"
+            | "years"
+    )
+}
+
+/// The recurrence-phrase hook (spec.md "Recurring amounts"): a
+/// scalar failure on an unbound period word routes the line to the
+/// unit bridge, which reads `value / period` natively and answers
+/// with a rate quantity. Strict shape: the failed name must sit
+/// immediately after a slash, the line must carry no Quire keyword
+/// or percent (the routing rule), and a period name bound as a
+/// variable wins before the hook ever fires (the binding answered
+/// the lookup; the failure IS the bare period word). A bridge
+/// refusal returns None so the caller's scalar funnel - mixed-line
+/// silence included - stands untouched.
+fn rate_line(
+    raw: &str,
+    toks: &[crate::tokens::Token],
+    e: &QuireError,
+    tags: &[String],
+    ctx: &mut Ctx,
+    bridge: &mut Option<Bridge>,
+) -> Option<Outcome> {
+    let ErrKind::UnknownName(name) = &e.kind else {
+        return None;
+    };
+    if !is_period_word(name) || bridge.is_none() {
+        return None;
+    }
+    let slashed = toks.windows(2).any(|w| {
+        matches!(w[0].tok, Tok::Slash) && matches!(&w[1].tok, Tok::Ident(n) if is_period_word(n))
+    });
+    if !slashed
+        || toks
+            .iter()
+            .any(|t| matches!(t.tok, Tok::Total | Tok::Answer | Tok::Of | Tok::Percent))
+    {
+        return None;
+    }
+    match bridge_eval(raw, toks, ctx, bridge) {
+        Outcome::Quantity(v) => {
+            record_tags(ctx, tags, Num::Q(v.clone()));
+            Some(Outcome::Quantity(v))
+        }
+        // the line carries more than a phrase (an unbound name the
+        // bridge cannot seed, a dimension clash): fall back
+        _ => None,
+    }
+}
+
 /// Soulver-style date phrases translate to numbat datetime calls:
 /// `3 weeks from today` is `today() + 3 weeks`. Case-insensitive
 /// tails; anything unmatched returns the line unchanged.
@@ -524,7 +595,14 @@ fn declined_line(
         ) || bridge.as_ref().is_some_and(|b| {
             toks.iter()
                 .any(|t| matches!(&t.tok, Tok::Ident(n) if b.knows_unit(n) || is_date_word(n)))
-        }));
+        })
+        // arithmetic over quantity-valued names (spec.md "Unit
+        // expressions" routing): the names are bound, the bridge
+        // seeds them - `leftover = paycheck - rent` over rate
+        // variables routes on the touch alone
+        || toks
+            .iter()
+            .any(|t| matches!(&t.tok, Tok::Ident(n) if matches!(ctx.vars.get(n), Some(Num::Q(_))))));
     if routable {
         return Some(match bridge_eval(raw, toks, ctx, bridge) {
             Outcome::Quantity(v) => {
@@ -547,6 +625,22 @@ fn declined_line(
     }
 }
 
+/// `$` glued before a digit is decoration (spec.md "Recurring
+/// amounts"); the bridge reads raw source, so the compiled text
+/// drops the byte. A `$` anywhere else stays: it is a genuine bad
+/// character there, and the engine's own message is honest.
+fn strip_dollar_decoration(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '$' && chars.peek().is_some_and(|n| n.is_ascii_digit()) {
+            continue;
+        }
+        out.push(c);
+    }
+    out
+}
+
 fn bridge_eval(
     raw: &str,
     toks: &[crate::tokens::Token],
@@ -560,8 +654,11 @@ fn bridge_eval(
         ));
     };
 
-    // `&N` refs translate to the referenced line's rendered value
-    let mut translated = raw.to_string();
+    // `&N` refs translate to the referenced line's rendered value.
+    // The `$` decoration strips first, and textually: a rendered
+    // money rate (`1200 $/month`) may legitimately re-introduce a
+    // `$` the engine reads natively, so the order is not cosmetic.
+    let mut translated = strip_dollar_decoration(raw);
     let mut scan = 0usize;
     while let Some(at) = translated[scan..].find('&') {
         let at = scan + at;
@@ -1092,10 +1189,157 @@ mod tests {
         );
         assert_eq!(err_of("2 3"), ErrKind::TrailingTokens);
         assert_eq!(err_of("()"), ErrKind::EmptyParens);
-        assert_eq!(err_of("$5"), ErrKind::BadChar('$'));
+        // `$5` is decoration now (see dollar_prefix_is_decoration);
+        // the error table keeps a stray-`$` case
+        assert_eq!(err_of("$ rate"), ErrKind::BadChar('$'));
         assert_eq!(err_of("1.2.3"), ErrKind::BadNumber);
         assert_eq!(err_of("2^10000"), ErrKind::OutOfRange);
         assert_eq!(err_of("total = 5"), ErrKind::AssignToKeyword("total"));
+    }
+
+    #[test]
+    fn dollar_prefix_is_decoration() {
+        assert_eq!(show("$5.60 * 3"), "16.8");
+        assert_eq!(show("$1200"), "1,200");
+        // a `$` anywhere but before a digit stays a bad character
+        assert_eq!(err_of("$ rate"), ErrKind::BadChar('$'));
+        assert_eq!(err_of("$"), ErrKind::BadChar('$'));
+    }
+
+    #[test]
+    fn recurrence_phrases_answer_as_rates() {
+        // the written period stays in the answer (spec.md "Recurring
+        // amounts"); the engine's year prints as its short alias
+        assert_eq!(show("$1200/month"), "1200 /month");
+        assert_eq!(show("950 / month"), "950 /month");
+        assert_eq!(show("1200/months"), "1200 /month");
+        assert_eq!(show("45/week"), "45 /week");
+        assert_eq!(show("12/day"), "12 /day");
+        assert_eq!(show("60/quarter"), "60 /quarter");
+        assert_eq!(show("5000/year"), "5000 /yr");
+    }
+
+    #[test]
+    fn rates_add_across_periods() {
+        assert_eq!(show("950/month + 50/month"), "1000 /month");
+        // the sum displays in the largest period involved
+        assert_eq!(show("950/month + 365/year"), "11765 /yr");
+    }
+
+    #[test]
+    fn per_day_is_an_explicit_conversion() {
+        assert_eq!(show("1200/month -> 1/day"), "39.4259 /day");
+    }
+
+    #[test]
+    fn rate_times_duration_is_a_plain_amount() {
+        assert_eq!(show("950/month * 12 months"), "11400");
+        // a bare multiplier leaves the rate a rate
+        assert_eq!(show("950/month * 12"), "11400 /month");
+    }
+
+    #[test]
+    fn rates_bind_tag_total_and_reference() {
+        let sheet = "\
+rent = 950/month @fixed
+internet = 45/month @fixed
+total @fixed
+&3 * 2
+";
+        let lines = evaluate_sheet(sheet);
+        let values: Vec<_> = lines
+            .iter()
+            .map(|l| l.outcome.as_ref().map(|o| o.render()))
+            .collect();
+        assert_eq!(
+            values,
+            vec![
+                Some("950 /month".to_string()),
+                Some("45 /month".to_string()),
+                Some("995 /month".to_string()),
+                Some("1990 /month".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn rates_compose_with_stamps() {
+        let sheet = "rent = $1200/month @ 2026-10-01 @rent\n";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(lines[0].outcome.as_ref().unwrap().render(), "1200 /month");
+    }
+
+    #[test]
+    fn scalar_in_a_rate_total_fails_loudly() {
+        let sheet = "\
+rent = 950/month
+milk = 3.5
+total
+";
+        let lines = evaluate_sheet(sheet);
+        let text = lines[2].outcome.as_ref().unwrap().render();
+        // the engine words bare-rate mismatches as a failed
+        // constraint (money rates word them left/right hand side);
+        // both name the dimension and fail this line only
+        assert!(text.contains("Time"), "{text}");
+    }
+
+    #[test]
+    fn bound_period_name_wins_over_the_phrase() {
+        let sheet = "month = 12\n950/month\n";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(lines[1].outcome.as_ref().unwrap().render(), "79.1666666667");
+    }
+
+    #[test]
+    fn phrase_silence_survives_a_bridge_refusal() {
+        // the bridge cannot seed the unknown, so today's scalar
+        // funnel stands: the line keeps its unknown-month error,
+        // exactly as before the hook existed
+        assert_eq!(
+            err_of("950/month + shipping"),
+            ErrKind::UnknownName("month".into())
+        );
+    }
+
+    #[test]
+    fn keyword_and_nonslash_lines_never_route_to_rates() {
+        // Quire keywords keep the scalar funnel (the routing rule)
+        assert_eq!(
+            err_of("total / month"),
+            ErrKind::UnknownName("month".into())
+        );
+        // no slash, no phrase: a bare period word is just unbound
+        assert_eq!(err_of("(month) + 1"), ErrKind::UnknownName("month".into()));
+    }
+
+    #[test]
+    fn dollar_amounts_demote_in_prose() {
+        // the mixed-line rule, now seeing `$` amounts too
+        assert_eq!(show("I paid $5 for milk"), "5");
+    }
+
+    #[test]
+    fn arithmetic_over_quantity_variables_routes() {
+        // rate variables carry no unit word, and the arithmetic must
+        // route anyway (the budget template's leftover line)
+        let sheet = "\
+paycheck = 2400/month
+rent = 950/month
+leftover = paycheck - rent
+";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(lines[2].outcome.as_ref().unwrap().render(), "1450 /month");
+    }
+
+    #[test]
+    fn unit_variables_compute_without_unit_words() {
+        // the same routing gap, pre-recurrence: `bag * 2` used to
+        // die on "units cannot mix with..." because no unit word
+        // appeared in the line
+        let sheet = "bag = 5 kg\nbag * 2\n";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(lines[1].outcome.as_ref().unwrap().render(), "10 kg");
     }
 
     #[test]

@@ -95,12 +95,15 @@ sections).
 
 - **Routing.** A line evaluates on the scalar engine exactly as
   before, byte for byte. The numbat path takes an Expression line
-  only when the scalar path declines it: the line's parse failed, or
-  its evaluation touched a quantity-valued name, or the line carries
-  a recurrence phrase (see Recurring amounts), and the line's tokens
-  include no Quire keyword (`of`, `total`, `answer`), no percent,
-  and at least one identifier numbat knows as a unit. Everything
-  else keeps today's behavior, including its errors.
+  only when the scalar path declines it, in one of three ways: the
+  line's parse failed and at least one identifier numbat knows as a
+  unit; its evaluation touched a quantity-valued name (arithmetic
+  over quantity results and variables - the names are bound, the
+  bridge seeds them, so no unit word is needed in the line); or the
+  line carries a recurrence phrase (see Recurring amounts). In every
+  case the line's tokens include no Quire keyword (`of`, `total`,
+  `answer`) and no percent. Everything else keeps today's behavior,
+  including its errors.
 - **Quantities.** A unit line's result is a quantity: a number and a
   dimension (`5 kg + 300 g` is `5.3 kg`). Quantity results bind like
   any result: toward `answer`, toward totals, visible to lines below,
@@ -157,10 +160,11 @@ period is a conversion away: `1200/month -> 1/day` answers
 - **Periods.** `day`, `week`, `month`, `quarter`, `year`, singular
   or plural (`/months`). A quarter is three months (91.31 days),
   registered into the engine at startup beside the prelude. Mixed
-  periods add dimension-safely; the sum displays in the line's first
-  period (`950/month + 45/week` is `1145.67 /month`) - display only,
-  the value is one dimension. (Soulver displays the last-written
-  period; the value is the same.)
+  periods add dimension-safely; the sum displays in the largest
+  period involved (`950/month + 45/week` is `1145.67 /month`, and
+  adding a `/year` term turns the whole sum's display to `/yr`) -
+  display only, the value is one dimension. (Soulver displays the
+  last-written period; the value is the same.)
 - **Dollar decoration.** A `$` immediately before a number is
   decoration everywhere: `$1200` is the number 1200. It never names
   a currency - money rates and conversion are ISO-code syntax

@@ -49,6 +49,11 @@ total @fixed
 total @fun
 total
 
+## Recurring amounts
+950/month
+60/quarter
+950/month * 12 months
+
 ## Units come built in
 5 kg + 300 g
 2 hours + 30 minutes
@@ -804,7 +809,20 @@ mod tests {
         let cells = crate::answers::compute(WELCOME_SHEET);
         let texts: Vec<&str> = cells.values().map(|c| c.text.as_str()).collect();
         for expected in [
-            "230", "216", "12", "24", "42", "36", "1,420", "1,270", "150", "5300 g", "150 min",
+            "230",
+            "216",
+            "12",
+            "24",
+            "42",
+            "36",
+            "1,420",
+            "1,270",
+            "150",
+            "950 /month",
+            "60 /quarter",
+            "11400",
+            "5300 g",
+            "150 min",
             "3,540",
         ] {
             assert!(

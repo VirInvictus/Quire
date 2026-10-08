@@ -114,10 +114,11 @@ fn run_script(path: &Path) {
                     idx + 1
                 );
             }
-            // unit-engine results compare against the engine's own
-            // rendering (`# expect: 5.3 kg`), which is also its source
+            // unit-engine results compare against the crate's own
+            // rendering (`# expect: 5.3 kg`, bare rates as
+            // `1200 /month`), which is also its parseable source
             (Want::Value(want), Outcome::Quantity(v)) => {
-                let got = v.to_string();
+                let got = quire_eval::render(v);
                 assert_eq!(
                     got,
                     *want,

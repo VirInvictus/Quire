@@ -1,20 +1,22 @@
 # Budget
 
-// tags group the categories; the views update as you type
+// tags group the categories; the views update as you type.
+// amounts are rates: /period keeps it in every answer, and the
+// totals stay dimension-checked (this one mixes /month and /year)
 
 ## Income
-paycheck = 2400 @income
-side = 350 @income
+paycheck = 2400/month @income
+side = 4200/year @income
 
 ## Fixed
-rent = 950 @fixed
-utilities = 120 @fixed
-internet = 45 @fixed
+rent = 950/month @fixed
+utilities = 120/month @fixed
+internet = 45/month @fixed
 
 ## Variable
-groceries = 320 @variable
-transport = 90 @variable
-fun = 150 @fun
+groceries = 320/month @variable
+transport = 90/month @variable
+fun = 150/month @fun
 
 ## The picture
 total @income

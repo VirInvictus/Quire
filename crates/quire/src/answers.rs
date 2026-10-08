@@ -90,12 +90,12 @@ pub fn compute_with_formats(
                     },
                     is_error: false,
                 },
-                // unit-engine values arrive pre-rendered (the engine's
-                // Display is the cell text, spec.md "Unit expressions");
-                // format cycling does not apply to them
+                // unit-engine values render through the engine's own
+                // display (spec.md "Unit expressions"); format cycling
+                // does not apply to them
                 Outcome::Quantity(v) => AnswerCell {
                     error_span: None,
-                    text: v.to_string(),
+                    text: quire_eval::render(&v),
                     is_error: false,
                 },
                 Outcome::Failed(e) => AnswerCell {

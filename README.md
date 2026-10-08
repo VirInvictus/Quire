@@ -43,6 +43,10 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
   that follow their line when the sheet shifts (a menu toggle,
   on by default)
 - Dates: `tomorrow`, `90 minutes from now`, `3 weeks from today`
+- Recurring amounts: `$1200/month`, `60/quarter` answer as rates that
+  keep their period, add across periods, and total dimension-checked
+  (a forgotten `/month` fails its total instead of under-counting);
+  `$` before a number is decoration
 - Currency conversion (offline-first): `50 USD -> EUR` against cached
   ECB daily rates
 - Hand-typed price snapshots with dates (`aapl = 10 * 190 @
@@ -58,11 +62,12 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
 
 ## Status
 
-Active development. v0.5.1 shipped the core calculator (arithmetic,
+Active development. v0.7.0 shipped the core calculator (arithmetic,
 percents, variables, totals, functions with recursion, tags, mixed
-lines, line references, dates, currency, units), the GTK4 editor with
-the live answers column, document management, and desktop packaging.
-The roadmap's next phase focuses on budget and portfolio depth.
+lines, line references, dates, recurring amounts, currency, units),
+the GTK4 editor with the live answers column, document management,
+and desktop packaging. The roadmap's next phase focuses on budget and
+portfolio depth.
 
 ## Building
 

@@ -102,6 +102,11 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, QuireError> {
                 });
             }
             b'+' => push(&mut out, &mut i, Tok::Plus),
+            // `$` glued before a digit is decoration (spec.md
+            // "Recurring amounts"): classification has accepted
+            // `$`-led lines since Phase 0, and the tokenizer skips
+            // the byte. A `$` anywhere else is a bad character.
+            b'$' if b.get(i + 1).is_some_and(|&c| c.is_ascii_digit()) => i += 1,
             b'-' if b.get(i + 1) == Some(&b'>') => {
                 push(&mut out, &mut i, Tok::Arrow);
                 i += 2;

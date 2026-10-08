@@ -2,6 +2,17 @@
 
 Newest first.
 
+## v0.10.0 (2026-10-08)
+
+- Tab completion reaches the engine: completing a word now offers
+  the sheet's names above the cursor plus units and their aliases
+  (`hours`, `kilometer`), prelude variables, and currency codes
+  once rates have loaded - the unique-match rule is unchanged, so
+  Tab still inserts only when one candidate remains. Two numbat API
+  edges are documented in the engine: prefixed symbols (`kg`) and
+  typechecker constants (`pi`) evaluate fine when typed but are not
+  candidates.
+
 ## v0.9.0 (2026-10-08)
 
 - Implicit multiplication, kalker's rule: a number, bare name, or

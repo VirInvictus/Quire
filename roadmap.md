@@ -295,9 +295,15 @@ the work lands, with the current recommendation recorded here.
     datetimes rendered `YYYY-MM-DD HH:MM UTC-offset`. Case-
     insensitive; composes with tags, totals, and functions. spec
     "Dates" section.
-  - [ ] Completion source: numbat's `variable_names()` /
-    `unit_names()` / `get_completions_for()` feed the existing Tab
-    completion once unit lines exist to complete.
+  - [x] Completion source (2026-10-08): the roadmap trio feeds the
+    Tab completion - numbat's get_completions_for, the unit
+    registry flattened (short aliases like `hours`), and the
+    variable namespace - merged with sheet names bound above the
+    cursor through `quire_eval::completion_names`; the app keeps
+    NoteCalc's unique-match rule. Documented gaps: prefixed
+    symbols (`kg`) are parse-time combinations, and typechecker
+    constants (`pi`) have no public accessor - both evaluate when
+    typed, they are just not candidates. spec "Completion".
   - [ ] Spec amendment pass: grow spec.md Semantics with whatever
     lands (the units section is in; currency and dates amend theirs
     when they land).

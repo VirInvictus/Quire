@@ -101,7 +101,7 @@ total @stocks
 whole = total
 
 ## Editing
-// Tab completes a variable name; Ctrl+C copies the answer
+// Tab completes a variable or unit name; Ctrl+C copies the answer
 // Ctrl+B jumps to a definition; Ctrl+L toggles line numbers
 // Alt+Up/Down cycles a line's format (fixed decimals, hex, bin)
 // &N references line N's answer and follows it when lines shift
@@ -661,9 +661,10 @@ impl QuirePage {
         if word.is_empty() { None } else { Some(word) }
     }
 
-    /// Complete the word before the cursor from variable names bound
-    /// above it, NoteCalc's rule: act only on a unique match. Returns
-    /// whether a completion was inserted.
+    /// Complete the word before the cursor from sheet names bound
+    /// above it plus the engine's own names (units, constants,
+    /// datetime vocabulary), NoteCalc's rule: act only on a unique
+    /// match. Returns whether a completion was inserted.
     pub fn complete_variable(&self) -> bool {
         let ins = self.cursor_iter();
         let mut line_start = ins;
@@ -678,14 +679,10 @@ impl QuirePage {
             return false;
         }
         let cursor_line = ins.line() as usize + 1;
-        let names: Vec<String> = self
-            .index()
-            .assignments
-            .into_iter()
-            .filter(|(line, _)| *line < cursor_line)
-            .map(|(_, name)| name)
-            .filter(|n| n.starts_with(&prefix) && *n != prefix)
-            .collect();
+        let text = self
+            .buffer
+            .text(&self.buffer.start_iter(), &self.buffer.end_iter(), true);
+        let names = quire_eval::completion_names(&text, cursor_line, &prefix);
         if names.len() != 1 {
             return false;
         }

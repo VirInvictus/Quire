@@ -130,6 +130,43 @@ impl Bridge {
             }
         })
     }
+
+    /// The engine's completable names for a prefix: the roadmap trio
+    /// (numbat's own completion gatherer, the unit registry, and the
+    /// variable namespace) merged and prefix-filtered. Currency codes
+    /// appear once the currency module has loaded in this process.
+    /// Two documented gaps: prefixed symbols (`kg`) are parse-time
+    /// combinations, not registry names, and typechecker constants
+    /// (`pi`) have no public accessor - both evaluate fine when
+    /// typed (see `knows_unit`), they are just not candidates.
+    pub fn completions(&self, prefix: &str) -> Vec<String> {
+        MASTER.with(|master| {
+            let Some(master) = master.as_ref() else {
+                return Vec::new();
+            };
+            // three sources (the roadmap's trio): numbat's own
+            // completion gatherer (units and their long forms), the
+            // unit registry flattened (short aliases like `pi` and
+            // `hours`), and the variable namespace (runtime names;
+            // thin on the prelude-only master)
+            let mut names: Vec<String> = master.get_completions_for(prefix, false).collect();
+            names.extend(
+                master
+                    .unit_names()
+                    .iter()
+                    .flatten()
+                    .filter(|n| n.starts_with(prefix))
+                    .map(|n| n.to_string()),
+            );
+            names.extend(
+                master
+                    .variable_names()
+                    .filter(|n| n.starts_with(prefix))
+                    .map(|n| n.to_string()),
+            );
+            names
+        })
+    }
 }
 
 /// The displayed form of a unit value, which is also its parseable
@@ -184,6 +221,26 @@ fn first_line(message: &str) -> String {
     } else {
         compact
     }
+}
+
+/// Completion candidates for the word before the cursor (the Tab
+/// completion, spec.md "Completion"): sheet names bound above the
+/// cursor line plus the engine's own names, filtered to the prefix.
+pub fn completion_names(text: &str, cursor_line: usize, prefix: &str) -> Vec<String> {
+    let mut names: Vec<String> = crate::index_sheet(text)
+        .assignments
+        .into_iter()
+        .filter(|(line, _)| *line < cursor_line)
+        .map(|(_, name)| name)
+        .filter(|name| name.starts_with(prefix))
+        .collect();
+    if let Some(bridge) = Bridge::new() {
+        names.extend(bridge.completions(prefix));
+    }
+    names.retain(|name| name.starts_with(prefix) && name != prefix);
+    names.sort();
+    names.dedup();
+    names
 }
 
 #[cfg(test)]
@@ -265,5 +322,21 @@ mod tests {
         let text = render(&b.eval("1200/month").expect("evaluates"));
         let v = b.eval(&format!("({text}) -> 1/day")).expect("reparses");
         assert_eq!(render(&v), "39.4259 /day");
+    }
+
+    #[test]
+    fn completions_reach_the_engine_and_the_sheet() {
+        // engine names: registry units and their aliases (an exact
+        // match is not its own completion)
+        let names = completion_names("", 1, "hour");
+        assert!(names.contains(&"hours".to_string()), "{names:?}");
+        // sheet names bound above the cursor line only, prefix-filtered
+        let text = "rate = 12\nrotor = 2\n";
+        let names = completion_names(text, 2, "r");
+        assert!(names.contains(&"rate".to_string()), "{names:?}");
+        assert!(!names.contains(&"rotor".to_string()), "{names:?}");
+        // an exact match is not its own completion
+        let names = completion_names(text, 3, "rate");
+        assert!(!names.contains(&"rate".to_string()));
     }
 }

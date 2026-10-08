@@ -190,6 +190,16 @@ period is a conversion away: `1200/month -> 1/day` answers
 - **Constants.** The engine's own: week = 7 days, month = year/12
   (30.4368 days), quarter = 91.3105 days, year = 365.2422 days.
 
+## Completion (Phase 4/6)
+
+Tab completes the word before the cursor when the match is unique -
+NoteCalc's rule: act only on a unique match, never on ambiguity.
+Candidates are the sheet's own names bound above the cursor line
+plus the engine's names: units and their aliases, prelude
+variables, and currency codes once rates have loaded in the
+session. The word must be identifier-shaped, and a completion
+inserts only its remainder.
+
 ## Line references (Phase 7)
 
 `&N` in an expression references the result of sheet line N - any

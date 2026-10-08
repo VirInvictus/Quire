@@ -57,6 +57,8 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
   menu
 - Markdown structure (headings, lists, emphasis, `//` comments) as
   styled text; documents are plain UTF-8, no lock-in
+- Tab completes variable and unit names (acting only on a unique
+  match)
 - Errors show a red underline on the exact failing token; hover the
   red cell for the full message
 - Wayland-native GTK4, no libadwaita, Kanagawa-themed through

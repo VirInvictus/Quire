@@ -9,9 +9,9 @@ Quire: a Soulver-style notepad calculator for Linux. Plain-text
 sheets, per-line live results in a right-hand column. Portfolio piece,
 public, MIT.
 
-## Where this stands (updated 2026-10-08, v1.2.0)
+## Where this stands (updated 2026-10-08, v1.3.0)
 
-v1.2.0 shipped and tagged: Phases 6-9 are complete, and the full
+v1.3.0 shipped and tagged: Phases 6-9 are complete, and the full
 Soulver-depth surface is live on the starter page - mixed lines now
 carry units through the engine, so a lab-notebook sentence with one
 number and one unit answers on its own line: arithmetic with implicit multiplication
@@ -184,6 +184,16 @@ accumulating under Unreleased.
   mixed skeleton) must accept both spellings. The reverse-percent
   recognizer runs BEFORE the mixed skeleton (its word-operator
   `of` would otherwise multiply the phrase into nonsense).
+- evaluate_sheet is a FIXED-POINT loop now (MAX_EVAL_PASSES = 8):
+  each pass seeds the next with its outcomes so forward `&N`
+  resolves. Settling compares RENDERED strings (Outcome::render) -
+  never derived PartialEq, because datetime instants flap per pass
+  while their render is minute-stable. The one-pass fast path is
+  Ctx.saw_unresolved_ref, set exactly where a `&N` misses its
+  target (the scalar LineRef arm and the bridge's BadLineRef site);
+  every other piece of sheet state restarts per pass. Genuinely
+  cyclic sheets settle blank with no extra machinery (no cycle
+  member is ever seeded).
 - The recursion cap (200 quire-call levels) costs roughly 10 KB of
   stack PER LEVEL in debug builds. The app's 8 MB main thread is
   fine; Rust's default 2 MB test threads are NOT - heavy template

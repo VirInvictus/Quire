@@ -44,7 +44,9 @@ numbers render plain, and the answers column shows `cabinets = 2400`,
   `26.2 miles -> km`)
 - Line references (`&4 + 1` answers with line 4's result plus 1)
   that follow their line when the sheet shifts (a menu toggle,
-  on by default)
+  on by default) - and they work in both directions: the sheet
+  re-evaluates until forward references settle, so a summary line
+  at the top can cite the derivation at the bottom
 - Dates: `tomorrow`, `90 minutes from now`, `3 weeks from today`
 - Recurring amounts: `$1200/month`, `60/quarter` answer as rates that
   keep their period, add across periods, and total dimension-checked

@@ -88,7 +88,11 @@ fact(6)
 6 months ago
 
 ## Line references
-&11 * 2
+&12 * 2
+// refs point up by default; point one DOWN and it still answers -
+// the sheet re-evaluates until every line is settled
+&67 * 2
+4 * 50
 
 ## Mix words with math
 50 apples at 3 each
@@ -917,6 +921,9 @@ mod tests {
             "200   ",
             "0.15",
             "0.101 g",
+            "460",
+            "400",
+            "200",
             // 2pi brings a five-fraction region
             "27      ",
             "1,420",

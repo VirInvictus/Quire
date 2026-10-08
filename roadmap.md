@@ -530,6 +530,16 @@ excluded), pandoc as a bundled engine, and WebKitGTK as a preview pane
   remain recommended eyeball time after the tag - the tour's new
   sections, the rate cells, and the region alignment deserve eyes -
   but they gate polish, not the release.
+- [x] **Post-1.0: forward references (v1.3.0, 2026-10-08):** the
+    spec promised `&N` on "any line, above or below" but the single
+    top-down pass made forward refs permanently blank (Brandon hit
+    it: &67 on line 65). evaluate_sheet is now a fixed-point loop -
+    whole-sheet passes seeded with the last pass's outcomes,
+    stopping when the rendered answers stabilize (cap 8, hardcoded;
+    cycles settle blank because no cycle member is ever seeded;
+    one-pass fast path via Ctx.saw_unresolved_ref). Three-agent
+    research wave designed it; notecalc3 comparison: they ban
+    forward refs in the UI, Quire resolves them.
 - [x] **Post-1.0: stress templates (v1.1.0, 2026-10-08):** a Stress
     Test (layout edges: wrapped lines, wide and 45-character
     answers, region-alignment pads, tab-led lines, blank forward

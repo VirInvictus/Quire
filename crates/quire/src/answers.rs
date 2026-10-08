@@ -223,6 +223,19 @@ mod tests {
     }
 
     #[test]
+    fn forward_ref_on_65_resolves_once_67_answers() {
+        // the report that drove fixed-point evaluation: &67 on line
+        // 65 used to stay blank forever under the single-pass engine
+        let mut lines: Vec<String> = vec![String::new(); 64];
+        lines.push("&67 * 2".to_string());
+        lines.push(String::new());
+        lines.push("21".to_string());
+        let map = compute(&lines.join("\n"));
+        assert_eq!(map.get(&65).map(|c| c.text.as_str()), Some("42"));
+        assert_eq!(map.get(&67).map(|c| c.text.as_str()), Some("21"));
+    }
+
+    #[test]
     fn integer_only_regions_do_not_pad() {
         let map = compute("10\n20\n");
         assert_eq!(map[&1].text, "10");

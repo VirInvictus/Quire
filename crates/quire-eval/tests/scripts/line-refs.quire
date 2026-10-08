@@ -1,0 +1,18 @@
+# Line references
+
+// forward: the answer fills in from below
+&6 * 2 //= 84
+
+42 //= 42
+
+// backward still reads the same
+half = &10 / 2 //= 5
+10 //= 10
+
+// chains settle one link per pass
+&15 + 1 //= 6
+&15 + 1 //= 6
+5 //= 5
+
+// a ref whose target never answers stays blank (no cell)
+&100 * 2

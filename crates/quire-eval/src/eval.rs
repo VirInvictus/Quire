@@ -158,6 +158,11 @@ struct Ctx {
     /// record human-readable steps here, bottom-up.
     watch: Option<usize>,
     explain_steps: Vec<String>,
+    /// Set when a pass met a `&N` whose target had no outcome yet -
+    /// the only event that can make a re-pass differ, so sheets
+    /// without one settle after a single pass (spec.md "Line
+    /// references": fixed-point evaluation).
+    saw_unresolved_ref: bool,
 }
 
 /// Split trailing tags off an Expression line: `lunch = 12.50 @food
@@ -249,19 +254,77 @@ pub fn explain_sheet_line(text: &str, line_no: usize) -> Option<Vec<String>> {
     Some(steps)
 }
 
+/// Whole-sheet passes settle `&N` forward references: each pass
+/// seeds the next with its outcomes, so a reference fills in one
+/// link per pass until the rendered answers stop changing (spec.md
+/// "Line references"). The cap bounds volatile sheets; genuine
+/// cycles settle blank on their own (no cycle member is ever
+/// seeded, so none ever answers).
+const MAX_EVAL_PASSES: usize = 8;
+
 fn evaluate_sheet_explaining(text: &str, watch: Option<usize>) -> (Vec<LineOutcome>, Vec<String>) {
+    // parsed once; every pass sees identical line numbering
+    let lines = parse_sheet_lines(text);
+    // one bridge per sheet: it holds only name sets and clones the
+    // pristine master per eval, so passes share it safely
+    let mut bridge = Bridge::new();
+    let mut seeds: HashMap<usize, Outcome> = HashMap::new();
+    let mut prev: Option<Vec<Option<String>>> = None;
+    let mut out = Vec::new();
+    let mut steps = Vec::new();
+
+    for pass in 0..MAX_EVAL_PASSES {
+        let (pass_out, ctx) = run_pass(&lines, watch, seeds, &mut bridge);
+        out = pass_out;
+        steps = ctx.explain_steps;
+
+        // fingerprint = exactly what the answer column shows, as
+        // render() strings. Never compare derived PartialEq: datetime
+        // outcomes carry sub-second instants that flap every pass,
+        // while their render is minute-stable.
+        let fingerprint: Vec<Option<String>> = out
+            .iter()
+            .map(|l| l.outcome.as_ref().map(Outcome::render))
+            .collect();
+        let settled = if pass == 0 {
+            // one-pass fast path: nothing referenced an absent
+            // outcome, so pass 1 would reproduce pass 0 exactly
+            !ctx.saw_unresolved_ref
+        } else {
+            prev.as_deref() == Some(&fingerprint[..])
+        };
+        // the ONLY state carried across passes: everything else
+        // (answer, totals, tags, variables) restarts fresh, exactly
+        // as a single-pass sheet behaves
+        seeds = ctx.outcomes;
+        if settled {
+            break;
+        }
+        prev = Some(fingerprint);
+    }
+    (out, steps)
+}
+
+/// One top-down sweep over pre-parsed lines, seeded with the
+/// previous pass's outcomes.
+fn run_pass(
+    lines: &[Line],
+    watch: Option<usize>,
+    seeds: HashMap<usize, Outcome>,
+    bridge: &mut Option<Bridge>,
+) -> (Vec<LineOutcome>, Ctx) {
     let mut ctx = Ctx {
         watch,
+        outcomes: seeds,
         ..Ctx::default()
     };
-    let mut bridge = Bridge::new();
     let mut out = Vec::new();
-    for line in parse_sheet_lines(text) {
+    for line in lines {
         ctx.line = line.number;
         let outcome = match line.kind {
-            LineKind::Expression => eval_line(&line.raw, &mut ctx, &mut bridge),
-            LineKind::Text => mixed_line(&line.raw, &mut ctx, &mut bridge),
-            LineKind::Reference => eval_reference(&line.raw, &mut ctx, &mut bridge),
+            LineKind::Expression => eval_line(&line.raw, &mut ctx, bridge),
+            LineKind::Text => mixed_line(&line.raw, &mut ctx, bridge),
+            LineKind::Reference => eval_reference(&line.raw, &mut ctx, bridge),
             LineKind::Heading => {
                 // headings section the plain math; tag sums are
                 // sheet-wide views (spec.md "Tags")
@@ -279,7 +342,7 @@ fn evaluate_sheet_explaining(text: &str, watch: Option<usize>) -> (Vec<LineOutco
             outcome,
         });
     }
-    (out, ctx.explain_steps)
+    (out, ctx)
 }
 
 /// Evaluate a single line against a fresh context. Table-test and
@@ -930,6 +993,7 @@ fn bridge_eval(
             _ => None,
         };
         let Some(replacement) = replacement else {
+            ctx.saw_unresolved_ref = true;
             return Outcome::Failed(QuireError::new(
                 (at, end),
                 ErrKind::BadLineRef(format!("line {n} has no result")),
@@ -1278,6 +1342,7 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Result<Num
                     in_fn_body: true,
                     watch: ctx.watch,
                     explain_steps: std::mem::take(&mut ctx.explain_steps),
+                    saw_unresolved_ref: ctx.saw_unresolved_ref,
                 };
                 for (param, value) in params.iter().zip(&arg_values) {
                     if param.chars().next().is_some_and(|c| c.is_ascii_digit()) {
@@ -1330,11 +1395,17 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Result<Num
                     )),
                 )));
             }
-            match ctx.outcomes.get(&(*n as usize)) {
-                Some(Outcome::Value(v)) => Num::S(*v),
-                Some(Outcome::Quantity(v)) => Num::Q(v.clone()),
-                Some(Outcome::Failed(e)) => return Err(Fail::Err(e.clone())),
-                None => return Err(Fail::Null),
+            let found = ctx.outcomes.get(&(*n as usize)).cloned();
+            match found {
+                Some(Outcome::Value(v)) => Num::S(v),
+                Some(Outcome::Quantity(v)) => Num::Q(v),
+                Some(Outcome::Failed(e)) => return Err(Fail::Err(e)),
+                // no result yet: the re-pass loop will fill this in
+                // from below if the target ever answers
+                None => {
+                    ctx.saw_unresolved_ref = true;
+                    return Err(Fail::Null);
+                }
             }
         }
         // a quantity subtotal finishes through the bridge wherever
@@ -2162,18 +2233,88 @@ loop(1)
     }
 
     #[test]
-    fn forward_refs_answer_blank_until_the_target_exists() {
-        // a ref to a line below is null: the referencing line shows
-        // no cell until the target answers
+    fn forward_refs_resolve_once_the_target_answers() {
+        // a ref to a line below settles through the re-pass loop:
+        // pass 1 is blank, pass 2 carries the target's value up
         let sheet = "&2 + 1\n10\n";
         let lines = evaluate_sheet(sheet);
-        // line 1: blank (target not yet answered)
-        assert_eq!(lines[0].outcome, None);
-        // line 2: 10, and now line 1 can see it
+        assert_eq!(
+            lines[0].outcome.as_ref().map(|o| o.render()),
+            Some("11".to_string())
+        );
         assert_eq!(
             lines[1].outcome.as_ref().map(|o| o.render()),
             Some("10".to_string())
         );
+    }
+
+    #[test]
+    fn forward_ref_chains_resolve_one_link_per_pass() {
+        let sheet = "&2 + 1\n&3 + 1\n7\n";
+        let lines = evaluate_sheet(sheet);
+        let rendered: Vec<_> = lines
+            .iter()
+            .map(|l| l.outcome.as_ref().map(|o| o.render()))
+            .collect();
+        assert_eq!(
+            rendered,
+            vec![
+                Some("9".to_string()),
+                Some("8".to_string()),
+                Some("7".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn mutual_cycles_stay_blank() {
+        // a cycle never ignites: no member is ever seeded, so none
+        // ever answers (the blank default is the cycle semantics)
+        let sheet = "&2 + 1\n&1 + 1\n";
+        let lines = evaluate_sheet(sheet);
+        assert!(lines[0].outcome.is_none());
+        assert!(lines[1].outcome.is_none());
+    }
+
+    #[test]
+    fn forward_ref_to_prose_stays_blank() {
+        // a target that never produces a result keeps the blank
+        // default (spec.md "Line references")
+        let sheet = "&2 + 1\njust words\n";
+        let lines = evaluate_sheet(sheet);
+        assert!(lines[0].outcome.is_none());
+        assert!(lines[1].outcome.is_none());
+    }
+
+    #[test]
+    fn bridge_lines_resolve_forward_refs_too() {
+        let sheet = "(&2) * 2\n3 kg\n";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(
+            lines[0].outcome.as_ref().map(|o| o.render()),
+            Some("6 kg".to_string())
+        );
+    }
+
+    #[test]
+    fn volatile_lines_terminate_the_loop() {
+        // a now() line renders minute-stable, so the fingerprint
+        // settles instead of burning the pass cap
+        let sheet = "&2\nnow\n";
+        let lines = evaluate_sheet(sheet);
+        assert!(lines[0].outcome.is_some());
+        assert!(matches!(&lines[1].outcome, Some(Outcome::Quantity(_))));
+    }
+
+    #[test]
+    fn self_reference_errors() {
+        // &1 on line 1 names itself: an honest error, not a blank
+        let lines = evaluate_sheet("&1 + 1\n");
+        assert!(matches!(
+            &lines[0].outcome,
+            Some(Outcome::Failed(e))
+                if e.kind.to_string().contains("is this line")
+        ));
     }
 
     #[test]

@@ -225,15 +225,23 @@ demand (its unit values snapshot the exchange rates at load).
 `&N` in an expression references the result of sheet line N - any
 line, above or below.
 
-- **Blank default.** A reference whose target has no result yet
-  (prose, heading, an empty line, or simply a line below that has
-  not produced a value) is null: the referencing line shows no cell
-  at all until the target answers. Whole-sheet re-evaluation fills
-  these in naturally as the sheet grows.
+- **Blank default, then settled.** A reference whose target has no
+  result on the first pass is null - and the sheet does not stop
+  there: evaluation re-passes the whole sheet (seeding each pass
+  with the last one's results, up to a small cap), so a forward
+  reference fills in from below and a chain of them resolves one
+  link per pass. A reference whose target never produces a result
+  (prose, a heading, an empty line) stays blank, and a circular
+  chain never ignites: it stays blank too. Passes stop as soon as
+  the rendered answers stop changing, and every other piece of
+  sheet state (variables, `answer`, totals, tags) restarts fresh
+  each pass exactly as a single pass behaves.
 - **Poisoning.** A reference to a FAILED line propagates that error
   to the referencing line.
 - **Sheet vocabulary.** References work in scalar and unit
-  expressions alike, and their results join `answer`, totals, and
+  expressions alike - including unit functions (`sqrt`, `log10`)
+  now riding the same routing - and their results join `answer`,
+  totals, and
   tags like any expression result. Function bodies cannot use them
   (sheet-positional, like `total`).
 

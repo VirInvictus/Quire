@@ -2,6 +2,31 @@
 
 Newest first.
 
+## v1.3.0 (2026-10-08)
+
+- Forward line references resolve: `&67` on line 65 answers with
+  line 67's result. The spec always promised references to "any
+  line, above or below", but the engine evaluated one strict
+  top-down pass, so anything pointing downward stayed blank
+  forever. The sheet now re-evaluates - whole-sheet passes seeded
+  with the previous pass's results, stopping when the rendered
+  answers stop changing (a cap of 8 bounds it) - so chains resolve
+  one link per pass and a summary line at the top of a section can
+  cite the derivation at the bottom. Cycles never ignite: no line
+  in a circular chain is ever seeded, so a cycle stays blank
+  rather than showing a wrong number, and sheets without forward
+  references still cost exactly one pass. Unit lines resolve
+  forward too (`&2 kg * 2` over `3 kg` answers `6 kg`). The starter
+  sheet's Line references section demos it live: a backward ref and
+  a forward ref, both answering.
+- A research wave (three agents: engine design, reference-app
+  semantics, app blast radius) drove the design. The interesting
+  negative result: iteration-as-cycles (a Newton's-method guess
+  referencing itself) does NOT work under re-pass evaluation -
+  cycles never ignite and seeds reset each pass - so converging
+  iterations stay with recursive functions, where they are already
+  sound.
+
 ## v1.2.0 (2026-10-08)
 
 - Sentences carry units through the engine: the mixed-line skeleton

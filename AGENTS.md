@@ -167,6 +167,11 @@ accumulating under Unreleased.
   displayed form must stay parseable source: totals, tag sums, and
   &N refs re-feed rendered values to the engine. Sums over mixed
   periods display in the LARGEST period involved (numbat's choice).
+- The keyword `of` tokenizes to its own `Tok::Of`, never an
+  Ident - any word-level matcher (the reverse-percent phrases, the
+  mixed skeleton) must accept both spellings. The reverse-percent
+  recognizer runs BEFORE the mixed skeleton (its word-operator
+  `of` would otherwise multiply the phrase into nonsense).
 - Every landed chunk updates the docs (see "Docs flow"): patchnotes
   bullet, roadmap ticks, spec on semantics, README on user-facing
   reality, this file on agent-facing reality. All five were current

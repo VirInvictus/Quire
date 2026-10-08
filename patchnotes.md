@@ -2,6 +2,20 @@
 
 Newest first.
 
+## v0.8.0 (2026-10-08)
+
+- Reverse percent questions answer in words: `220 is 10% on what` is
+  200, `180 is 10% off what` is 200, `20 is 10% of what` is 200, and
+  `30 is what percent of 200` is 0.15 (`what %` reads the same). The
+  find-the-percent answer is the percent itself in Quire's
+  percent-is-its-fraction convention, so it composes like any value
+  (`answer * 200` is 30). The value and the percent sides may be any
+  expressions (`2 * 20 is 10% of what` is 400), the words match
+  case-insensitively, and a near-miss keeps the old behavior (an
+  honest error on expression lines, silence on prose). These phrases
+  previously grew red error cells; they were the roadmap's last
+  missing percent forms.
+
 ## v0.7.0 (2026-10-08)
 
 - Recurring amounts: `$1200/month`, `950 / month`, `60/quarter`

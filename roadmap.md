@@ -314,8 +314,21 @@ the work lands, with the current recommendation recorded here.
     the strict-shape rule live on his first session and it became a
     spec amendment; what remains here is mixed prose+math on one
     line and the `+`/`-` prose exception.)
-  - [ ] Reverse percent forms: `41 is 17% on what`, `20 is what
-    percent of 60`.
+  - [x] Reverse percent forms (2026-10-08): **[D]** gate, Brandon's
+    picks: the find-the-percent form answers the fraction (Quire's
+    percent-is-its-fraction convention; `30 is what percent of 200`
+    is 0.15, no percent-typed display - the machinery was rejected
+    at the rate gate), scope is the roadmap pair: the find-the-base
+    triple `N is P% of|off|on what` (rewriting to `N / P%`,
+    `N / (1 - P%)`, `N / (1 + P%)` through the existing
+    relative-percent rules) plus `N is what percent of M` (`what %`
+    reads the same). Soulver's remaining reverse shapes (as-a-%,
+    change-between, proportion, odds) are deliberately out. The
+    recognizer runs before the mixed skeleton (its `of` would
+    otherwise multiply; the keyword tokenizes to its own `Of`
+    token, which the matcher must accept). No-match keeps the
+    silence. spec "Reverse percents"; corpus
+    `tests/scripts/reverse-percent.quire`.
   - [ ] Implicit multiplication (`2pi`, `3(4+5)`) with a dedicated
     ambiguities test folder (kalker pattern).
   - [x] User functions: `name(params) = ...` (2026-10-06; inline

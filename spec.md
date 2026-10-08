@@ -235,6 +235,28 @@ prose; everything else composes.
 - **Results.** A mixed line's value joins `answer`, totals, and
   tags like any expression result.
 
+## Reverse percents (Phase 7)
+
+A line may ask a percent question in words. The phrases match the
+line whole and rewrite to their arithmetic before the mixed-line
+skeleton runs, so they answer instead of erroring; a line that does
+not fully match a phrase keeps the mixed lines' silence.
+
+- **Find the base.** `N is P% of what` divides out the percent
+  (`20 is 10% of what` is `200`); `off` and `on` undo a discount or
+  a markup through the relative-percent rules (`180 is 10% off what`
+  is `200`, `220 is 10% on what` is `200`).
+- **Find the percent.** `N is what percent of M` answers N/M: the
+  percent itself, in Quire's convention that a percent is its
+  fraction (`30 is what percent of 200` is `0.15`, because `15%` is
+  0.15). It composes like any value (`answer * 200` is 30). `what %
+  of` reads the same.
+- **Shape.** The words match case-insensitively; the value and the
+  percent may be any expressions (`rent is 10% off what` works).
+  Inside a phrase `is` and `what` are question words, never names.
+  These phrases preempt the word-operator skeleton, so `of` in
+  `is P% of what` never multiplies.
+
 ## Tags (Phase 8)
 
 An Expression line may end with one or more tags: `@` immediately

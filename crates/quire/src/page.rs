@@ -40,6 +40,8 @@ pub(crate) const WELCOME_SHEET: &str = "\
 240 - 10%
 15% of 80
 answer * 2
+220 is 10% on what
+30 is what percent of 200
 
 ## Variables, references, and totals
 rent = 950 @fixed
@@ -818,6 +820,8 @@ mod tests {
             "1,420",
             "1,270",
             "150",
+            "200",
+            "0.15",
             "950 /month",
             "60 /quarter",
             "11400",

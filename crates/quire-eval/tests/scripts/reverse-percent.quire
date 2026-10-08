@@ -1,0 +1,36 @@
+# Reverse percents (Phase 7)
+
+// find the base: undo a percent
+20 is 10% of what
+# expect: 200
+
+// off and on undo a discount or a markup through the
+// relative-percent rules
+180 is 10% off what
+# expect: 200
+220 is 10% on what
+# expect: 200
+41 is 17% on what
+# expect: 35.0427350427
+
+// find the percent: the fraction (a percent is its fraction)
+30 is what percent of 200
+# expect: 0.15
+20 is what % of 200
+# expect: 0.1
+
+// answers compose like any value
+answer * 200
+# expect: 20
+
+// the value side may be any expression
+2 * 20 is 10% of what
+# expect: 400
+
+// words match case-insensitively
+20 IS 10% OF WHAT
+# expect: 200
+
+// a near-miss keeps the old behavior
+20 is 10% of somewhere
+# err: extra input

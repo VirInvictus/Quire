@@ -408,6 +408,11 @@ fn mixed_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<O
     }) {
         return None;
     }
+    // reverse percent phrases preempt the skeleton (spec.md
+    // "Reverse percents"): their `of` must never become a multiply
+    if let Some(outcome) = reverse_percent(&toks, ctx, bridge) {
+        return Some(outcome);
+    }
     // the skeleton: drop prose idents, map word operators. A line
     // with no numbers cannot become math.
     let mut kept: Vec<crate::tokens::Token> = Vec::new();
@@ -478,6 +483,110 @@ fn is_date_word(name: &str) -> bool {
         name.to_lowercase().as_str(),
         "today" | "now" | "tomorrow" | "yesterday"
     )
+}
+
+/// An identifier token matching a phrase word, case-insensitively
+/// (the date vocabulary's rule). The keyword `of` has its own
+/// token, and the phrases must see it as the word.
+fn is_word(t: &crate::tokens::Token, word: &str) -> bool {
+    match &t.tok {
+        Tok::Ident(n) => n.eq_ignore_ascii_case(word),
+        Tok::Of => word == "of",
+        _ => false,
+    }
+}
+
+/// Reverse percent phrases (spec.md "Reverse percents"): the line
+/// rewrites to its arithmetic and answers through the scalar
+/// engine. `N is P% of what` divides out the percent; `off` and
+/// `on` ride the relative-percent rules (`(1 - P%)`, `(1 + P%)`);
+/// `N is what percent of M` answers the fraction N/M. Strict
+/// shapes: anything else returns None and the caller's path -
+/// usually the mixed skeleton's silence - stands.
+fn reverse_percent(
+    toks: &[crate::tokens::Token],
+    ctx: &mut Ctx,
+    bridge: &mut Option<Bridge>,
+) -> Option<Outcome> {
+    let is_at = toks.iter().position(|t| is_word(t, "is"))?;
+    if is_at == 0 {
+        return None;
+    }
+    let head = &toks[..is_at];
+    let rest = &toks[is_at + 1..];
+    // synthesized tokens borrow the `is` span: a failure in the
+    // rewritten arithmetic points into the phrase
+    let at = toks[is_at].span;
+    let plain = |tok: Tok| crate::tokens::Token { tok, span: at };
+    let group = |inner: &[crate::tokens::Token]| -> Vec<crate::tokens::Token> {
+        let mut out = vec![plain(Tok::LParen)];
+        out.extend(inner.iter().cloned());
+        out.push(plain(Tok::RParen));
+        out
+    };
+    // `(head)` + body, evaluated as one statement
+    let mut eval_wrap = |body: Vec<crate::tokens::Token>| -> Option<Outcome> {
+        let mut rewritten = vec![plain(Tok::LParen)];
+        rewritten.extend(head.iter().cloned());
+        rewritten.push(plain(Tok::RParen));
+        rewritten.extend(body);
+        let stmt = parse(&rewritten).ok()?;
+        match eval_stmt(&stmt, &[], ctx, bridge) {
+            Ok(Some(num)) => Some(num.outcome()),
+            _ => None,
+        }
+    };
+
+    // find the base: `N is P% of|off|on what`
+    if rest.len() >= 3 {
+        let n = rest.len();
+        let op = &rest[n - 2];
+        let what = &rest[n - 1];
+        let pct = &rest[..n - 2];
+        let of_family = is_word(what, "what")
+            && !pct.is_empty()
+            && matches!(pct.last().map(|t| &t.tok), Some(Tok::Percent));
+        if of_family {
+            // each shape owns its whole, balanced body: `of` divides
+            // by the percent; `off`/`on` divide by `(1 - P%)` /
+            // `(1 + P%)`, riding the relative-percent rules
+            let mut body: Vec<crate::tokens::Token> = vec![plain(Tok::Slash)];
+            let matched = if is_word(op, "of") {
+                true
+            } else if is_word(op, "off") || is_word(op, "on") {
+                body.push(plain(Tok::LParen));
+                body.push(plain(Tok::Num(1.0)));
+                body.push(plain(if is_word(op, "off") {
+                    Tok::Minus
+                } else {
+                    Tok::Plus
+                }));
+                true
+            } else {
+                false
+            };
+            if matched {
+                body.extend(group(pct));
+                if !is_word(op, "of") {
+                    body.push(plain(Tok::RParen));
+                }
+                return eval_wrap(body);
+            }
+        }
+    }
+
+    // find the percent: `N is what percent of M` (`what % of`)
+    if rest.len() >= 4
+        && is_word(&rest[0], "what")
+        && (is_word(&rest[1], "percent") || matches!(rest[1].tok, Tok::Percent))
+        && is_word(&rest[2], "of")
+    {
+        let mut body = vec![plain(Tok::Slash)];
+        body.extend(group(&rest[3..]));
+        return eval_wrap(body);
+    }
+
+    None
 }
 
 /// The recurrence periods (spec.md "Recurring amounts"): the closed
@@ -1340,6 +1449,46 @@ leftover = paycheck - rent
         let sheet = "bag = 5 kg\nbag * 2\n";
         let lines = evaluate_sheet(sheet);
         assert_eq!(lines[1].outcome.as_ref().unwrap().render(), "10 kg");
+    }
+
+    #[test]
+    fn reverse_percent_phrases() {
+        // find the base: the divisor rides the relative-percent
+        // rules for off and on
+        assert_eq!(show("20 is 10% of what"), "200");
+        assert_eq!(show("180 is 10% off what"), "200");
+        assert_eq!(show("220 is 10% on what"), "200");
+        assert_eq!(show("41 is 17% on what"), "35.0427350427");
+        // find the percent: the fraction (a percent is its fraction)
+        assert_eq!(show("30 is what percent of 200"), "0.15");
+        assert_eq!(show("20 is what % of 200"), "0.1");
+        assert_eq!(show("20 IS WHAT Percent OF 80"), "0.25");
+    }
+
+    #[test]
+    fn reverse_percents_admit_expressions_and_compose() {
+        // the value side may be an expression
+        assert_eq!(show("2 * 20 is 10% of what"), "400");
+        // the answer composes like any value
+        let sheet = "\
+30 is what percent of 200
+answer * 200
+";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(lines[1].outcome.as_ref().unwrap().render(), "30");
+        // a variable may carry the question's value
+        let sheet = "budget = 90\nbudget is 10% off what\n";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(lines[1].outcome.as_ref().unwrap().render(), "100");
+    }
+
+    #[test]
+    fn phrase_misses_keep_the_old_paths() {
+        // a near-miss on an expression line keeps its honest error
+        assert_eq!(err_of("20 is 10% of somewhere"), ErrKind::TrailingTokens);
+        // prose that merely contains `is` stays prose
+        let lines = evaluate_sheet("rent is due soon\n");
+        assert!(lines[0].outcome.is_none());
     }
 
     #[test]

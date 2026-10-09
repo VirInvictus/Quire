@@ -730,15 +730,15 @@ impl QuirePage {
                 self.buffer.delete_mark(&mark);
             }
         }
-        for (old, new) in &plan.relabel {
-            // bind first: edition 2024 keeps the scrutinee temporary
-            // alive through the if-let body, so borrowing again
-            // inside would panic ("RefCell already borrowed")
-            let entry = self.ref_marks.borrow_mut().remove(old);
-            if let Some((mark, _)) = entry {
-                self.ref_marks.borrow_mut().insert(*new, (mark, false));
-            }
-        }
+        // relabels are a SIMULTANEOUS rename: when refs target
+        // consecutive lines the plan chains (25->26, 26->27, ...), and
+        // a sequential remove/insert would evict the mark each new
+        // key collides with, collapsing the whole table onto one
+        // orphaned mark (the mortgage-template bug). Pull every
+        // relabeled mark out first, then reinsert under new labels.
+        // apply_relabels is the simultaneous rename; the TextMark
+        // values move with their entries
+        crate::refs::apply_relabels(&mut *self.ref_marks.borrow_mut(), &plan.relabel);
         for state in &plan.create {
             // a clamped forward reference anchors at the last line
             // until its line is born (refs.rs)

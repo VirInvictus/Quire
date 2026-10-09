@@ -135,6 +135,25 @@ impl Converge {
     }
 }
 
+/// Apply a plan's relabel list to a label-keyed table (the GTK layer's
+/// mark table, or a test harness's stand-in). Relabels are a
+/// SIMULTANEOUS rename: when refs target consecutive lines the plan
+/// chains (25->26, 26->27, ...), so every relabeled entry must be
+/// pulled out before any is reinserted - a sequential remove/insert
+/// evicts the entry each new key collides with, collapsing the whole
+/// table onto one orphaned entry (the mortgage-template bug).
+pub fn apply_relabels<V>(table: &mut std::collections::HashMap<u32, V>, relabel: &[(u32, u32)]) {
+    let mut moved = Vec::with_capacity(relabel.len());
+    for (old, new) in relabel {
+        if let Some(value) = table.remove(old) {
+            moved.push((*new, value));
+        }
+    }
+    for (new, value) in moved {
+        table.insert(new, value);
+    }
+}
+
 /// One convergence pass over a sheet.
 ///
 /// `marks` is the GTK layer's current table; `positions` maps a label
@@ -639,12 +658,84 @@ f(a) = &2 + a
         assert_eq!(sheet.line(3), "&2 + 0");
     }
 
+    /// The GTK layer's table mutation, modeled: relabels applied the
+    /// way apply_ref_plan did BEFORE the fix - sequentially into a
+    /// label-keyed map. Kept as the pin that the shared helper (which
+    /// page.rs now calls) is a simultaneous rename, not a chain of
+    /// keyed inserts.
+    #[test]
+    fn apply_relabels_is_a_simultaneous_rename() {
+        let mut table: std::collections::HashMap<u32, u32> =
+            [(25, 125), (26, 126), (27, 127), (28, 128)]
+                .into_iter()
+                .collect();
+        let chain = [(25, 26), (26, 27), (27, 28), (28, 29)];
+        super::apply_relabels(&mut table, &chain);
+        let mut keys: Vec<u32> = table.keys().copied().collect();
+        keys.sort();
+        assert_eq!(keys, vec![26, 27, 28, 29]);
+        // every value rode with its entry: the chain renamed the keys
+        // without losing or swapping any
+        for (old, new) in chain {
+            assert_eq!(table[&new], 100 + old);
+        }
+    }
+
+    /// The mortgage-template shape: four refs to a contiguous run of
+    /// derivation lines, two Enters above the block. Under the old
+    /// sequential keyed apply the table collapsed onto one mark and
+    /// the second Enter froze the first three refs and dragged the
+    /// last backward (26/27/28/27).
+    #[test]
+    fn mortgage_refs_survive_two_enters_above() {
+        let mortgage = crate::templates::TEMPLATES
+            .iter()
+            .find(|(name, _)| name == &"Mortgage")
+            .map(|(_, text)| *text)
+            .expect("the mortgage template ships");
+        let mut sheet = Sheet::new(mortgage);
+        // Enter at the end of line 5, then Enter again: two blank
+        // lines above the whole ref block
+        sheet.insert_lines(6, 1);
+        assert!(sheet.step());
+        sheet.insert_lines(6, 1);
+        assert!(sheet.step());
+        let refs: Vec<u32> = crate::refs::live_refs(&sheet.text)
+            .iter()
+            .map(|t| t.value)
+            .collect();
+        assert_eq!(refs, vec![27, 28, 29, 30]);
+        // the table stayed whole: one mark per reference
+        assert_eq!(sheet.marks.len(), 4);
+        // and the digits resolve to the derivation's values
+        assert_eq!(sheet.text.lines().nth(10).map(str::trim), Some("&27"));
+    }
+
+    #[test]
+    fn coalesced_and_sequential_inserts_converge_identically() {
+        let mortgage = crate::templates::TEMPLATES
+            .iter()
+            .find(|(name, _)| name == &"Mortgage")
+            .map(|(_, text)| *text)
+            .expect("the mortgage template ships");
+        let mut two_runs = Sheet::new(mortgage);
+        two_runs.insert_lines(6, 1);
+        two_runs.step();
+        two_runs.insert_lines(6, 1);
+        two_runs.step();
+        let mut coalesced = Sheet::new(mortgage);
+        coalesced.insert_lines(6, 2);
+        coalesced.step();
+        assert_eq!(two_runs.text, coalesced.text);
+    }
+
     #[test]
     fn welcome_sheet_and_templates_converge_without_edits() {
         for (name, text) in [
             ("welcome", crate::page::WELCOME_SHEET),
             ("portfolio", crate::templates::TEMPLATES[0].1),
             ("budget", crate::templates::TEMPLATES[1].1),
+            ("mortgage", crate::templates::TEMPLATES[6].1),
         ] {
             let mut sheet = Sheet::new(text);
             assert!(

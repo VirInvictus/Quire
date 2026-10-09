@@ -2,6 +2,13 @@
 
 Newest first.
 
+## v1.5.3 (2026-10-09)
+
+- A current screenshot replaces the v0.1.0-era one: the welcome tour
+  as it ships today - checklists, spoken and reverse percents, the
+  breathing answers column - now embedded in the README and shipped
+  in the AppStream metadata.
+
 ## v1.5.2 (2026-10-08)
 
 - Fixed: pressing Enter above a block of line references could

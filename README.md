@@ -4,6 +4,10 @@ A Soulver-style notepad calculator for Linux. Notes and math share one
 plain-text sheet: you write, and every expression answers on its own
 line in a results column down the right edge.
 
+<p align="center">
+  <img src="data/screenshots/quire-dark.png" alt="Quire: the welcome sheet with live answers in a right-hand column" width="880">
+</p>
+
 The design contract lives in [spec.md](spec.md); the work plan in
 [roadmap.md](roadmap.md).
 

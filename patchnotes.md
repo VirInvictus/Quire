@@ -2,6 +2,23 @@
 
 Newest first.
 
+## v1.5.2 (2026-10-08)
+
+- Fixed: pressing Enter above a block of line references could
+  leave them stale or drag one backward. On the Mortgage template,
+  two Enters above the headline turned &25/&26/&27/&28 into
+  &26/&27/&28/&27 instead of &27/&28/&29/&30 - the summary lines
+  then answered with the wrong derivation rows. Root cause: when
+  references target CONSECUTIVE lines, the renumbering plan chains
+  (each relabel's new label is the next mark's existing key), and
+  the plan was applied sequentially into a label-keyed table, so
+  every step silently evicted the next mark. The plan is now applied
+  as the simultaneous rename it always meant to be, through a shared
+  helper both the app and the tests exercise. Found by Brandon on
+  the Mortgage template the same night it shipped; diagnosed by a
+  three-agent research wave that converged on the same four lines of
+  page.rs from three directions.
+
 ## v1.5.1 (2026-10-08)
 
 - Typing and answering land in the same frame now. The evaluation

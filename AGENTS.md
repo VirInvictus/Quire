@@ -9,9 +9,9 @@ Quire: a Soulver-style notepad calculator for Linux. Plain-text
 sheets, per-line live results in a right-hand column. Portfolio piece,
 public, MIT.
 
-## Where this stands (updated 2026-10-08, v1.5.1)
+## Where this stands (updated 2026-10-08, v1.5.2)
 
-v1.5.1 shipped and tagged: Phases 6-9 are complete, and the full
+v1.5.2 shipped and tagged: Phases 6-9 are complete, and the full
 Soulver-depth surface is live on the starter page - mixed lines now
 carry units through the engine, so a lab-notebook sentence with one
 number and one unit answers on its own line: arithmetic with implicit multiplication
@@ -184,6 +184,12 @@ accumulating under Unreleased.
   mixed skeleton) must accept both spellings. The reverse-percent
   recognizer runs BEFORE the mixed skeleton (its word-operator
   `of` would otherwise multiply the phrase into nonsense).
+- apply_ref_plan applies relabels through refs::apply_relabels - a
+  SIMULTANEOUS rename (pull every relabeled entry before
+  reinserting). The mortgage template's consecutive derivation refs
+  chain the relabel plan; a sequential keyed apply collapses the
+  mark table onto one orphaned mark (Brandon's &26/&27/&28/&27 bug,
+  v1.5.2).
 - The debug surface: evaluate_sheet_stats (lines, passes, capped)
   and quire-cli --stats on the CLI side; QUIRE_DEBUG=1 on the app
   side eprints per-burst lines/passes/cap/elapsed/column-px/over-

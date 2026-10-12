@@ -116,6 +116,16 @@ accumulating under Unreleased.
 - This file: agent-facing reality (stack facts, gotchas, status prose)
   updates in the same commit when it changes.
 
+## Release flow
+
+Commit and push verified work (the standing push grant in the global
+file; force-pushes still need approval), wait for CI to go green, then
+tag per the VERSION section above: annotated `vX.Y.Z`, the patchnotes
+entry verbatim, `--cleanup=verbatim` (the global git-habit rules carry
+the full procedure). The tag-gated `release.yml` cuts the GitHub release
+and attaches the tarball. Keep the tag-as-you-go cadence: never leave
+value accumulating under Unreleased.
+
 ## Hard-won rendering and language gotchas
 
 - A GtkSourceView `.lang` needs a ROOT context whose id matches the

@@ -63,6 +63,16 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="1.5.6" date="2026-11-16">
+      <description>
+        <p>Result-semantics fixes: an overflowing total fails its
+        line instead of crashing the app, tomorrow and yesterday
+        compose in expressions (tomorrow - today answers a
+        duration), multi-tag totals count each line once, and
+        quire-cli --json emits RFC 8259 escapes standard parsers
+        accept.</p>
+      </description>
+    </release>
     <release version="1.5.5" date="2026-11-16">
       <description>
         <p>Grammar front-end fixes: the conversion arrow no longer

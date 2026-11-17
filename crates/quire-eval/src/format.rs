@@ -10,6 +10,12 @@
 /// against lossy display: `1/3` with a zero-decimal setting must
 /// not read as zero).
 pub fn format_number_with(x: f64, max_decimals: u32) -> String {
+    // a non-finite value keeps the plain rendering (see
+    // format_number); the rounding path would print "inf" through
+    // the grouping helper as text
+    if !x.is_finite() {
+        return format_number(x);
+    }
     let scale = 10f64.powi(max_decimals.min(12) as i32);
     let rounded = (x * scale).round() / scale;
     if x != 0.0 && rounded == 0.0 {
@@ -33,7 +39,13 @@ pub fn format_number_with(x: f64, max_decimals: u32) -> String {
 
 /// Format a finite value for an answer cell.
 pub fn format_number(x: f64) -> String {
-    debug_assert!(x.is_finite(), "evaluator must not emit non-finite values");
+    // a non-finite value renders plainly and returns: the e-notation
+    // parse below would panic (`"inf".split_once('e')` is None) - the
+    // engine fails overflowing totals on its own now (OutOfRange),
+    // and this is the defense in depth for anything that slips through
+    if !x.is_finite() {
+        return x.to_string();
+    }
     if x == 0.0 {
         // catches -0.0 too: negative zero is not a useful answer
         return "0".to_string();
@@ -112,6 +124,17 @@ mod tests {
         assert_eq!(f(0.001), "0.001");
         assert_eq!(f(1e-7), "0.0000001");
         assert_eq!(f(1e13), "10,000,000,000,000");
+    }
+
+    #[test]
+    fn non_finite_renders_plainly() {
+        // the e-notation parse below would panic on these; the guard
+        // returns the plain rendering (the engine fails overflowing
+        // totals as OutOfRange before this ever runs - this is the
+        // defense in depth)
+        assert_eq!(f(f64::INFINITY), "inf");
+        assert_eq!(f(f64::NEG_INFINITY), "-inf");
+        assert_eq!(f(f64::NAN), "NaN");
     }
 
     #[test]

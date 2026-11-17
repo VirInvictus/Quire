@@ -9,19 +9,24 @@ Quire: a Soulver-style notepad calculator for Linux. Plain-text
 sheets, per-line live results in a right-hand column. Portfolio piece,
 public, MIT.
 
-## Where this stands (updated 2026-11-16, v1.5.5)
+## Where this stands (updated 2026-11-16, v1.5.6)
 
-v1.5.5 shipped and tagged: the deep engine audit's second tranche -
-the grammar front-end (the `->` arrow token owns its two bytes;
-unary plus parses, in the expression path and the mixed skeleton
-alike; function parameter lists are strict grammar with negative
-literal patterns). Before it, v1.5.4: the audit's first tranche -
-three fixes in the line-reference re-pass machinery (call frames no
-longer swallow the missed-reference set; the fixed-point loop
-settles on the rendered fingerprint alone from pass 1, so cycles
-stop burning the cap; a failed target poisons a bridge ref with its
-own error instead of masking as "no result"). Before that, v1.5.3
-and the phases it carried: Phases 6-9 are complete, and the full
+v1.5.6 shipped and tagged: the audit's third tranche - result
+semantics (an overflowing total fails OutOfRange instead of
+crashing the renderer; tomorrow/yesterday compose inline and the
+mixed skeleton keeps date words around an operator; multi-tag
+totals take the union of the tags' lines; quire-cli --json escapes
+RFC 8259-clean). Before it, v1.5.5: the grammar front-end (the
+`->` arrow token owns its two bytes; unary plus parses, in the
+expression path and the mixed skeleton alike; function parameter
+lists are strict grammar with negative literal patterns). Before
+that, v1.5.4: the first tranche - three fixes in the
+line-reference re-pass machinery (call frames no longer swallow
+the missed-reference set; the fixed-point loop settles on the
+rendered fingerprint alone from pass 1, so cycles stop burning
+the cap; a failed target poisons a bridge ref with its own error
+instead of masking as "no result"). Before that, v1.5.3 and the
+phases it carried: Phases 6-9 are complete, and the full
 Soulver-depth surface is live on the starter page - mixed lines now
 carry units through the engine, so a lab-notebook sentence with one
 number and one unit answers on its own line: arithmetic with implicit multiplication
@@ -219,6 +224,21 @@ value accumulating under Unreleased.
   skeleton takes both signs, so `+ 2` answers 2 exactly as
   `- 2` answers -2 - the adversarial corpus's `+ 2` silence case
   graduated when this landed.
+- tag_sums keeps (line, value) pairs, not bare sums: a multi-tag
+  total is the UNION of the tags' lines through a BTreeMap keyed by
+  line (a twice-tagged line counts once, spec.md "Tags"). Single-tag
+  totals rebuild the Sum in sheet order, byte-identical with the old
+  incremental push.
+- The mixed skeleton's no-numbers gate admits a date-word-plus-
+  operator skeleton (`tomorrow - today` answers the duration, spec
+  "Dates"); a sentence that merely ends in `today` keeps no
+  operator and stays prose. translate_date_words wraps
+  tomorrow/yesterday translations in parens, or `2 * tomorrow`
+  would leak the `+ 1 day` into the multiplier.
+- Scalar overflow fails the line: finish_sum and the expression-
+  form total both reject a non-finite subtotal as OutOfRange, and
+  format_number/format_number_with guard non-finite as defense in
+  depth (the renderer used to panic on `"inf".split_once('e')`).
 - apply_ref_plan applies relabels through refs::apply_relabels - a
   SIMULTANEOUS rename (pull every relabeled entry before
   reinserting). The mortgage template's consecutive derivation refs

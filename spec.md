@@ -433,7 +433,9 @@ line-model sheet, where every line evaluates on its own.
   itself. A line that merely uses `total` (such as `total * 2`) is an
   ordinary expression line: its result joins the sum like any other.
 - **Errors.** Division by zero, unknown names, malformed expressions.
-  An error belongs to its line only.
+  A result that is not finite (`1e308 * 10`, or a `total` whose sum
+  overflows) fails its line as out of range - infinity is never a
+  value. An error belongs to its line only.
 
 ### Results
 

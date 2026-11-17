@@ -60,7 +60,11 @@ fn escaped(s: &str) -> String {
             '\n' => out.push_str("\\n"),
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
-            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{{{:x}}}", c as u32)),
+            // RFC 8259 section 7: a control character escapes as
+            // exactly \uXXXX, four hex digits - the Rust-style
+            // \u{...} is not JSON and every standard parser rejects
+            // the output
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
             c => out.push(c),
         }
     }
@@ -101,5 +105,18 @@ mod tests {
     fn json_escapes_quotes_and_control_characters() {
         let out = render_json("note: said \"hello\"\n");
         assert!(out.contains("said \\\"hello\\\""), "{out}");
+    }
+
+    #[test]
+    fn json_escapes_control_characters_as_json() {
+        // RFC 8259 section 7: exactly \\uXXXX, four hex digits - the
+        // Rust-style \\u{...} made every standard parser reject the
+        // output
+        let out = render_json("a\u{1}b = 5\n");
+        assert!(out.contains("\\u0001"), "{out}");
+        assert!(!out.contains("\\u{"), "{out}");
+        // the short forms stay short-form
+        let out = render_json("a\tb = 5\n");
+        assert!(out.contains("\\t"), "{out}");
     }
 }

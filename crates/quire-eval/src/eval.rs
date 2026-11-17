@@ -134,9 +134,12 @@ struct Ctx {
     fns: HashMap<String, Vec<(Vec<String>, Expr)>>,
     answer: Option<Num>,
     subtotal: Sum,
-    /// Per-tag sums behind `total @tag` (spec.md "Tags"): sheet-wide,
-    /// reset only by a plain `total`; `total @tag` is a pure view.
-    tag_sums: HashMap<String, Sum>,
+    /// Per-tag contributions behind `total @tag` (spec.md "Tags"):
+    /// sheet-wide, reset only by a plain `total`; `total @tag` is a
+    /// pure view. Each entry keeps (line, value) pairs in sheet
+    /// order, so a multi-tag total takes the UNION of the tags'
+    /// lines instead of adding a twice-tagged line twice.
+    tag_sums: HashMap<String, Vec<(usize, Num)>>,
     /// Live function-call depth, for the recursion cap (spec.md
     /// "Functions": a cycle fails the calling line).
     depth: u8,
@@ -639,7 +642,13 @@ fn mixed_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<O
                     // sentences
                     let known = ctx.vars.contains_key(n)
                         || ctx.fns.contains_key(n)
-                        || bridge.as_ref().is_some_and(|b| b.knows_unit(n));
+                        || bridge.as_ref().is_some_and(|b| b.knows_unit(n))
+                        // the date vocabulary rides the skeleton too
+                        // (spec.md "Dates": datetime arithmetic
+                        // composes with everything else - `tomorrow -
+                        // today` answers a duration, it does not
+                        // demote to prose)
+                        || is_date_word(n);
                     if !known {
                         continue;
                     }
@@ -650,7 +659,20 @@ fn mixed_line(raw: &str, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Option<O
         }
         kept.push(t.clone());
     }
-    if !saw_number {
+    // a line with no numbers cannot become math - unless the kept
+    // skeleton is date words around an operator (`tomorrow - today`,
+    // spec.md "Dates": datetime arithmetic composes). A sentence that
+    // merely ends in `today` keeps no operator and stays prose.
+    let has_date_word = kept
+        .iter()
+        .any(|t| matches!(&t.tok, Tok::Ident(n) if is_date_word(n)));
+    let has_operator = kept.iter().any(|t| {
+        matches!(
+            t.tok,
+            Tok::Plus | Tok::Minus | Tok::Star | Tok::Slash | Tok::Caret
+        )
+    });
+    if !saw_number && !(has_date_word && has_operator) {
         return None;
     }
     // a skeleton carrying a unit or an engine function evaluates
@@ -936,6 +958,11 @@ fn translate_date_words(source: &str) -> String {
             let repl = match word.to_lowercase().as_str() {
                 "today" if !called => Some("today()"),
                 "now" if !called => Some("now()"),
+                // parenthesized: a bare `tomorrow` must not leak its
+                // `+ 1 day` into neighboring operators (`2 * tomorrow`
+                // would otherwise read `2 * today() + 1 day`)
+                "tomorrow" if !called => Some("(today() + 1 day)"),
+                "yesterday" if !called => Some("(today() - 1 day)"),
                 _ => None,
             };
             out.push_str(repl.unwrap_or(word));
@@ -1280,11 +1307,21 @@ fn eval_stmt(
                 ctx.tag_sums.clear();
                 num
             } else {
-                let mut merged = Sum::S(0.0);
+                // the union of the requested tags' lines, each line
+                // counted once (spec.md "Tags": a `total @a @b` sums
+                // the LINES carrying either tag - a line carrying
+                // both tags used to be added twice)
+                let mut union: std::collections::BTreeMap<usize, Num> = Default::default();
                 for tag in tags {
-                    if let Some(sum) = ctx.tag_sums.get(tag) {
-                        merge_sum(&mut merged, sum.clone());
+                    if let Some(items) = ctx.tag_sums.get(tag) {
+                        for (line, num) in items {
+                            union.entry(*line).or_insert_with(|| num.clone());
+                        }
                     }
+                }
+                let mut merged = Sum::S(0.0);
+                for (_, num) in union {
+                    merged.push(num);
                 }
                 finish_sum(&merged, bridge)?
             };
@@ -1310,24 +1347,17 @@ fn record_tags(ctx: &mut Ctx, tags: &[String], num: Num) {
         ctx.tag_sums
             .entry(tag.clone())
             .or_default()
-            .push(num.clone());
-    }
-}
-
-fn merge_sum(base: &mut Sum, other: Sum) {
-    match other {
-        Sum::S(v) => base.push(Num::S(v)),
-        Sum::Q(items) => {
-            for item in items {
-                base.push(item);
-            }
-        }
+            .push((ctx.line, num.clone()));
     }
 }
 
 fn finish_sum(sum: &Sum, bridge: &mut Option<Bridge>) -> Result<Num, Fail> {
     match sum {
-        Sum::S(s) => Ok(Num::S(*s)),
+        // a subtotal that overflowed f64 fails the line as out of
+        // range, exactly like `1e308 * 10` - it used to ride into the
+        // renderer as infinity and crash the process
+        Sum::S(s) if s.is_finite() => Ok(Num::S(*s)),
+        Sum::S(_) => Err(Fail::Err(QuireError::new((0, 0), ErrKind::OutOfRange))),
         Sum::Q(items) => sum_by_bridge(items, bridge),
     }
 }
@@ -1493,7 +1523,13 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Result<Num
         // line (spec: a total that includes quantity results sums
         // them dimension-safely)
         Expr::Total(_) => match &ctx.subtotal {
-            Sum::S(s) => Num::S(*s),
+            // the expression-form total reads the same overflowing
+            // subtotal, so it fails the same way (spec: a non-finite
+            // result is an error, never a value)
+            Sum::S(s) if s.is_finite() => Num::S(*s),
+            Sum::S(_) => {
+                return Err(Fail::Err(QuireError::new((0, 0), ErrKind::OutOfRange)));
+            }
             Sum::Q(_) => finish_sum(&ctx.subtotal, bridge)?,
         },
         Expr::Answer(span) => ctx
@@ -2523,6 +2559,67 @@ f(5)
             &lines[0].outcome,
             Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::BadChar('€'))
         ));
+    }
+
+    #[test]
+    fn subtotal_overflow_fails_the_total_not_the_process() {
+        // two largest-finite literals sum past f64::MAX: the total
+        // used to carry infinity into the renderer and panic the
+        // process; now it fails as out of range, like `1e308 * 10`
+        let big = "9".repeat(308);
+        let sheet = format!("{big}\n{big}\ntotal\n");
+        let lines = evaluate_sheet(&sheet);
+        assert!(matches!(
+            &lines[2].outcome,
+            Some(Outcome::Failed(e)) if e.kind == ErrKind::OutOfRange
+        ));
+        // the expression form of total reads the same subtotal
+        let sheet = format!("{big}\n{big}\ntotal * 2\n");
+        let lines = evaluate_sheet(&sheet);
+        assert!(matches!(
+            &lines[2].outcome,
+            Some(Outcome::Failed(e)) if e.kind == ErrKind::OutOfRange
+        ));
+    }
+
+    #[test]
+    fn compound_date_words_answer_the_duration() {
+        // spec.md "Dates": `tomorrow - today` answers a duration; it
+        // used to demote to prose (bare text line) or fail on the
+        // unknown word (assignment form). The render is the engine's
+        // own duration notation (seconds), DST-dependent in exact
+        // value - the fix pins that the line ANSWERS as a quantity
+        let lines = evaluate_sheet("tomorrow - today\n");
+        assert!(matches!(&lines[0].outcome, Some(Outcome::Quantity(_))));
+        let lines = evaluate_sheet("x = tomorrow - today\n");
+        assert!(matches!(&lines[0].outcome, Some(Outcome::Quantity(_))));
+        // a date word surviving the skeleton upgrades the answer: it
+        // used to demote `today` and answer the bare `30 days`
+        let lines = evaluate_sheet("today + 30 days\n");
+        assert!(matches!(&lines[0].outcome, Some(Outcome::Quantity(_))));
+    }
+
+    #[test]
+    fn multi_tag_totals_take_the_union_of_lines() {
+        // a line carrying both tags is one line: `total @a @b` used
+        // to add it twice
+        let sheet = "\
+a = 100 @work @tax
+b = 50 @work
+total @work @tax
+";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(
+            lines[2].outcome.as_ref().map(|o| o.render()),
+            Some("150".to_string())
+        );
+        // the same line through both tags alone
+        let sheet = "rent = 950 @fixed @housing\ntotal @fixed @housing\n";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(
+            lines[1].outcome.as_ref().map(|o| o.render()),
+            Some("950".to_string())
+        );
     }
 
     #[test]

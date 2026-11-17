@@ -2,6 +2,36 @@
 
 Newest first.
 
+## v1.5.6 (2026-11-16)
+
+- Fixed: a `total` that overflows (`9..9` at 308 digits, twice) no
+  longer crashes the whole app. The scalar subtotal accumulated
+  straight into infinity, and the answer renderer's e-notation parse
+  panicked on it - `total` now fails its own line as "result out of
+  range", exactly like `1e308 * 10` always did, and the renderer
+  guards non-finite values as defense in depth.
+- Fixed: `tomorrow` and `yesterday` compose in expressions. The bare
+  words worked alone (`deadline = tomorrow`), but the inline
+  translation only knew `today` and `now`, so `x = tomorrow - today`
+  failed on an unknown name and the spec's own example - `tomorrow -
+  today` answers a duration - demoted to prose. Both words now
+  translate (parenthesized, so `2 * tomorrow` reads right), and the
+  mixed-line skeleton keeps date vocabulary around an operator: a
+  sentence that merely ends in `today` still stays prose, and
+  `today + 30 days` as a bare line answers the datetime instead of
+  the bare `30 days` it silently demoted to.
+- Fixed: `total @a @b` sums lines, not tag instances. A line carrying
+  both tags was added once per tag, doubling it in the multi-tag
+  view; the spec always said a multi-tag total "sums lines carrying
+  either tag", so the view now takes the union of the tags' lines
+  and counts each line once (`total @work @tax` over a line tagged
+  `@work @tax` and a line tagged `@work` is the sum of the two
+  lines).
+- Fixed: `quire-cli --json` emits RFC 8259 escapes. Control
+  characters rode Rust's `\u{...}` string-literal syntax, which no
+  standard JSON parser accepts; they escape as `\uXXXX` now, so
+  `jq` and friends parse the output on sheets carrying hostile text.
+
 ## v1.5.5 (2026-11-16)
 
 - Fixed: the conversion arrow `->` no longer corrupts the tokenizer.

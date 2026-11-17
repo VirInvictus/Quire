@@ -599,3 +599,14 @@ excluded), pandoc as a bundled engine, and WebKitGTK as a preview pane
     parameter lists parse strictly with negative literal patterns
     (`f(-1) = 0` is a working clause; `f(a + b) = 1` is a syntax
     error instead of a silent `[a, b]` extraction).
+- [x] **Post-1.0: the engine-audit tranche, result semantics
+    (v1.5.6, 2026-11-16):** an overflowing total fails its line as
+    OutOfRange instead of crashing the renderer on infinity;
+    tomorrow and yesterday compose inline (parenthesized
+    translations) and the mixed skeleton keeps date words around an
+    operator (`tomorrow - today` answers the duration; `today + 30
+    days` stopped demoting to a bare `30 days`); multi-tag totals
+    take the union of the tags' lines (tag_sums keeps (line, value)
+    pairs; a twice-tagged line is no longer added twice); and
+    quire-cli --json escapes control characters as RFC 8259
+    \uXXXX, so standard parsers accept the output.

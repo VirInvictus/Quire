@@ -12,7 +12,7 @@ fn nasty_sheets_never_panic() {
         "   ",
         "// only a comment",
         "2 +",
-        "+ 2",
+        "+",
         "* 2",
         "2 * * 3",
         "((((",

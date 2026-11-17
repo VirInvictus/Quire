@@ -63,6 +63,16 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="1.5.5" date="2026-11-16">
+      <description>
+        <p>Grammar front-end fixes: the conversion arrow no longer
+        corrupts tokenization (a panic on multi-byte input and
+        misread identifiers after an unspaced arrow), unary plus
+        parses everywhere minus does, and function parameter lists
+        are strict grammar where negative literal clauses
+        (f(-1) = 0) now work.</p>
+      </description>
+    </release>
     <release version="1.5.4" date="2026-11-16">
       <description>
         <p>Three fixes in the line-reference re-pass machinery: a

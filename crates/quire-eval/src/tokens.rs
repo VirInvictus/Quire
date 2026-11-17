@@ -108,7 +108,15 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, QuireError> {
             // the byte. A `$` anywhere else is a bad character.
             b'$' if b.get(i + 1).is_some_and(|&c| c.is_ascii_digit()) => i += 1,
             b'-' if b.get(i + 1) == Some(&b'>') => {
-                push(&mut out, &mut i, Tok::Arrow);
+                // a two-byte token: push() is single-byte only, and
+                // routing the arrow through it advanced the cursor
+                // three bytes for two and recorded a one-byte span -
+                // corrupting the identifier after an unspaced
+                // `->EUR` and panicking on a multi-byte `->€`
+                out.push(Token {
+                    tok: Tok::Arrow,
+                    span: (i, i + 2),
+                });
                 i += 2;
             }
             b'-' => push(&mut out, &mut i, Tok::Minus),
@@ -206,4 +214,43 @@ fn push(out: &mut Vec<Token>, i: &mut usize, tok: Tok) {
         span: (*i, *i + 1),
     });
     *i += 1;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::ErrKind;
+
+    #[test]
+    fn arrow_is_one_two_byte_token() {
+        let out = tokenize("a -> b").expect("tokenizes");
+        assert_eq!(out[1].tok, Tok::Arrow);
+        assert_eq!(out[1].span, (2, 4));
+        assert_eq!(out[2].tok, Tok::Ident("b".into()));
+        assert_eq!(out[2].span, (5, 6));
+    }
+
+    #[test]
+    fn unspaced_arrow_keeps_the_next_identifier() {
+        // the cursor must land exactly after `>`: routing the arrow
+        // through the single-byte push() advanced one byte further
+        // and read `UR` out of `EUR`
+        assert_eq!(
+            tokenize("2 ->EUR")
+                .expect("tokenizes")
+                .into_iter()
+                .map(|t| t.tok)
+                .collect::<Vec<_>>(),
+            vec![Tok::Num(2.0), Tok::Arrow, Tok::Ident("EUR".into())]
+        );
+    }
+
+    #[test]
+    fn arrow_before_multibyte_text_is_a_clean_error() {
+        // `->€`: the old three-byte advance landed mid-character and
+        // panicked on the char-boundary read; a bad character is the
+        // honest, contained error
+        let err = tokenize("50 USD ->€").expect_err("€ is a bad character");
+        assert_eq!(err.kind, ErrKind::BadChar('€'));
+    }
 }

@@ -104,25 +104,81 @@ fn parse_inner(tokens: &[Token], implicit: bool) -> Result<Stmt, QuireError> {
                     ErrKind::AssignToKeyword(keyword),
                 ));
             }
+            // The strict param-list grammar: `param (`,` param)*`,
+            // where a param is a name or a literal pattern - a number,
+            // optionally negative (`fact(0) = 1`, `f(-1) = 0`). Every
+            // token must sit where the grammar says. Anything else was
+            // silently DROPPED before, which corrupted dispatch:
+            // `f(-1) = 0` recorded the pattern `1`, and `f(a + b) = ..`
+            // quietly extracted `[a, b]`.
             let mut params = Vec::new();
-            for t in &tokens[2..close] {
-                let p = match &t.tok {
-                    Tok::Ident(p) => p.clone(),
+            let mut want_param = true;
+            let mut idx = 2;
+            while idx < close {
+                let t = &tokens[idx];
+                let bad = || {
+                    QuireError::new(
+                        t.span,
+                        ErrKind::UnexpectedTok {
+                            expected: "a parameter name, a literal, or `,`",
+                            got: describe(&t.tok),
+                        },
+                    )
+                };
+                match &t.tok {
+                    Tok::Comma if !want_param => {
+                        want_param = true;
+                        idx += 1;
+                    }
+                    // a negative literal pattern (`f(-1) = 0`)
+                    Tok::Minus if want_param => {
+                        if let Some(Tok::Num(v)) = tokens.get(idx + 1).map(|n| &n.tok) {
+                            let text = format!("-{v}");
+                            if params.contains(&text) {
+                                return Err(QuireError::new(t.span, ErrKind::DuplicateParam(text)));
+                            }
+                            params.push(text);
+                            want_param = false;
+                            idx += 2;
+                        } else {
+                            return Err(bad());
+                        }
+                    }
+                    Tok::Ident(p) if want_param => {
+                        if params.contains(p) {
+                            return Err(QuireError::new(
+                                t.span,
+                                ErrKind::DuplicateParam(p.clone()),
+                            ));
+                        }
+                        params.push(p.clone());
+                        want_param = false;
+                        idx += 1;
+                    }
                     // numeric literals are pattern params: `fact(0) = 1`
-                    Tok::Num(v) => {
+                    Tok::Num(v) if want_param => {
                         let text = format!("{v}");
                         if params.contains(&text) {
                             return Err(QuireError::new(t.span, ErrKind::DuplicateParam(text)));
                         }
-                        params.push(text.clone());
-                        continue;
+                        params.push(text);
+                        want_param = false;
+                        idx += 1;
                     }
-                    _ => continue,
-                };
-                if params.contains(&p) {
-                    return Err(QuireError::new(t.span, ErrKind::DuplicateParam(p)));
+                    _ => return Err(bad()),
                 }
-                params.push(p);
+            }
+            if want_param && close > 2 {
+                // a trailing comma (`f(a,) = x`) promises a param that
+                // never comes; `f()` (close == 2) is the zero-param form
+                let closer = &tokens[close];
+                return Err(QuireError::new(
+                    closer.span,
+                    ErrKind::UnexpectedTok {
+                        expected: "a parameter before `)`",
+                        got: describe(&closer.tok),
+                    },
+                ));
             }
             let mut p = P {
                 toks: tokens,
@@ -274,6 +330,21 @@ impl<'t> P<'t> {
             let inner = self.unary();
             self.depth -= 1;
             return inner.map(|e| Expr::Neg(span, Box::new(e)));
+        }
+        // unary plus is identity: classification has called `+7` an
+        // Expression since Phase 0 (spec.md "Expression shape"), so
+        // the token is consumed and the operand parses on. Depth is
+        // guarded exactly like minus, or a `+`-chain recurses past
+        // the stack the way an unguarded paren chain would.
+        if let Some(t) = self.peek()
+            && t.tok == Tok::Plus
+        {
+            let span = t.span;
+            self.pos += 1;
+            self.enter(span)?;
+            let inner = self.unary();
+            self.depth -= 1;
+            return inner;
         }
         self.power()
     }
@@ -491,6 +562,48 @@ mod tests {
         // a call followed by a value multiplies
         assert!(matches!(expr("milk(2)x"), Expr::Bin(BinOp::Mul, l, _, _)
             if matches!(*l, Expr::Call(..))));
+    }
+
+    #[test]
+    fn unary_plus_is_identity() {
+        // `+7` is an Expression by the shape rule; the parser used to
+        // reject it with `expected a value, found `+``
+        assert!(matches!(expr("+7"), Expr::Num(7.0)));
+        assert!(matches!(expr("+-5"), Expr::Neg(..)));
+        assert!(matches!(expr("5 + +3"), Expr::Bin(BinOp::Add, _, e, _)
+            if matches!(*e, Expr::Num(3.0))));
+        // a `+` chain is depth-capped exactly like a `-` chain
+        let deep: String = "+".repeat(5000) + "7";
+        let toks = tokenize(&deep).expect("tokenizes");
+        assert!(matches!(parse(&toks), Err(e) if e.kind == ErrKind::NestTooDeep));
+    }
+
+    #[test]
+    fn param_lists_parse_strictly() {
+        // negative literal patterns are clauses now, not silently
+        // corrupted positive ones
+        let toks = tokenize("f(-1) = 0").expect("tokenizes");
+        assert!(matches!(
+            parse(&toks),
+            Ok(Stmt::FnDef(_, params, _, _)) if params == vec!["-1".to_string()]
+        ));
+        // the grammar rejects what it used to swallow whole
+        for src in [
+            "f(a + b) = 1",
+            "f(a b) = 1",
+            "f(a,) = 1",
+            "f(,) = 1",
+            "f(a - b) = 1",
+        ] {
+            let toks = tokenize(src).expect("tokenizes");
+            assert!(parse(&toks).is_err(), "{src} must not parse");
+        }
+        // the zero-param form still parses
+        let toks = tokenize("f() = 1").expect("tokenizes");
+        assert!(matches!(
+            parse(&toks),
+            Ok(Stmt::FnDef(_, params, _, _)) if params.is_empty()
+        ));
     }
 
     #[test]

@@ -1417,8 +1417,10 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Result<Num
                     saw_unresolved_targets: ctx.saw_unresolved_targets.clone(),
                 };
                 for (param, value) in params.iter().zip(&arg_values) {
-                    if param.chars().next().is_some_and(|c| c.is_ascii_digit()) {
-                        continue; // literal pattern: nothing to bind
+                    // a literal pattern (including a negative one:
+                    // `-1` is not a bindable name) binds nothing
+                    if param.parse::<f64>().is_ok() {
+                        continue;
                     }
                     frame.vars.insert(param.clone(), value.clone());
                 }
@@ -2462,6 +2464,65 @@ f(10)
         ));
         assert_eq!(stats.passes, 1, "a stable failure needs no re-pass");
         assert!(!stats.capped);
+    }
+
+    #[test]
+    fn unary_plus_answers() {
+        // classification has called `+7` an Expression since Phase 0;
+        // the parser caught up (spec.md "Expression shape")
+        assert_eq!(show("+7"), "7");
+        assert_eq!(show("+-5"), "-5");
+        assert_eq!(show("5 + +3"), "8");
+        // the mixed skeleton takes `+` now too: `- 2` answered -2 all
+        // along, and `+` was the one sign it refused - a `+` bullet
+        // that strips to math answers, per the mixed-lines contract
+        let sheet = "+ 2\n- 2\n";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        assert_eq!(rendered, vec!["2".to_string(), "-2".to_string()]);
+    }
+
+    #[test]
+    fn negative_literal_clauses_match() {
+        // the corruption case: `f(-1) = 0` used to register the
+        // pattern `1` (the minus was swallowed), so f(-1) silently
+        // fell through to the general clause
+        let sheet = "\
+f(-1) = 0
+f(n) = n
+f(-1)
+f(5)
+";
+        let rendered: Vec<_> = evaluate_sheet(sheet)
+            .into_iter()
+            .filter_map(|l| l.outcome.map(|o| o.render()))
+            .collect();
+        assert_eq!(rendered, vec!["0".to_string(), "5".to_string()]);
+    }
+
+    #[test]
+    fn malformed_param_lists_fail_their_own_line() {
+        // `f(a + b) = 1` used to quietly extract `[a, b]`; now the
+        // defining line says what is wrong with it
+        let lines = evaluate_sheet("f(a + b) = 1\n");
+        assert!(matches!(
+            &lines[0].outcome,
+            Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::UnexpectedTok { .. })
+        ));
+    }
+
+    #[test]
+    fn arrow_into_multibyte_text_is_a_contained_error() {
+        // `->€` used to advance the tokenizer's cursor into the
+        // middle of the character and panic the process on the
+        // char-boundary read; the honest BadChar error contains
+        let lines = evaluate_sheet("50 USD ->€\n");
+        assert!(matches!(
+            &lines[0].outcome,
+            Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::BadChar('€'))
+        ));
     }
 
     #[test]

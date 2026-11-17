@@ -9,15 +9,19 @@ Quire: a Soulver-style notepad calculator for Linux. Plain-text
 sheets, per-line live results in a right-hand column. Portfolio piece,
 public, MIT.
 
-## Where this stands (updated 2026-11-16, v1.5.4)
+## Where this stands (updated 2026-11-16, v1.5.5)
 
-v1.5.4 shipped and tagged: the deep engine audit's first tranche -
+v1.5.5 shipped and tagged: the deep engine audit's second tranche -
+the grammar front-end (the `->` arrow token owns its two bytes;
+unary plus parses, in the expression path and the mixed skeleton
+alike; function parameter lists are strict grammar with negative
+literal patterns). Before it, v1.5.4: the audit's first tranche -
 three fixes in the line-reference re-pass machinery (call frames no
 longer swallow the missed-reference set; the fixed-point loop
 settles on the rendered fingerprint alone from pass 1, so cycles
 stop burning the cap; a failed target poisons a bridge ref with its
-own error instead of masking as "no result"). Before it, v1.5.3 and
-the phases it carried: Phases 6-9 are complete, and the full
+own error instead of masking as "no result"). Before that, v1.5.3
+and the phases it carried: Phases 6-9 are complete, and the full
 Soulver-depth surface is live on the starter page - mixed lines now
 carry units through the engine, so a lab-notebook sentence with one
 number and one unit answers on its own line: arithmetic with implicit multiplication
@@ -200,6 +204,21 @@ value accumulating under Unreleased.
   mixed skeleton) must accept both spellings. The reverse-percent
   recognizer runs BEFORE the mixed skeleton (its word-operator
   `of` would otherwise multiply the phrase into nonsense).
+- The tokenizer's `push()` helper is SINGLE-BYTE: a multi-byte
+  token (`->`) must push its own span and advance its own length,
+  or the cursor lands mid-character (the v1.5.5 `->€` panic) or
+  eats the next identifier (unspaced `->EUR` read `UR`).
+- Function-def param lists are strict grammar (v1.5.5): each
+  comma-separated slot is an Ident or a literal Num, optionally
+  `-`-prefixed, stored as its text (`"-1"`). The old loop
+  `_ => continue`d every unrecognized token, silently corrupting
+  dispatch. Clause-literal binding skips anything that parses as
+  f64 (the old first-char-digit test missed `-1`).
+- Unary plus parses at unary minus's precedence, with the same
+  depth guard (a `+` chain recurses like a paren chain); the mixed
+  skeleton takes both signs, so `+ 2` answers 2 exactly as
+  `- 2` answers -2 - the adversarial corpus's `+ 2` silence case
+  graduated when this landed.
 - apply_ref_plan applies relabels through refs::apply_relabels - a
   SIMULTANEOUS rename (pull every relabeled entry before
   reinserting). The mortgage template's consecutive derivation refs

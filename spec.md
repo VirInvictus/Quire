@@ -368,6 +368,9 @@ line-model sheet, where every line evaluates on its own.
   factorial - recursive calls are allowed and depth-capped (a
   runaway recursion fails the calling line, never a hang). Clause
   selection is nearest-definition-first, literals before variables.
+  A literal may be negative (`f(-1) = 0`). The parameter list is
+  strict grammar - each comma-separated slot is a name or a literal,
+  and anything else is a syntax error on the defining line.
 - **Engine scope.** Functions work on both engines: the scalar
   path evaluates them directly, and unit lines seed their
   definitions into the unit engine, where dimension checking
@@ -391,7 +394,9 @@ line-model sheet, where every line evaluates on its own.
   evaluate through the unit engine: `sqrt(144)` is `12`,
   `sin(30 deg)` is `0.5`. Unknown names still demote in mixed lines,
   so a typo'd function is prose, not a wrong answer.
-- **Operators.** `+`, `-`, `*`, `/`; parentheses; unary minus; `^`
+- **Operators.** `+`, `-`, `*`, `/`; parentheses; unary plus and
+  unary minus (plus is identity, at the same precedence and depth
+  cap); `^`
   for power, right-associative, binding tighter than unary minus, so
   `-2^2` is `-(2^2)`. Implicit multiplication: a number, bare name,
   or `(` directly after a value multiplies - `2pi`, `3(4+5)`,
@@ -401,7 +406,8 @@ line-model sheet, where every line evaluates on its own.
   unknown names keep the mixed lines' demotion (`2 tickets` is
   still `2`). The mixed-line skeleton itself keeps today's grammar:
   implicit multiplication lives on the expression path, not in
-  prose remnants.
+  prose remnants; both unary signs parse in it, so a `+`-led line
+  whose words strip to math answers exactly as a `-`-led one does.
 - **Percent.** The four forms:
   - `x%` alone is `x / 100`;
   - `a + b%` is `a + a*b/100`, and `a - b%` is `a - a*b/100`

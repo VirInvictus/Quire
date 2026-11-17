@@ -2,6 +2,32 @@
 
 Newest first.
 
+## v1.5.5 (2026-11-16)
+
+- Fixed: the conversion arrow `->` no longer corrupts the tokenizer.
+  The two-byte token rode the single-byte push helper, which advanced
+  the cursor three bytes for two and recorded a one-byte span: an
+  unspaced `5 kg ->g` read `g`'s identifier wrong, and `->` followed
+  by any multi-byte character (`->€`) landed the cursor mid-character
+  and panicked the process on the char-boundary read. The arrow now
+  owns its two bytes; a genuinely bad character after it is the
+  honest, contained error.
+- Fixed: unary plus parses. Classification has called `+7` an
+  Expression since Phase 0 and the spec's operator list includes it,
+  but the grammar only ever knew unary minus, so `+7` failed with
+  "expected a value, found `+`". Plus is now identity at the same
+  precedence, depth-capped exactly like minus - and the mixed-line
+  skeleton takes it too, so `+ 2` answers 2 the way `- 2` always
+  answered -2.
+- Fixed: function-definition parameter lists parse strictly. The old
+  loop silently swallowed every token it did not recognize, so
+  `f(-1) = 0` registered the pattern `1` (dispatch corrupted: the
+  clause could never match its own argument) and `f(a + b) = 1`
+  quietly extracted `[a, b]`. Each comma-separated slot is now a name
+  or a literal - and literals may be negative, so `f(-1) = 0` is a
+  working clause. Anything else is a syntax error on the defining
+  line.
+
 ## v1.5.4 (2026-11-16)
 
 - Fixed: three bugs in the line-reference re-pass machinery, found by

@@ -588,3 +588,14 @@ excluded), pandoc as a bundled engine, and WebKitGTK as a preview pane
     "line N has no result" (spec "Poisoning", which the scalar arm
     always honored). Regression tests pin all three against
     evaluate_sheet_stats pass counts.
+- [x] **Post-1.0: the engine-audit tranche, grammar front-end
+    (v1.5.5, 2026-11-16):** the `->` arrow token owns its two bytes
+    (the single-byte push helper advanced three for two - an
+    unspaced `->EUR` read the wrong identifier and `->€` panicked
+    the process mid-character); unary plus parses at minus's
+    precedence, depth-capped, and the mixed skeleton takes it too
+    (`+ 2` answers 2, symmetric with `- 2`; the adversarial
+    corpus's `+ 2` case graduated to a symmetry pin); and function
+    parameter lists parse strictly with negative literal patterns
+    (`f(-1) = 0` is a working clause; `f(a + b) = 1` is a syntax
+    error instead of a silent `[a, b]` extraction).

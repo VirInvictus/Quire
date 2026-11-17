@@ -575,3 +575,16 @@ excluded), pandoc as a bundled engine, and WebKitGTK as a preview pane
     is unaffected. Also fell out: bridge dimension clashes surface
     instead of "unknown name" (3 kg + 5 m names Mass vs Length),
     and the zoo's unknown-function cage tightened.
+- [x] **Post-1.0: the engine-audit tranche, fixed-point core
+    (v1.5.4, 2026-11-16):** three fixes in the line-reference
+    re-pass machinery, each verified live against the binary before
+    the fix. Function-call frames cloned-and-merged the
+    missed-reference set instead of taking it (a forward ref above
+    a call line used to settle permanently blank); later passes
+    settle on the rendered fingerprint alone (a `&2`/`&1` cycle
+    used to burn all 8 passes and report a false CAP HIT; pass 0
+    keeps its answerable guard); a failed target poisons a
+    bridge-routed ref with its own error instead of masking as
+    "line N has no result" (spec "Poisoning", which the scalar arm
+    always honored). Regression tests pin all three against
+    evaluate_sheet_stats pass counts.

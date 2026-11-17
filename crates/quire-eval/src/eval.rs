@@ -340,10 +340,19 @@ fn evaluate_inner(
                 Some(LineKind::Expression) | Some(LineKind::Reference)
             )
         });
+        // From pass 1 on the fingerprint is the whole truth: a pass
+        // that renders exactly what the last one rendered re-seeds the
+        // next pass identically, so no later pass can differ (spec.md
+        // "Line references": passes stop as soon as the rendered
+        // answers stop changing). `answerable` guards only the pass-0
+        // fast path - requiring it on later passes too kept every
+        // stable failure pointed at an Expression line re-running to
+        // the cap (a cyclic `&N` chain settles blank, it never
+        // ignites).
         let settled = if pass == 0 {
             !answerable
         } else {
-            prev.as_deref() == Some(&fingerprint[..]) && !answerable
+            prev.as_deref() == Some(&fingerprint[..])
         };
         // the ONLY state carried across passes: everything else
         // (answer, totals, tags, variables) restarts fresh, exactly
@@ -1045,7 +1054,12 @@ fn bridge_eval(
         let replacement = match ctx.outcomes.get(&(n as usize)) {
             Some(Outcome::Value(v)) => Some(format!("{v}")),
             Some(Outcome::Quantity(v)) => Some(crate::units::render(v)),
-            _ => None,
+            // a failed target poisons the ref (spec.md "Line
+            // references"): the target answered, so no re-pass can
+            // change anything - surface its error instead of a false
+            // "no result", and leave the unresolved set alone
+            Some(Outcome::Failed(e)) => return Outcome::Failed(e.clone()),
+            None => None,
         };
         let Some(replacement) = replacement else {
             ctx.saw_unresolved_targets.insert(n);
@@ -1397,7 +1411,10 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Result<Num
                     in_fn_body: true,
                     watch: ctx.watch,
                     explain_steps: std::mem::take(&mut ctx.explain_steps),
-                    saw_unresolved_targets: std::mem::take(&mut ctx.saw_unresolved_targets),
+                    // a clone, never a take: targets the caller missed
+                    // before this call must survive it, or a forward
+                    // ref above a call line settles permanently blank
+                    saw_unresolved_targets: ctx.saw_unresolved_targets.clone(),
                 };
                 for (param, value) in params.iter().zip(&arg_values) {
                     if param.chars().next().is_some_and(|c| c.is_ascii_digit()) {
@@ -1405,9 +1422,15 @@ fn eval_expr(e: &Expr, ctx: &mut Ctx, bridge: &mut Option<Bridge>) -> Result<Num
                     }
                     frame.vars.insert(param.clone(), value.clone());
                 }
-                result = Some(eval_expr(body, &mut frame, bridge)?);
+                let body_result = eval_expr(body, &mut frame, bridge);
                 // the body's own steps belong to the watched line too
                 ctx.explain_steps.append(&mut frame.explain_steps);
+                // union anything the frame recorded (bodies refuse
+                // refs, but the merge is the frame's contract), on the
+                // error path as much as the success path
+                ctx.saw_unresolved_targets
+                    .extend(frame.saw_unresolved_targets);
+                result = Some(body_result?);
                 break;
             }
             ctx.depth -= 1;
@@ -2388,6 +2411,57 @@ loop(1)
             .filter_map(|l| l.outcome.map(|o| o.render()))
             .collect();
         assert_eq!(rendered, vec!["2 kg".to_string(), "6 kg".to_string()]);
+    }
+
+    #[test]
+    fn stable_cycles_settle_without_capping() {
+        // a cycle settles blank as soon as the rendered answers stop
+        // changing (spec.md "Line references"): the misses recur every
+        // pass, but a pass that renders what the last pass rendered
+        // can never produce a different next pass, so the fingerprint
+        // alone ends the loop - not the cap
+        let (_, stats) = evaluate_sheet_stats("&2 + 1\n&1 + 1\n");
+        assert!(!stats.capped, "{} passes", stats.passes);
+        assert!(stats.passes <= 3, "{} passes", stats.passes);
+        let lines = evaluate_sheet("&2 + 1\n&1 + 1\n");
+        assert!(lines[0].outcome.is_none());
+        assert!(lines[1].outcome.is_none());
+    }
+
+    #[test]
+    fn forward_ref_above_a_call_resolves() {
+        // the call frame must not swallow the caller's missed targets:
+        // line 2's forward ref sits above line 3's call, and the pass
+        // loop can only fill it in if the miss survives the call
+        let sheet = "\
+f(x) = x * 2
+&4
+f(10)
+42
+";
+        let lines = evaluate_sheet(sheet);
+        assert_eq!(
+            lines[1].outcome.as_ref().map(|o| o.render()),
+            Some("42".to_string())
+        );
+        let (_, stats) = evaluate_sheet_stats(sheet);
+        assert!(!stats.capped, "{} passes", stats.passes);
+    }
+
+    #[test]
+    fn bridge_ref_to_failed_line_propagates_and_settles() {
+        // a failed target poisons the bridge ref with ITS error (spec
+        // "Poisoning"), and the target has answered, so the sheet
+        // settles in one pass instead of burning the cap on a ref
+        // that can never resolve
+        let sheet = "2 kg + 2 m\n&1 -> kg\n";
+        let (failed, stats) = evaluate_sheet_stats(sheet);
+        assert!(matches!(
+            &failed[1].outcome,
+            Some(Outcome::Failed(e)) if matches!(e.kind, ErrKind::Unit(_))
+        ));
+        assert_eq!(stats.passes, 1, "a stable failure needs no re-pass");
+        assert!(!stats.capped);
     }
 
     #[test]

@@ -2,6 +2,29 @@
 
 Newest first.
 
+## v1.5.4 (2026-11-16)
+
+- Fixed: three bugs in the line-reference re-pass machinery, found by
+  a deep engine audit. A forward reference sitting above a function
+  call stayed permanently blank: the call frame took ownership of the
+  sheet's missed-reference set and dropped it on return, so the pass
+  loop never learned anything was left to resolve. Frames now hand
+  the set back merged, on the error path as much as the success path.
+- Fixed: a reference cycle (`&2` / `&1`) burned all eight passes and
+  reported a false CAP HIT. Settling demanded both an unchanged answer
+  column and no missed targets, but a pass that renders exactly what
+  the last pass rendered can never produce a different next pass: the
+  fingerprint alone ends the loop now, as the spec always said
+  ("passes stop as soon as the rendered answers stop changing"). The
+  pass-0 fast path keeps its guard, so dangling refs still settle in
+  one pass.
+- Fixed: a reference to a FAILED line inside a bridge-routed line
+  (`&1 -> kg` under a dimension clash) masked the real error as
+  "line N has no result" and re-armed the loop to the cap. A failed
+  target now poisons the ref with its own error, exactly as the
+  scalar path always did (spec.md "Poisoning"), and the sheet settles
+  in one pass.
+
 ## v1.5.3 (2026-10-09)
 
 - A current screenshot replaces the v0.1.0-era one: the welcome tour

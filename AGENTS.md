@@ -9,9 +9,15 @@ Quire: a Soulver-style notepad calculator for Linux. Plain-text
 sheets, per-line live results in a right-hand column. Portfolio piece,
 public, MIT.
 
-## Where this stands (updated 2026-10-09, v1.5.3)
+## Where this stands (updated 2026-11-16, v1.5.4)
 
-v1.5.3 shipped and tagged: Phases 6-9 are complete, and the full
+v1.5.4 shipped and tagged: the deep engine audit's first tranche -
+three fixes in the line-reference re-pass machinery (call frames no
+longer swallow the missed-reference set; the fixed-point loop
+settles on the rendered fingerprint alone from pass 1, so cycles
+stop burning the cap; a failed target poisons a bridge ref with its
+own error instead of masking as "no result"). Before it, v1.5.3 and
+the phases it carried: Phases 6-9 are complete, and the full
 Soulver-depth surface is live on the starter page - mixed lines now
 carry units through the engine, so a lab-notebook sentence with one
 number and one unit answers on its own line: arithmetic with implicit multiplication
@@ -35,10 +41,10 @@ metainfo, hicolor icons, mime package, tag-gated release CI with
 server-side verbatim notes.
 
 Post-1.0 queue: dates depth, budget/portfolio depth, the Phase 10
-preview gate (recorded default: never), the agent-friendly CLI, and
-Brandon's display passes - the tour's new sections, the rate cells,
-and the region alignment deserve eyes; they gate polish, not the
-release.
+preview gate (recorded default: never), and Brandon's display
+passes - the tour's new sections, the rate cells, and the region
+alignment deserve eyes; they gate polish, not the release. (The
+agent-friendly CLI shipped in v1.4.0 as `quire-cli`.)
 
 ## Stack
 
@@ -209,12 +215,23 @@ value accumulating under Unreleased.
   each pass seeds the next with its outcomes so forward `&N`
   resolves. Settling compares RENDERED strings (Outcome::render) -
   never derived PartialEq, because datetime instants flap per pass
-  while their render is minute-stable. The one-pass fast path is
-  Ctx.saw_unresolved_ref, set exactly where a `&N` misses its
-  target (the scalar LineRef arm and the bridge's BadLineRef site);
-  every other piece of sheet state restarts per pass. Genuinely
-  cyclic sheets settle blank with no extra machinery (no cycle
-  member is ever seeded).
+  while their render is minute-stable. Pass 0 settles only when
+  nothing answerable was missed (Ctx.saw_unresolved_targets, set
+  exactly where a `&N` misses a target that could still answer -
+  the scalar LineRef None arm and the bridge's no-result site);
+  every later pass settles on the fingerprint ALONE, because a
+  pass that renders what the last pass rendered re-seeds the next
+  one identically (v1.5.4: the old `&& !answerable` conjunct kept
+  every stable failure pointed at an Expression line burning the
+  cap). A failed target poisons the ref with its own error on both
+  arms - scalar and bridge - and inserts nothing: the target
+  answered, no re-pass can help. Function-call frames CLONE the
+  target set and merge it back after the body (a take would strand
+  a forward ref above a call line, permanently blank); bodies
+  refuse refs, but the merge is the frame's contract. Every other
+  piece of sheet state restarts per pass. Genuinely cyclic sheets
+  settle blank with no extra machinery (no cycle member is ever
+  seeded).
 - The recursion cap (200 quire-call levels) costs roughly 10 KB of
   stack PER LEVEL in debug builds. The app's 8 MB main thread is
   fine; Rust's default 2 MB test threads are NOT - heavy template

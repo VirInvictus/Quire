@@ -2,6 +2,15 @@
 
 Newest first.
 
+## v1.5.7 (2026-11-20)
+
+- vir-gtk lock moved 1.4.3 → 1.5.0 (`d37ef6e`): the shared base
+  sheet's checked/active default went quiet (upstream issue #1; state
+  display stops spending the accent). Quire restates no button state
+  rules and has no checked-toggle surfaces, so the only observable
+  delta is every button's press flash going from the dragonRed paint
+  to the quiet raised-tone lift. No code changes of Quire's own.
+
 ## v1.5.6 (2026-11-16)
 
 - Fixed: a `total` that overflows (`9..9` at 308 digits, twice) no
